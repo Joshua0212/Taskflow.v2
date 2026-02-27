@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>TaskFlow — Command Center</title>
+  
+  <!-- Font Imports -->
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- External Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles/index.css">
+</head>
+<body>
+  <!-- Application container -->
+  <div id="app-container"></div>
+  
+  <!-- Load script BEFORE initializing -->
+  <script src="js/index.js"></script>
+  
+  <!-- Initialize app when DOM is ready -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      initializeApp();
+    });
+  </script>
+</body>
+</html>

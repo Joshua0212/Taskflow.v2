@@ -1,0 +1,738 @@
+<!-- ==================== PUSH NOTIFICATION CONTAINER ==================== -->
+<div id="push-notif-container"></div>
+
+<!-- ==================== TASK TOOLTIP (desktop hover) ==================== -->
+<div id="tf-task-tooltip" role="tooltip" aria-hidden="true"></div>
+
+<!-- ==================== TASK TOOLTIP (mobile tap hint) ==================== -->
+<div id="tf-task-tooltip-mobile" role="tooltip" aria-hidden="true">
+  <div class="ttm-title" id="ttm-title"></div>
+  <div class="ttm-meta"  id="ttm-meta"></div>
+  <div class="ttm-progress"><div class="ttm-progress-bar" id="ttm-bar"></div></div>
+</div>
+
+<!-- ==================== MOBILE BOTTOM NAV ==================== -->
+<nav id="mobile-bottom-nav" aria-label="Mobile navigation">
+  <button class="mob-nav-item active" id="mob-nav-home" onclick="mobileNavHome()" title="Home">
+    <span class="mob-nav-icon">🏠</span>
+    <span>Home</span>
+  </button>
+  <button class="mob-nav-item" id="mob-nav-tasks" onclick="mobileNavTasks()" title="My Tasks">
+    <span class="mob-nav-icon">📋</span>
+    <span>Tasks</span>
+  </button>
+  <button class="mob-nav-item" id="mob-nav-add" onclick="openAddTask()" title="New Task" style="color:var(--amber);">
+    <span class="mob-nav-icon" style="font-size:28px;line-height:1;">＋</span>
+    <span>New</span>
+  </button>
+  <button class="mob-nav-item" id="mob-nav-cal" onclick="mobileNavCal()" title="Calendar">
+    <span class="mob-nav-icon">📅</span>
+    <span>Calendar</span>
+  </button>
+  <button class="mob-nav-item" id="mob-nav-notif" onclick="toggleNotifications()" title="Alerts">
+    <span class="mob-nav-icon">🔔</span>
+    <span>Alerts</span>
+    <span class="mob-nav-badge hidden" id="mob-notif-badge">0</span>
+  </button>
+</nav>
+
+<!-- ==================== LOGIN SCREEN ==================== -->
+<div id="login-screen">
+  <div class="login-bg-grid"></div>
+  <div class="login-card">
+    <div class="login-logo">TaskFlow</div>
+    <div class="login-sub">Priority Command Center</div>
+    <div class="field-group">
+      <label>Username</label>
+      <input type="text" id="login-username" placeholder="Enter username" autocomplete="username">
+    </div>
+    <div class="field-group">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="Enter password" autocomplete="current-password">
+    </div>
+    <button type="button" class="btn-primary" id="login-btn">Sign In →</button>
+    <div class="login-error hidden" id="login-error">Invalid credentials. Try again.</div>
+  </div>
+</div>
+
+<!-- ==================== SUPER-ADMIN PANEL ==================== -->
+<div id="sa-panel" class="hidden">
+  <div class="sa-header">
+    <div class="sa-logo">TaskFlow <span>Super Admin</span></div>
+    <button class="btn-secondary" style="font-size:12px;" onclick="signOut()">⏻ Sign Out</button>
+  </div>
+  <div class="sa-body">
+    <div class="sa-section-title">
+      🏢 Companies
+      <button class="btn-primary" style="width:auto;padding:8px 18px;font-size:12px;margin-left:auto;" onclick="openCreateCompany()">＋ Add Company</button>
+    </div>
+    <div id="sa-companies-list"></div>
+  </div>
+</div>
+
+<!-- MODAL: Create Company -->
+<div class="modal-overlay hidden" id="sa-company-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🏢 Add Company</div>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('sa-company-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="register-note">Creates a new company and their admin account. The company admin can then register their own users.</div>
+      <div class="field-group">
+        <label>Company Name *</label>
+        <input type="text" id="sa-co-name" placeholder="e.g. Acme Corp">
+      </div>
+      <div style="border-top:1px solid var(--border);margin:16px 0;padding-top:16px;">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--amber);font-weight:700;margin-bottom:12px;">Admin Account</div>
+        <div class="field-group">
+          <label>Admin Name *</label>
+          <input type="text" id="sa-admin-name" placeholder="Full name">
+        </div>
+        <div class="field-group">
+          <label>Admin Username *</label>
+          <input type="text" id="sa-admin-username" placeholder="Login username">
+        </div>
+        <div class="field-group" style="margin-bottom:0">
+          <label>Admin Password *</label>
+          <input type="password" id="sa-admin-password" placeholder="Set a strong password">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('sa-company-modal')">Cancel</button>
+      <button class="btn-primary" style="width:auto;padding:10px 24px;" onclick="saveCompany()">Create Company →</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Manage Company Users -->
+<div class="modal-overlay hidden" id="sa-users-modal">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <div class="modal-title" id="sa-users-modal-title">👥 Company Users</div>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('sa-users-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="sa-users-list" style="display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('sa-users-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Super-Admin Change Admin Password -->
+<div class="modal-overlay hidden" id="sa-chpw-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🔑 Change Admin Password</div>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('sa-chpw-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="chpw-info" id="sa-chpw-info" style="margin-bottom:14px;">Set a new password for the admin account of this company.</div>
+      <div class="field-group">
+        <label>Select Admin *</label>
+        <select id="sa-chpw-admin-select"><option value="">Loading...</option></select>
+      </div>
+      <div class="field-group">
+        <label>New Password *</label>
+        <input type="password" id="sa-chpw-new" placeholder="Enter new password">
+      </div>
+      <div class="field-group" style="margin-bottom:0">
+        <label>Confirm New Password *</label>
+        <input type="password" id="sa-chpw-confirm" placeholder="Confirm new password">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('sa-chpw-modal')">Cancel</button>
+      <button class="btn-primary" style="width:auto;padding:10px 24px;" onclick="saveSAAdminPw()">Update Password</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MAIN APP ==================== -->
+<div id="app" class="hidden">
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-logo">TaskFlow</div>
+    <div class="header-user" id="header-username"></div>
+    <div class="header-role" id="header-role"></div>
+    <div class="header-actions ml-auto">
+      <button class="icon-btn notification-dot hidden" id="notif-btn" data-tip="Notifications" onclick="openNotifications()">🔔</button>
+      <button class="icon-btn hidden" id="my-cal-btn" data-tip="My Calendar" onclick="goToMyCalendar()">📅</button>
+      <button class="icon-btn" data-tip="Activity Log — See all task actions and history" onclick="openLogs()">📋</button>
+      <button class="icon-btn" data-tip="Import task from a chat message (e.g. WhatsApp)" onclick="openWhatsApp()">💬</button>
+      <button class="icon-btn" data-tip="Sign out of TaskFlow" onclick="signOut()">⏻</button>
+    </div>
+  </header>
+
+  <!-- FAB Add Button -->
+  <button id="add-task-fab" class="hidden" data-tip="Add a new task to the board" onclick="openAddTask()">
+    <span class="fab-icon">＋</span> Add Task
+  </button>
+
+  <!-- Main Content -->
+  <main class="app-main">
+    <!-- Breadcrumb -->
+    <div class="breadcrumb hidden" id="breadcrumb"></div>
+
+    <!-- Admin Home -->
+    <div id="admin-home" class="hidden">
+      <div class="admin-greeting">Welcome back, <span id="admin-name-display"></span></div>
+      <div class="admin-subtitle">What would you like to manage today?</div>
+      <div class="admin-cards">
+        <div class="admin-nav-card" onclick="goToMyTasks()">
+          <div class="card-icon">📌</div>
+          <div class="card-label">My Tasks</div>
+          <div class="card-desc">View &amp; manage your personal tasks</div>
+        </div>
+        <div class="admin-nav-card" onclick="goToUserList()">
+          <div class="card-icon">👥</div>
+          <div class="card-label">User Tasks</div>
+          <div class="card-desc">View &amp; manage all registered users</div>
+        </div>
+        <div class="admin-nav-card" onclick="openRegisterUser()">
+          <div class="card-icon">➕</div>
+          <div class="card-label">Register User</div>
+          <div class="card-desc">Add a new user to the system</div>
+        </div>
+        <div class="admin-nav-card" id="admin-import-card" onclick="openImportUsers()">
+          <div class="card-icon">📥</div>
+          <div class="card-label">Import Users</div>
+          <div class="card-desc">Bulk-import users from Excel or CSV</div>
+        </div>
+        <div class="admin-nav-card" id="admin-deleteall-card" onclick="openDeleteAll()" style="border-color:rgba(239,68,68,0.25);">
+          <div class="card-icon">🗑️</div>
+          <div class="card-label" style="color:var(--danger)">Delete All</div>
+          <div class="card-desc">Wipe accounts, tasks, or all data</div>
+        </div>
+        <div class="admin-nav-card" onclick="goToLeaveCalendar()">
+          <div class="card-icon">📅</div>
+          <div class="card-label">Calendar</div>
+          <div class="card-desc">Team calendar, leaves and tasks</div>
+        </div>
+        <div class="admin-nav-card" id="admin-chpw-card" onclick="openChangePassword()" style="display:none">
+          <div class="card-icon">🔑</div>
+          <div class="card-label">Change Password</div>
+          <div class="card-desc">Reset any user's account password</div>
+        </div>
+        <div class="admin-nav-card" id="admin-settings-card" onclick="openWorkSettings()" style="display:none">
+          <div class="card-icon">⚙️</div>
+          <div class="card-label">Work Settings</div>
+          <div class="card-desc">Set workday name, start &amp; end hours</div>
+        </div>
+        <!-- Multi-Personnel Task card removed from main window — use Teams view instead -->
+        <div class="admin-nav-card" id="teams-nav-card" onclick="showView('teams')">
+          <div class="card-icon">🏷️</div>
+          <div class="card-label">Teams</div>
+          <div class="card-desc">Group people into teams &amp; assign team tasks</div>
+        </div>
+        <div class="admin-nav-card" id="multi-team-task-card" onclick="openTeamTaskModal(null)" style="display:none">
+          <div class="card-icon">📋</div>
+          <div class="card-label">Book Multi-Team Task</div>
+          <div class="card-desc">Assign one task to an entire team at once</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Worker Home -->
+    <div id="worker-home" class="hidden">
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 58px);padding:40px 20px;gap:24px;">
+        <div style="font-family:var(--display);font-size:clamp(22px,5vw,36px);font-weight:800;color:var(--text);text-align:center;line-height:1.2;">
+          Welcome, <span id="worker-name-display" style="color:var(--amber);"></span>
+        </div>
+        <div style="font-size:13px;color:var(--text3);text-align:center;margin-bottom:8px;">What would you like to do today?</div>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;justify-content:center;">
+          <div class="admin-nav-card" onclick="goToMyTasks()">
+            <div class="card-icon">📌</div>
+            <div class="card-label">My Tasks</div>
+            <div class="card-desc">View &amp; manage your tasks</div>
+          </div>
+          <div class="admin-nav-card" onclick="goToMyCalendar()">
+            <div class="card-icon">📅</div>
+            <div class="card-label">My Calendar</div>
+            <div class="card-desc">View your schedule &amp; leave</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Task Board Filter Bar -->
+    <div id="board-filter-bar">
+      <div class="board-search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="board-search" placeholder="Search tasks…" oninput="onBoardSearch(this.value)">
+        <button id="board-search-clear" class="hidden" onclick="clearBoardSearch()">×</button>
+      </div>
+      <div class="board-filter-pills">
+        <button class="board-filter-pill active" data-filter="all" onclick="setBoardFilter('all')">All</button>
+        <button class="board-filter-pill" data-filter="active" onclick="setBoardFilter('active')">Active</button>
+        <button class="board-filter-pill" data-filter="overdue" onclick="setBoardFilter('overdue')">Overdue</button>
+        <button class="board-filter-pill" data-filter="done" onclick="setBoardFilter('done')">Done</button>
+      </div>
+    </div>
+
+    <!-- Task Board -->
+    <div id="task-board" class="hidden"></div>
+
+    <!-- Timeline View (Monday.com Style) -->
+    <div id="timeline-view" class="hidden">
+      <div class="timeline-header">
+        <div class="timeline-title" id="timeline-title">Timeline View</div>
+        <div class="timeline-controls">
+          <div class="timeline-legend">
+            <div class="timeline-legend-item"><div class="legend-dot p1"></div> P1</div>
+            <div class="timeline-legend-item"><div class="legend-dot p2"></div> P2</div>
+            <div class="timeline-legend-item"><div class="legend-dot p3"></div> P3</div>
+            <div class="timeline-legend-item"><div class="legend-dot p4"></div> P4</div>
+            <div class="timeline-legend-item"><div class="legend-dot p5"></div> P5</div>
+          </div>
+          <div class="view-toggle">
+            <button class="view-toggle-btn" id="view-board-btn" onclick="switchToBoard()">Board</button>
+            <button class="view-toggle-btn active" id="view-timeline-btn" onclick="switchToTimeline()">Timeline</button>
+          </div>
+          <div class="timeline-scale">
+            <button class="timeline-scale-btn" data-scale="day" onclick="setTimelineScale('day')">Day</button>
+            <button class="timeline-scale-btn active" data-scale="week" onclick="setTimelineScale('week')">Week</button>
+            <button class="timeline-scale-btn" data-scale="month" onclick="setTimelineScale('month')">Month</button>
+          </div>
+        </div>
+      </div>
+      <div class="timeline-container" id="timeline-container">
+        <div class="timeline-grid" id="timeline-grid">
+          <div class="timeline-header-row" id="timeline-header"></div>
+          <div class="timeline-body" id="timeline-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Calendar View (Table-based) -->
+    <div id="calendar-view" class="hidden">
+      <div class="calendar-header">
+        <div class="calendar-title">📅 Calendar</div>
+        <div class="calendar-controls">
+          <div class="calendar-legend">
+            <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--p1)"></div> Task P1</div>
+            <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--p4)"></div> Task P4</div>
+            <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#10B981"></div> Lieu Day</div>
+            <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--info)"></div> LOA</div>
+            <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--danger)"></div> AWOL</div>
+          </div>
+          <div id="cal-search-bar" class="hidden" style="position:relative;">
+            <span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;">🔍</span>
+            <input id="cal-search-input" type="text" placeholder="Search team member…"
+              style="padding:6px 10px 6px 28px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;width:180px;font-family:var(--mono);"
+              oninput="onCalSearch(this.value)">
+            <button id="cal-search-clear" class="hidden" onclick="clearCalSearch()"
+              style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;line-height:1;">×</button>
+          </div>
+          <div class="calendar-nav">
+            <button class="cal-nav-btn" onclick="calNav(-1)">‹</button>
+            <div class="cal-month-label" id="cal-month-label"></div>
+            <button class="cal-nav-btn" onclick="calNav(1)">›</button>
+            <button class="btn-secondary" style="font-size:11px;padding:6px 12px;" onclick="calGoToday()">Today</button>
+            <button class="btn-secondary" style="font-size:11px;padding:6px 10px;" onclick="calZoom(-1)" title="Zoom out — show more days">−</button>
+            <button class="btn-secondary" style="font-size:11px;padding:6px 10px;" onclick="calZoom(1)" title="Zoom in — wider columns">+</button>
+            <button class="btn-secondary" style="font-size:11px;padding:6px 12px;" id="cal-zoom-btn" onclick="calToggleZoom()" title="Toggle day/year view">🔍 Year</button>
+            <button class="btn-secondary" style="font-size:11px;padding:6px 12px;" id="cal-team-toggle-btn" onclick="calToggleTeamView()" title="Switch between personal and team view">👤 My View</button>
+          </div>
+          <button class="btn-primary" style="width:auto;padding:8px 16px;font-size:11px;" id="add-leave-btn" onclick="openAddLeave()">+ Add Leave</button>
+        </div>
+      </div>
+      <div class="calendar-container" id="calendar-container">
+        <!-- BusyCal-style date chip strip (mobile) -->
+        <div id="cal-week-strip" class="hidden"></div>
+        <div class="cal-split-wrapper" id="cal-split-wrapper">
+          <div class="cal-names-panel" id="cal-names-panel">
+            <table id="cal-names-table"></table>
+          </div>
+          <div class="cal-dates-panel" id="cal-dates-panel">
+            <table id="cal-dates-table"></table>
+          </div>
+        </div>
+        <!-- kept for year view and legacy references -->
+        <table class="cal-table" id="cal-table" style="display:none"></table>
+      </div>
+    </div>
+
+    <!-- Legacy leave-calendar-view kept for backwards-compat (hidden) -->
+    <div id="leave-calendar-view" class="hidden" style="display:none!important">
+      <div class="leave-calendar-container" id="leave-calendar-container" style="display:none">
+        <div class="leave-calendar-grid" id="leave-calendar-grid">
+          <div class="leave-calendar-header-row" id="leave-calendar-header"></div>
+          <div class="leave-calendar-body" id="leave-calendar-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- User List (admin) -->
+    <div id="user-list-view" class="hidden">
+      <div class="user-list-header">
+        <div class="section-title">Registered Users</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-secondary" id="multi-task-list-btn" onclick="openMultiTask()" style="display:none">👥 Multi-Personnel Task</button>
+          <button class="btn-secondary" id="chpw-list-btn" onclick="openChangePassword()" style="display:none">🔑 Change Password</button>
+          <button class="btn-secondary" id="reg-user-list-btn" onclick="openRegisterUser()" style="display:none">+ Register User</button>
+          <button class="btn-secondary" id="import-user-list-btn" onclick="openImportUsers()" style="display:none">📥 Import Users</button>
+        </div>
+      </div>
+      <div class="user-grid" id="user-grid"></div>
+    </div>
+
+    <!-- ==================== TEAMS VIEW ==================== -->
+    <div id="teams-view" class="hidden" style="padding:24px 20px 24px 80px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+        <div class="section-title">🏷️ Teams</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn-secondary" id="team-assign-btn" onclick="openTeamTaskModal(null)" style="display:none">📋 Assign Team Task</button>
+          <button class="btn-primary" style="width:auto;padding:10px 18px;font-size:12px;" onclick="openCreateTeam()">＋ Create Team</button>
+        </div>
+      </div>
+      <div id="teams-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ==================== CONTEXT MENU ==================== -->
+<div id="context-menu" class="hidden">
+  <button class="ctx-item" id="ctx-edit" onclick="ctxEdit()">✏️ &nbsp;Edit Task</button>
+  <button class="ctx-item" id="ctx-view-cal" onclick="ctxViewInCalendar()">📅 &nbsp;View in Calendar</button>
+  <button class="ctx-item warning" id="ctx-cancel" onclick="ctxCancel()">🚫 &nbsp;Cancel Task</button>
+  <button class="ctx-item" id="ctx-reopen" onclick="ctxReopen()">🔄 &nbsp;Reopen Task</button>
+  <div class="ctx-divider"></div>
+  <button class="ctx-item danger" id="ctx-delete" onclick="ctxDelete()">🗑️ &nbsp;Delete Task</button>
+</div>
+
+<div id="cal-ctx-menu" class="hidden">
+  <div id="cal-ctx-date-label" style="padding:6px 12px 2px;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;"></div>
+  <div id="cal-ctx-user-label" style="padding:0 12px 6px;font-size:12px;color:var(--text);font-weight:600;"></div>
+  <div id="cal-ctx-question" style="padding:0 12px 8px;font-size:11px;color:var(--text2);line-height:1.5;"></div>
+  <div class="ctx-divider" style="margin:0 0 4px;"></div>
+  <button class="ctx-item" id="cal-ctx-set-btn" onclick="calCtxSetWorkday()">✅ &nbsp;Yes, worked that day</button>
+  <button class="ctx-item danger" id="cal-ctx-unset-btn" onclick="calCtxUnsetWorkday()">❌ &nbsp;Remove — did not work</button>
+</div>
+
+<!-- ==================== CALENDAR DAY RIGHT-CLICK MENU ==================== -->
+<div id="cal-day-ctx-menu" class="hidden">
+  <div class="cal-day-ctx-header">
+    <div class="cal-day-ctx-date" id="cal-day-ctx-date-label"></div>
+    <div class="cal-day-ctx-user" id="cal-day-ctx-user-label"></div>
+  </div>
+  <button class="ctx-item" onclick="calDayCtxCreateTask()">📌 &nbsp;Create Task</button>
+  <div class="ctx-divider"></div>
+  <div class="cal-day-ctx-section">Set Status</div>
+  <button class="ctx-item" onclick="calDayCtxSetStatus('lieu')">🟢 &nbsp;Lieu Day</button>
+  <button class="ctx-item" onclick="calDayCtxSetStatus('loa')">🔵 &nbsp;Leave of Absence</button>
+  <button class="ctx-item danger" onclick="calDayCtxSetStatus('awol')">🔴 &nbsp;AWOL</button>
+</div>
+
+<!-- ==================== WORKER CALENDAR DAY RIGHT-CLICK MENU ==================== -->
+<div id="worker-cal-day-ctx-menu" class="hidden" style="position:fixed;z-index:9200;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:6px;box-shadow:0 8px 40px rgba(0,0,0,0.6);min-width:180px;animation:ctx-fade 0.15s cubic-bezier(0.34,1.2,0.64,1);">
+  <div style="padding:8px 12px 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">
+    <div style="font-size:10px;font-weight:700;color:var(--amber);letter-spacing:0.1em;text-transform:uppercase;" id="worker-cal-ctx-date-label"></div>
+  </div>
+  <button class="ctx-item" onclick="workerCalCtxCreateTask()">📌 &nbsp;Create Task</button>
+</div>
+
+<!-- ==================== TOAST ==================== -->
+<div id="toast-container"></div>
+
+<!-- ==================== MODAL: ADD / EDIT TASK ==================== -->
+<div class="modal-overlay hidden" id="task-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="task-modal-title">Add New Task</div>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('task-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <!-- Overlap Alert -->
+      <div class="overlap-alert hidden" id="overlap-alert">
+        <div class="overlap-alert-icon">⚠️</div>
+        <div class="overlap-alert-content">
+          <div class="overlap-alert-title">Task Overlap Detected</div>
+          <div class="overlap-alert-text" id="overlap-alert-text">This task overlaps with existing tasks. Priority rules have been applied.</div>
+        </div>
+      </div>
+      
+      <!-- Leave Blocked Alert -->
+      <div class="leave-blocked-alert hidden" id="leave-blocked-alert">
+        <div class="leave-blocked-alert-icon">🚫</div>
+        <div class="leave-blocked-alert-content">
+          <div class="leave-blocked-alert-title">Leave Period Conflict</div>
+          <div class="leave-blocked-alert-text" id="leave-blocked-alert-text">This task overlaps with a scheduled leave period.</div>
+        </div>
+      </div>
+      
+      <div class="field-group">
+        <label>Task Name *</label>
+        <input type="text" id="f-title" placeholder="What needs to be done?">
+      </div>
+      <div class="form-grid-2">
+        <div class="field-group" style="margin-bottom:0">
+          <label>Requestor *</label>
+          <input type="text" id="f-requestor" placeholder="Who requested this?">
+        </div>
+        <div class="field-group" style="margin-bottom:0">
+          <label>Priority (1=Highest, 5=Lowest) *</label>
+          <select id="f-priority">
+            <option value="1">🔴 Priority 1 — Critical</option>
+            <option value="2">🟠 Priority 2 — High</option>
+            <option value="3" selected>🟡 Priority 3 — Medium</option>
+            <option value="4">🔵 Priority 4 — Low</option>
+            <option value="5">⚪ Priority 5 — Minimal</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Start Date / Time *</label>
+        <input type="datetime-local" id="f-start" oninput="onTaskFieldChange()">
+      </div>
+      <!-- Duration / End Date toggle -->
+      <div class="field-group" id="f-schedule-group">
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <button type="button" id="f-mode-duration" onclick="setTaskScheduleMode('duration')"
+            style="flex:1;padding:7px;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid var(--amber);background:var(--amber);color:var(--bg);cursor:pointer;transition:all 0.15s;">
+            ⏱ Duration
+          </button>
+          <button type="button" id="f-mode-enddate" onclick="setTaskScheduleMode('enddate')"
+            style="flex:1;padding:7px;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;transition:all 0.15s;">
+            📅 End Date
+          </button>
+        </div>
+        <!-- Duration fields -->
+        <div id="f-duration-group">
+          <label style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;">Duration *</label>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-top:6px;">
+            <input type="number" id="f-duration" min="0.25" max="9999" step="0.25" placeholder="e.g. 2" style="width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;" oninput="onTaskFieldChange()">
+            <select id="f-duration-unit" onchange="onTaskFieldChange()" style="padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;appearance:none;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239CA3AF' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 12px center;padding-right:28px;">
+              <option value="hours">hours</option>
+              <option value="days">days</option>
+            </select>
+          </div>
+        </div>
+        <!-- End Date fields -->
+        <div id="f-enddate-group" style="display:none;">
+          <label style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;">End Date / Time *</label>
+          <input type="datetime-local" id="f-enddate" style="width:100%;margin-top:6px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;" oninput="onTaskFieldChange()">
+        </div>
+        <div id="f-deadline-preview" style="font-size:11px;color:var(--text3);margin-top:4px;"></div>
+      </div>
+      <div class="field-group">
+        <label>Description / Checklist Items</label>
+        <div class="desc-input-row">
+          <input type="text" id="f-desc-input" placeholder="Type a checklist item and press Add..." onkeydown="if(event.key==='Enter'){addDescItem();}">
+          <button class="desc-add-btn" onclick="addDescItem()">Add</button>
+        </div>
+        <div class="desc-items" id="f-desc-items"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('task-modal')">Cancel</button>
+      <button class="btn-primary" style="width:auto;padding:10px 24px;" onclick="saveTask()">Save Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: ADD / EDIT LEAVE ==================== -->
+<div class="modal-overlay hidden" id="leave-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="leave-modal-title">Add Leave Period</div>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('leave-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-group">
+        <label>Employee *</label>
+        <input type="text" id="leave-user-search" placeholder="🔍 Search employee by name..." 
+        oninput="filterLeaveUsers(this.value)" 
+        style="width:100%;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;margin-bottom:6px;">
+      <select id="leave-user" size="5" style="width:100%;padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;" onchange="updateLeaveTypeOptions()">
+        <option value="">Select employee...</option>
+      </select>
+      </div>
+      <div class="field-group">
+        <label>Leave Type *</label>
+        <select id="leave-type" onchange="updateLeaveTypeOptions()">
+          <option value="lieu">🟢 Lieu Day — Compensatory time off</option>
+          <option value="loa">🔵 Leave of Absence — Authorized extended leave</option>
+          <option value="awol">🔴 AWOL — Absent Without Leave (unauthorized)</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label>Start Date *</label>
+        <input type="date" id="leave-start">
+      </div>
+      <div class="field-group">
+        <label>End Date * <span style="font-size:10px;color:var(--text3)">(inclusive — last day of leave)</span></label>
+        <input type="date" id="leave-end">
+      </div>
+      <div class="field-group">
+        <label>Reason / Notes</label>
+        <textarea id="leave-reason" rows="3" placeholder="Optional notes about this leave period..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('leave-modal')">Cancel</button>
+      <button class="btn-danger hidden" id="delete-leave-btn">🗑 Delete Leave</button>
+      <button class="btn-primary" style="width:auto;padding:10px 24px;" onclick="saveLeave()">Save Leave</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: WHATSAPP PARSE ==================== -->
+<div class="modal-overlay hidden" id="wa-modal">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <div class="modal-title">💬 Import Task from a Message</div>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('wa-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="wa-hint">
+        Paste any message you received — from WhatsApp, SMS, email, or anywhere else. TaskFlow will automatically read it and fill in the task details for you.<br><br>
+        <strong>Works with messages like:</strong><br>
+        <code>"Hey, can you finish the report by Friday 5pm? It's urgent!"</code><br>
+        <code>"Task: Update website — Due: Dec 31 — Priority: High — Steps: write content, update images, publish"</code>
+      </div>
+      <div class="field-group">
+        <label>Paste Your Message Here</label>
+        <textarea id="wa-text" rows="5" placeholder="Paste your message here and we'll do the rest..."></textarea>
+      </div>
+      <div id="wa-result" class="hidden">
+        <div class="parse-result" id="wa-parsed-display"></div>
+      </div>
+      <div id="wa-loading" class="hidden" style="text-align:center;color:var(--text3);padding:20px;font-size:13px;">
+        ✨ Reading your message...
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('wa-modal')">Cancel</button>
+      <button class="btn-secondary" id="wa-parse-btn" onclick="parseWhatsApp()">✨ Read Message</button>
+      <button class="btn-primary hidden" style="width:auto;padding:10px 24px;" id="wa-use-btn" onclick="useWaParsed()">Create This Task →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: LOGS ==================== -->
+<div class="modal-overlay hidden" id="logs-modal">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <div class="modal-title">📋 Activity Log</div>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('logs-modal')">×</button>
+    </div>
+    <div class="modal-body" style="gap:0">
+      <div class="logs-list" id="logs-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: NOTIFICATIONS ==================== -->
+<div class="modal-overlay hidden" id="notif-modal">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <div class="modal-title">🔔 Notifications</div>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('notif-modal'); markNotifsRead()">×</button>
+    </div>
+    <div class="modal-body" style="gap:0">
+      <div class="notif-list" id="notif-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="clearNotifs()">Clear All</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: REGISTER USER ==================== -->
+<div class="modal-overlay hidden" id="register-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">➕ Register New User</div>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('register-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="register-note">
+        Choose the appropriate role. <strong>Users</strong> only see their own tasks. <strong>Managers</strong> have full task access across all users. <strong>Admins</strong> additionally manage system users and registrations.
+      </div>
+      <div class="field-group">
+        <label>Full Name *</label>
+        <input type="text" id="reg-name" placeholder="User's full name">
+      </div>
+      <div class="field-group">
+        <label>Username *</label>
+        <input type="text" id="reg-username" placeholder="Login username (no spaces)">
+      </div>
+      <div class="field-group">
+        <label>Password *</label>
+        <input type="password" id="reg-password" placeholder="Set a password">
+      </div>
+      <div class="field-group">
+        <label>Role *</label>
+        <select id="reg-role">
+          <option value="user">👤 User — View &amp; manage own tasks only</option>
+          <option value="manager">🏢 Manager — Full access: add, edit, cancel, delete all tasks</option>
+          <option value="admin">🛡️ Admin — Full access + user registration &amp; system management</option>
+        </select>
+      </div>
+      <div class="field-group" id="reg-team-field">
+        <label>Assign to Team (optional)</label>
+        <select id="reg-team">
+          <option value="">No team</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label>Email Address <span style="font-size:10px;color:var(--text3)">(for notifications)</span></label>
+        <input type="email" id="reg-email" placeholder="employee@company.com">
+      </div>
+      <div class="field-group" style="margin-bottom:0">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="reg-email-notif" checked style="accent-color:var(--amber);width:14px;height:14px;">
+          <span>Receive email notifications for tasks &amp; leaves</span>
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('register-modal')">Cancel</button>
+      <button class="btn-primary" style="width:auto;padding:10px 24px;" onclick="registerUser()">Register</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: CONFIRM CANCEL ==================== -->
+<div class="modal-overlay hidden" id="cancel-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🚫 Cancel Task</div>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('cancel-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="confirm-text">You are about to cancel:<br><span class="confirm-task-name" id="cancel-task-name"></span><br><br>The task will be closed and marked as cancelled but <strong>not removed</strong>. It can be reopened later.</div>
+      <div class="field-group" style="margin-top:8px;">
+        <label>Reason for cancellation (optional)</label>
+        <input type="text" id="cancel-reason-input" placeholder="e.g. No longer needed, Duplicate task...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('cancel-modal')">Keep Task</button>
+      <button class="btn-danger" style="padding:10px 24px;" onclick="confirmCancel()">Cancel Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: CONFIRM DELETE ==================== -->
+<div class="modal-overlay hidden" id="confirm-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">⚠️ Confirm Delete</div>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('confirm-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="confirm-text">Are you sure you want to delete task:<br><span class="confirm-task-name" id="confirm-task-name"></span>?<br><br>This action cannot be undone.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('confirm-modal')">Cancel</button>
+      <button class="btn-danger" style="padding:10px 24px;" onclick="confirmDelete()">Delete Task</button>
+    </div>
+  </div>
+</div>
+
