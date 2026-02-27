@@ -1,3 +1,4 @@
+
 <!-- ==================== PUSH NOTIFICATION CONTAINER ==================== -->
 <div id="push-notif-container"></div>
 
@@ -54,6 +55,7 @@
     <div class="login-error hidden" id="login-error">Invalid credentials. Try again.</div>
   </div>
 </div>
+
 
 <!-- ==================== SUPER-ADMIN PANEL ==================== -->
 <div id="sa-panel" class="hidden">
@@ -254,6 +256,10 @@
             <div class="card-label">My Calendar</div>
             <div class="card-desc">View your schedule &amp; leave</div>
           </div>
+        </div>
+        <!-- Groups strip — shows teams this worker belongs to -->
+        <div id="worker-groups-strip" style="display:none;flex-direction:column;align-items:stretch;gap:8px;width:100%;max-width:520px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);text-align:center;margin-bottom:4px;">My Teams</div>
         </div>
       </div>
     </div>
@@ -736,3 +742,423 @@
   </div>
 </div>
 
+
+<!-- ==================== MODAL: CHANGE PASSWORD ==================== -->
+<div class="modal-overlay hidden" id="chpw-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🔑 Change User Password</div>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('chpw-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="register-note">Select a user account and set a new password for them.</div>
+      <div class="field-group">
+        <label>Select User *</label>
+        <select id="chpw-user"><option value="">Select user...</option></select>
+      </div>
+      <div class="field-group">
+        <label>New Password *</label>
+        <input type="password" id="chpw-new" placeholder="Enter new password (min. 4 chars)">
+      </div>
+      <div class="field-group" style="margin-bottom:0">
+        <label>Confirm New Password *</label>
+        <input type="password" id="chpw-confirm" placeholder="Confirm new password">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('chpw-modal')">Cancel</button>
+      <button class="btn-primary" style="width:auto;padding:10px 24px;" onclick="changeUserPassword()">Update Password</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: WORK SETTINGS ==================== -->
+<div class="modal-overlay hidden" id="worksettings-modal">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <div class="modal-title">⚙️ Work Settings</div>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('worksettings-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:11px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Work Schedules</div>
+      <div id="ws-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+      <div id="ws-add-form" class="hidden" style="border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--bg3);">
+        <div class="field-group">
+          <label>Schedule Name *</label>
+          <input type="text" id="ws-new-name" placeholder="e.g. Morning Shift" oninput="updateWsNewPreview()">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="field-group" style="margin-bottom:0">
+            <label>Start Hour (0–23)</label>
+            <input type="number" id="ws-new-start" min="0" max="23" value="9" oninput="updateWsNewPreview()">
+          </div>
+          <div class="field-group" style="margin-bottom:0">
+            <label>End Hour (1–24)</label>
+            <input type="number" id="ws-new-end" min="1" max="24" value="18" oninput="updateWsNewPreview()">
+          </div>
+        </div>
+        <div id="ws-new-preview" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <button class="btn-secondary" onclick="document.getElementById('ws-add-form').classList.add('hidden')">Cancel</button>
+          <button class="btn-primary" style="width:auto;padding:8px 20px;font-size:12px;" onclick="saveNewSchedule()">Save Schedule</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="document.getElementById('ws-add-form').classList.toggle('hidden');updateWsNewPreview()">＋ Add Schedule</button>
+      <button class="btn-secondary" onclick="closeModal('worksettings-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: MULTI-PERSONNEL TASK ==================== -->
+<div class="modal-overlay hidden" id="multi-task-modal">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <div class="modal-title">👥 Multi-Personnel Task</div>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('multi-task-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="register-note" style="margin-bottom:12px;">Creates <strong>one shared task</strong> visible to all selected personnel. Anyone can tick checklist items — changes sync to everyone instantly.</div>
+      <div class="overlap-alert hidden" id="multi-overlap-alert"><div class="overlap-alert-icon">⚠️</div><div class="overlap-alert-content"><div class="overlap-alert-title">Schedule Conflicts</div><div class="overlap-alert-text" id="multi-overlap-text"></div></div></div>
+      <div class="leave-blocked-alert hidden" id="multi-leave-alert"><div class="leave-blocked-alert-icon">🚫</div><div class="leave-blocked-alert-content"><div class="leave-blocked-alert-title">Leave Conflicts</div><div class="leave-blocked-alert-text" id="multi-leave-text"></div></div></div>
+      <div class="field-group">
+        <label>Task Name *</label>
+        <input type="text" id="mt-title" placeholder="What needs to be done?">
+      </div>
+      <div class="form-grid-2">
+        <div class="field-group" style="margin-bottom:0">
+          <label>Requestor *</label>
+          <input type="text" id="mt-requestor" placeholder="Who requested this?">
+        </div>
+        <div class="field-group" style="margin-bottom:0">
+          <label>Priority *</label>
+          <select id="mt-priority">
+            <option value="1">🔴 P1 — Critical</option>
+            <option value="2">🟠 P2 — High</option>
+            <option value="3" selected>🟡 P3 — Medium</option>
+            <option value="4">🔵 P4 — Low</option>
+            <option value="5">⚪ P5 — Minimal</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Start *</label>
+        <input type="datetime-local" id="mt-start" oninput="checkMultiTaskConflicts()">
+      </div>
+      <div class="field-group">
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <button type="button" id="mt-mode-duration" onclick="setMtScheduleMode('duration')" style="flex:1;padding:7px;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid var(--amber);background:var(--amber);color:var(--bg);cursor:pointer;">⏱ Duration</button>
+          <button type="button" id="mt-mode-enddate" onclick="setMtScheduleMode('enddate')" style="flex:1;padding:7px;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;">📅 End Date</button>
+        </div>
+        <div id="mt-duration-group">
+          <div style="display:grid;grid-template-columns:1fr auto;gap:8px;">
+            <input type="number" id="mt-duration" min="0.25" step="0.25" placeholder="e.g. 2" style="padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;" oninput="checkMultiTaskConflicts()">
+            <select id="mt-duration-unit" onchange="checkMultiTaskConflicts()" style="padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;">
+              <option value="hours">hours</option>
+              <option value="days">days</option>
+            </select>
+          </div>
+        </div>
+        <div id="mt-enddate-group" style="display:none">
+          <input type="datetime-local" id="mt-enddate" style="width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;" oninput="checkMultiTaskConflicts()">
+        </div>
+        <div id="mt-deadline-preview" style="font-size:11px;color:var(--text3);margin-top:4px;"></div>
+      </div>
+      <div class="field-group">
+        <label>Checklist Items <span style="font-size:10px;color:var(--amber);font-weight:600;">· shared by all assignees</span></label>
+        <div class="desc-input-row">
+          <input type="text" id="mt-desc-input" placeholder="Add a checklist item..." onkeydown="if(event.key==='Enter')addMtDescItem()">
+          <button class="desc-add-btn" onclick="addMtDescItem()">Add</button>
+        </div>
+        <div class="desc-items" id="mt-desc-items"></div>
+      </div>
+      <div class="field-group" style="margin-bottom:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <label style="margin:0">Assign To *</label>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="mt-search" placeholder="🔍 Search..." style="padding:5px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:11px;width:140px;" oninput="filterMtUsers(this.value)">
+            <button class="btn-secondary" style="font-size:11px;padding:5px 10px;" onclick="selectAllMtUsers()">All</button>
+            <button class="btn-secondary" style="font-size:11px;padding:5px 10px;" onclick="clearAllMtUsers()">None</button>
+          </div>
+        </div>
+        <div id="mt-users" style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:4px;"></div>
+        <div id="mt-selected-count" style="font-size:11px;color:var(--text3);margin-top:6px;">0 selected</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('multi-task-modal')">Cancel</button>
+      <button class="btn-primary" style="width:auto;padding:10px 24px;" onclick="saveMultiTask()">Assign Task →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: TEAM (Create/Edit) ==================== -->
+<div class="modal-overlay hidden" id="team-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="team-modal-title">🏷️ Create Team</div>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('team-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-group">
+        <label>Team Name *</label>
+        <input type="text" id="tm-name" placeholder="e.g. Engineering, Sales...">
+      </div>
+      <div class="field-group">
+        <label>Team Color</label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;" id="tm-color-picker">
+          <label style="cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="radio" name="tm-color" value="#F59E0B" checked style="accent-color:#F59E0B"><span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:#F59E0B;"></span></label>
+          <label style="cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="radio" name="tm-color" value="#EF4444" style="accent-color:#EF4444"><span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:#EF4444;"></span></label>
+          <label style="cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="radio" name="tm-color" value="#10B981" style="accent-color:#10B981"><span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:#10B981;"></span></label>
+          <label style="cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="radio" name="tm-color" value="#3B82F6" style="accent-color:#3B82F6"><span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:#3B82F6;"></span></label>
+          <label style="cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="radio" name="tm-color" value="#A78BFA" style="accent-color:#A78BFA"><span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:#A78BFA;"></span></label>
+          <label style="cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="radio" name="tm-color" value="#EC4899" style="accent-color:#EC4899"><span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:#EC4899;"></span></label>
+        </div>
+      </div>
+      <div class="field-group" style="margin-bottom:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <label style="margin:0">Members</label>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="tm-search" placeholder="🔍 Search..." style="padding:5px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:11px;width:130px;" oninput="renderTeamMemberPicker(this.value)">
+            <button class="btn-secondary" style="font-size:11px;padding:5px 10px;" onclick="tmSelectAll()">All</button>
+            <button class="btn-secondary" style="font-size:11px;padding:5px 10px;" onclick="tmClearAll()">None</button>
+          </div>
+        </div>
+        <div id="tm-member-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:4px;"></div>
+        <div id="tm-selected-count" style="font-size:11px;color:var(--text3);margin-top:6px;">0 selected</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-danger hidden" id="tm-delete-btn" onclick="deleteTeam()">🗑 Delete</button>
+      <button class="btn-secondary" onclick="closeModal('team-modal')">Cancel</button>
+      <button class="btn-primary" style="width:auto;padding:10px 24px;" onclick="saveTeam()">Save Team</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: TEAM TASK (Assign) ==================== -->
+<div class="modal-overlay hidden" id="team-task-modal">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <div class="modal-title">📋 Assign Team Task</div>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('team-task-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="register-note" style="margin-bottom:12px;">Creates <strong>one shared task</strong> for all team members. Everyone sees the same checklist and any member can tick items.</div>
+      <div class="overlap-alert hidden" id="tt-overlap-alert"><div class="overlap-alert-icon">⚠️</div><div class="overlap-alert-content"><div class="overlap-alert-title">Schedule Conflicts</div><div class="overlap-alert-text" id="tt-overlap-text"></div></div></div>
+      <div class="leave-blocked-alert hidden" id="tt-leave-alert"><div class="leave-blocked-alert-icon">🚫</div><div class="leave-blocked-alert-content"><div class="leave-blocked-alert-title">Leave Conflicts</div><div class="leave-blocked-alert-text" id="tt-leave-text"></div></div></div>
+      <div class="field-group">
+        <label>Task Name *</label>
+        <input type="text" id="tt-title" placeholder="What needs to be done?">
+      </div>
+      <div class="form-grid-2">
+        <div class="field-group" style="margin-bottom:0">
+          <label>Requestor *</label>
+          <input type="text" id="tt-requestor" placeholder="Who requested this?">
+        </div>
+        <div class="field-group" style="margin-bottom:0">
+          <label>Priority *</label>
+          <select id="tt-priority">
+            <option value="1">🔴 P1 — Critical</option>
+            <option value="2">🟠 P2 — High</option>
+            <option value="3" selected>🟡 P3 — Medium</option>
+            <option value="4">🔵 P4 — Low</option>
+            <option value="5">⚪ P5 — Minimal</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Start *</label>
+        <input type="datetime-local" id="tt-start" oninput="updateTtDeadlinePreview();checkTeamTaskConflicts()">
+      </div>
+      <div class="field-group">
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <button type="button" id="tt-mode-duration" onclick="setTtScheduleMode('duration')" style="flex:1;padding:7px;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid var(--amber);background:var(--amber);color:var(--bg);cursor:pointer;">⏱ Duration</button>
+          <button type="button" id="tt-mode-enddate" onclick="setTtScheduleMode('enddate')" style="flex:1;padding:7px;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;">📅 End Date</button>
+        </div>
+        <div id="tt-duration-group">
+          <div style="display:grid;grid-template-columns:1fr auto;gap:8px;">
+            <input type="number" id="tt-duration" min="0.25" step="0.25" placeholder="e.g. 2" style="padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;" oninput="updateTtDeadlinePreview();checkTeamTaskConflicts()">
+            <select id="tt-duration-unit" onchange="updateTtDeadlinePreview();checkTeamTaskConflicts()" style="padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;">
+              <option value="hours">hours</option>
+              <option value="days">days</option>
+            </select>
+          </div>
+        </div>
+        <div id="tt-enddate-group" style="display:none">
+          <input type="datetime-local" id="tt-deadline" style="width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;" oninput="updateTtDeadlinePreview();checkTeamTaskConflicts()">
+        </div>
+        <div id="tt-deadline-preview" style="font-size:11px;color:var(--text3);margin-top:4px;"></div>
+      </div>
+      <div class="field-group">
+        <label>Checklist Items <span style="font-size:10px;color:var(--amber);font-weight:600;">· shared by all members</span></label>
+        <div class="desc-input-row">
+          <input type="text" id="tt-desc-input" placeholder="Add a checklist item..." onkeydown="if(event.key==='Enter')addTtDescItem()">
+          <button class="desc-add-btn" onclick="addTtDescItem()">Add</button>
+        </div>
+        <div class="desc-items" id="tt-desc-items"></div>
+      </div>
+      <div class="field-group" style="margin-bottom:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <label style="margin:0">Select Teams * <span id="tt-team-count" style="font-size:11px;color:var(--text3);font-weight:400;"></span></label>
+        </div>
+        <div id="tt-team-list" style="display:flex;flex-direction:column;gap:4px;max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;padding:8px;"></div>
+        <div id="tt-members-preview" style="margin-top:10px;display:none;">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;">Members who will receive this task:</div>
+          <div id="tt-members-list" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('team-task-modal')">Cancel</button>
+      <button class="btn-primary" style="width:auto;padding:10px 24px;" onclick="saveTeamTask()">Assign Task →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: TEAM TASKS VIEW ==================== -->
+<div class="modal-overlay hidden" id="team-tasks-modal">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <div class="modal-title">📌 Team Tasks</div>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('team-tasks-modal')">×</button>
+    </div>
+    <div class="modal-body" id="team-tasks-modal-body" style="gap:0"></div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('team-tasks-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: LIEU DAY ==================== -->
+<div class="modal-overlay hidden" id="lieu-day-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🟢 Add Lieu Days</div>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('lieu-day-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="lieu-day-info" style="font-size:13px;color:var(--text2);margin-bottom:14px;"></div>
+      <div class="field-group" style="margin-bottom:0">
+        <label>Number of Lieu Days to Add *</label>
+        <input type="number" id="lieu-day-count" min="1" max="30" value="1" style="width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('lieu-day-modal')">Cancel</button>
+      <button class="btn-primary" style="width:auto;padding:10px 24px;" onclick="saveLieuDays()">Add Lieu Days</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: IMPORT USERS ==================== -->
+<div class="modal-overlay hidden" id="import-users-modal">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <div class="modal-title">📥 Import Users</div>
+      <button class="modal-close" aria-label="Close" onclick="closeImportModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="import-step-upload">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Upload an Excel (.xlsx/.xls) or CSV file. Required columns: <strong>name, username, password</strong>. Optional: <em>email, team, role</em>.</div>
+        <div id="import-drop-zone" style="border:2px dashed var(--border);border-radius:12px;padding:32px;text-align:center;cursor:pointer;" onclick="document.getElementById('import-file-input').click()" ondragover="importOnDragOver(event)" ondragleave="importOnDragLeave(event)" ondrop="importOnDrop(event)">
+          <div style="font-size:32px;margin-bottom:8px;">📁</div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Drop file here or click to browse</div>
+          <div style="font-size:11px;color:var(--text3);">.xlsx, .xls, .csv supported</div>
+          <input type="file" id="import-file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="importHandleFile(this.files[0])">
+        </div>
+        <div style="margin-top:12px;text-align:center;">
+          <button class="btn-secondary" style="font-size:11px;" onclick="importDownloadTemplate()">⬇ Download Template</button>
+        </div>
+      </div>
+      <div id="import-step-sheets" class="hidden">
+        <div id="import-sheet-file-label" style="font-size:12px;color:var(--text3);margin-bottom:12px;"></div>
+        <div id="import-sheet-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;"></div>
+      </div>
+      <div id="import-step-preview" class="hidden">
+        <div style="display:flex;gap:16px;margin-bottom:10px;font-size:12px;">
+          <span>File: <strong id="import-file-name"></strong></span>
+          <span>Total: <strong id="import-cnt-total">0</strong></span>
+          <span style="color:var(--success);">Ready: <strong id="import-cnt-valid">0</strong></span>
+          <span style="color:var(--danger);">Errors: <strong id="import-cnt-errors">0</strong></span>
+        </div>
+        <div style="overflow-x:auto;max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;">
+          <table style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead style="position:sticky;top:0;background:var(--bg3);">
+              <tr style="border-bottom:1px solid var(--border);">
+                <th style="padding:8px 10px;text-align:left;color:var(--text3);">#</th>
+                <th style="padding:8px 10px;text-align:left;color:var(--text3);">Name</th>
+                <th style="padding:8px 10px;text-align:left;color:var(--text3);">Username</th>
+                <th style="padding:8px 10px;text-align:left;color:var(--text3);">Password</th>
+                <th style="padding:8px 10px;text-align:left;color:var(--text3);">Email</th>
+                <th style="padding:8px 10px;text-align:left;color:var(--text3);">Team</th>
+                <th style="padding:8px 10px;text-align:left;color:var(--text3);">Role</th>
+                <th style="padding:8px 10px;text-align:left;color:var(--text3);">Status</th>
+              </tr>
+            </thead>
+            <tbody id="import-table-body"></tbody>
+          </table>
+        </div>
+        <div id="import-progress-wrap" class="hidden" style="margin-top:12px;">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;" id="import-progress-label">Importing…</div>
+          <div style="background:var(--bg3);border-radius:20px;height:6px;overflow:hidden;">
+            <div id="import-progress-fill" style="height:100%;background:var(--amber);width:0%;transition:width .3s;border-radius:20px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="importBackToSheets()" id="import-back-btn" style="display:none">← Back</button>
+      <button class="btn-secondary" onclick="closeImportModal()">Close</button>
+      <button class="btn-primary hidden" style="width:auto;padding:10px 24px;" id="import-submit-btn" onclick="importSubmit()">Import →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: DELETE ALL ==================== -->
+<div class="modal-overlay hidden" id="delete-all-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" style="color:var(--danger)">🗑️ Danger Zone</div>
+      <button class="modal-close" aria-label="Close" onclick="closeModal('delete-all-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;color:var(--text2);line-height:1.6;">
+        ⚠️ <strong style="color:var(--danger);">Warning:</strong> This action is permanent and cannot be undone.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;border-radius:8px;border:1px solid var(--border);">
+          <input type="checkbox" id="del-tasks" style="accent-color:var(--danger);width:16px;height:16px;" onchange="updateDeleteBtn()">
+          <div><div style="font-weight:700;font-size:13px;">All Tasks</div><div style="font-size:11px;color:var(--text3);">Removes every task for all users</div></div>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;border-radius:8px;border:1px solid var(--border);">
+          <input type="checkbox" id="del-users" style="accent-color:var(--danger);width:16px;height:16px;" onchange="updateDeleteBtn()">
+          <div><div style="font-weight:700;font-size:13px;">All User Accounts</div><div style="font-size:11px;color:var(--text3);">Removes all non-admin accounts</div></div>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;border-radius:8px;border:1px solid var(--border);">
+          <input type="checkbox" id="del-teams" style="accent-color:var(--danger);width:16px;height:16px;" onchange="updateDeleteBtn()">
+          <div><div style="font-weight:700;font-size:13px;">All Teams</div><div style="font-size:11px;color:var(--text3);">Removes all team groups</div></div>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;border-radius:8px;border:1px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.05);">
+          <input type="checkbox" id="del-all" style="accent-color:var(--danger);width:16px;height:16px;" onchange="toggleDeleteAll(this)">
+          <div><div style="font-weight:700;font-size:13px;color:var(--danger);">Everything (select all)</div></div>
+        </label>
+      </div>
+      <div class="field-group" style="margin-bottom:0">
+        <label>Type <strong>DELETE</strong> to confirm *</label>
+        <input type="text" id="del-confirm-input" placeholder="Type DELETE here" oninput="updateDeleteBtn()">
+      </div>
+      <div id="del-progress-wrap" class="hidden" style="margin-top:14px;">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px;" id="del-progress-label">Deleting…</div>
+        <div style="background:var(--bg3);border-radius:20px;height:6px;overflow:hidden;">
+          <div id="del-progress-fill" style="height:100%;background:var(--danger);width:0%;transition:width .3s;border-radius:20px;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('delete-all-modal')">Cancel</button>
+      <button class="btn-danger" id="delete-all-btn" disabled onclick="executeDeleteAll()" style="padding:10px 24px;">🗑️ Delete Permanently</button>
+    </div>
+  </div>
+</div>
