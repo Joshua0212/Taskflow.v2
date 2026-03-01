@@ -5899,16 +5899,17 @@ function renderCalendar() {
     newDatesPanel.scrollTop = newNamesPanel.scrollTop;
   }, { passive: true });
 
-  // ── Pass vertical wheel to page; only consume horizontal (Shift+wheel) ──
+  // ── Wheel: vertical scrolls the PAGE, Shift+wheel scrolls calendar horizontally ──
   function calWheelHandler(e) {
-    var isHorizontal = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
-    if (!isHorizontal) {
-      // Let the event bubble — don't prevent default, so page scrolls normally
-      return;
+    var isHorizontal = e.shiftKey || (Math.abs(e.deltaX) > Math.abs(e.deltaY));
+    if (isHorizontal) {
+      // Consume and apply horizontal scroll to dates panel
+      e.preventDefault();
+      e.stopPropagation();
+      newDatesPanel.scrollLeft += (e.shiftKey ? e.deltaY : e.deltaX);
     }
-    // Horizontal: scroll the dates panel
-    e.preventDefault();
-    newDatesPanel.scrollLeft += (e.deltaX || e.deltaY);
+    // Vertical: do NOT prevent default — let the event bubble so the panel's
+    // own vertical scroll (when content overflows) or the page scroll works normally.
   }
   newDatesPanel.addEventListener('wheel', calWheelHandler, { passive: false });
   newNamesPanel.addEventListener('wheel', calWheelHandler, { passive: false });
