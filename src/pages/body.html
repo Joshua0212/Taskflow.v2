@@ -2,6 +2,14 @@
 <!-- ==================== PUSH NOTIFICATION CONTAINER ==================== -->
 <div id="push-notif-container"></div>
 
+<!-- ===== GLOBAL PROCESSING OVERLAY ===== -->
+<div id="global-overlay" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);align-items:center;justify-content:center;pointer-events:all;">
+  <div style="background:var(--bg2,#1c1c2e);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:36px 52px;display:flex;flex-direction:column;align-items:center;gap:18px;box-shadow:0 24px 64px rgba(0,0,0,0.7);min-width:240px;max-width:340px;text-align:center;">
+    <div style="width:44px;height:44px;border:3px solid rgba(255,255,255,0.08);border-top-color:#F59E0B;border-radius:50%;animation:spin 0.75s linear infinite;flex-shrink:0;"></div>
+    <div id="global-overlay-text" style="font-size:14px;font-weight:700;color:#e5e7eb;letter-spacing:0.02em;line-height:1.4;">Processing…</div>
+  </div>
+</div>
+
 <!-- ==================== TASK TOOLTIP (desktop hover) ==================== -->
 <div id="tf-task-tooltip" role="tooltip" aria-hidden="true"></div>
 
@@ -160,7 +168,14 @@
     <div class="header-logo">TaskFlow</div>
     <div class="header-user" id="header-username"></div>
     <div class="header-role" id="header-role"></div>
+    <!-- ── Nav buttons ── -->
+    <div style="display:flex;align-items:center;gap:4px;margin-left:10px;">
+      <button class="icon-btn" id="nav-home-btn" onclick="headerNavHome()" data-tip="Home" style="font-size:15px;width:32px;height:32px;">🏠</button>
+      <button class="icon-btn" id="nav-back-btn" onclick="headerNavBack()" data-tip="Back" style="font-size:13px;width:32px;height:32px;opacity:0.35;pointer-events:none;">◀</button>
+      <button class="icon-btn" id="nav-next-btn" onclick="headerNavNext()" data-tip="Forward" style="font-size:13px;width:32px;height:32px;opacity:0.35;pointer-events:none;">▶</button>
+    </div>
     <div class="header-actions ml-auto">
+      <button class="icon-btn hidden" id="header-chpw-btn" data-tip="Change a user's password" onclick="openChangePassword()" style="font-size:15px;">⚙️</button>
       <button class="icon-btn notification-dot hidden" id="notif-btn" data-tip="Notifications" onclick="openNotifications()">🔔</button>
       <button class="icon-btn hidden" id="my-cal-btn" data-tip="My Calendar" onclick="goToMyCalendar()">📅</button>
       <button class="icon-btn" data-tip="Activity Log — See all task actions and history" onclick="openLogs()">📋</button>
@@ -391,7 +406,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
         <div class="section-title">🏷️ Teams</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn-secondary" id="team-assign-btn" onclick="openTeamTaskModal(null)" style="display:none">📋 Assign Team Task</button>
+          <button class="btn-secondary" id="team-assign-btn" onclick="openTeamTaskModal(null)" style="display:none">📋 Assign Multi Team Task</button>
           <button class="btn-primary" style="width:auto;padding:10px 18px;font-size:12px;" onclick="openCreateTeam()">＋ Create Team</button>
         </div>
       </div>
@@ -432,14 +447,6 @@
   <button class="ctx-item" onclick="calDayCtxSetStatus('lieu')">🟢 &nbsp;Lieu Day</button>
   <button class="ctx-item" onclick="calDayCtxSetStatus('loa')">🔵 &nbsp;Leave of Absence</button>
   <button class="ctx-item danger" onclick="calDayCtxSetStatus('awol')">🔴 &nbsp;AWOL</button>
-</div>
-
-<!-- ==================== WORKER CALENDAR DAY RIGHT-CLICK MENU ==================== -->
-<div id="worker-cal-day-ctx-menu" class="hidden" style="position:fixed;z-index:9200;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:6px;box-shadow:0 8px 40px rgba(0,0,0,0.6);min-width:180px;animation:ctx-fade 0.15s cubic-bezier(0.34,1.2,0.64,1);">
-  <div style="padding:8px 12px 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">
-    <div style="font-size:10px;font-weight:700;color:var(--amber);letter-spacing:0.1em;text-transform:uppercase;" id="worker-cal-ctx-date-label"></div>
-  </div>
-  <button class="ctx-item" onclick="workerCalCtxCreateTask()">📌 &nbsp;Create Task</button>
 </div>
 
 <!-- ==================== TOAST ==================== -->
@@ -941,7 +948,7 @@
 <div class="modal-overlay hidden" id="team-task-modal">
   <div class="modal modal-wide">
     <div class="modal-header">
-      <div class="modal-title">📋 Assign Team Task</div>
+      <div class="modal-title">📋 Assign Multi Team Task</div>
       <button class="modal-close" aria-label="Close" onclick="closeModal('team-task-modal')">×</button>
     </div>
     <div class="modal-body">

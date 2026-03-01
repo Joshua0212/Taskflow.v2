@@ -1,4 +1,65 @@
 /* ============================================================
+   TASKFLOW — index.js  (optimised build)
+   ============================================================
+   QUICK-START FOR NEW FEATURES
+   ─────────────────────────────────────────────────────────────
+   1. DOM access         →  $(id)  or  $$(selector)
+   2. Cached elements    →  EL.xxx  (populated in initializeApp)
+                            Add new ones to the EL block there.
+   3. Debouncing         →  debounce(fn, ms)
+   4. Magic numbers      →  CONFIG.XXX  (defined below)
+   5. Calendar refresh   →  renderCalendarDebounced()
+                            (use this instead of renderCalendar()
+                             after data mutations)
+   6. Sections (Ctrl+F)  →  "SUPABASE CLIENT"
+                             "API SHIM"
+                             "SUPER-ADMIN"
+                             "STATE"
+                             "NAVIGATION / VIEWS"
+                             "TASK BOARD"
+                             "CALENDAR"
+                             "ADD / EDIT TASK MODAL"
+                             "NOTIFICATIONS"
+                             "IMPORT USERS"
+   ─────────────────────────────────────────────────────────────
+*/
+
+/* ============================================================
+   PERFORMANCE UTILITIES
+   Fast DOM helpers, debounce, and shared config.
+   ============================================================ */
+
+/** Fast getElementById alias */
+function $(id) { return document.getElementById(id); }
+
+/** Fast querySelectorAll alias — returns Array */
+function $$(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
+
+/**
+ * Debounce: collapses rapid repeated calls into one.
+ * Usage: const fn = debounce(() => doWork(), 80);
+ */
+function debounce(fn, ms) {
+  var t;
+  return function() {
+    var args = arguments;
+    var ctx = this;
+    clearTimeout(t);
+    t = setTimeout(function() { fn.apply(ctx, args); }, ms);
+  };
+}
+
+/** App-wide configuration. Centralises all magic numbers. */
+var CONFIG = {
+  POLL_INTERVAL_MS:   30000,   // how often we poll for notifications
+  DEBOUNCE_RENDER_MS: 60,      // calendar / board re-render debounce
+  DEBOUNCE_SEARCH_MS: 120,     // search input debounce
+  SCROLL_TO_TASK_MS:  100,     // delay before scrolling to a focused task
+  TOAST_DURATION_MS:  4000,    // how long toasts stay visible
+  CAL_BLOCK_H:        22,      // px — height of one calendar task block
+};
+
+/* ============================================================
    SUPABASE CLIENT — multi-device, real-time database
    URL: https://xtlaqgititvfjorxdbgi.supabase.co
    ============================================================ */
@@ -637,17 +698,75 @@ function _lockOp(key, btn, busyText) {
   if (_opLocks.has(key)) return false;
   _opLocks.add(key);
   if (btn) { btn.disabled = true; btn._origText = btn.textContent; if (busyText) btn.textContent = busyText; }
+  // Show global overlay with process name centred on screen
+  const ov = document.getElementById('global-overlay');
+  const tx = document.getElementById('global-overlay-text');
+  if (ov) { if (tx) tx.textContent = busyText || 'Processing…'; ov.style.display = 'flex'; }
   return true;
 }
 
 function _unlockOp(key, btn) {
   _opLocks.delete(key);
   if (btn) { btn.disabled = false; if (btn._origText !== undefined) btn.textContent = btn._origText; }
+  // Hide overlay only when ALL locks released
+  if (_opLocks.size === 0) {
+    const ov = document.getElementById('global-overlay');
+    if (ov) ov.style.display = 'none';
+  }
 }
 
-/* ============================================================
-   AUTH
-   ============================================================ */
+/* ── Nav history for Home / Back / Next header buttons ── */
+const _navHist = [];
+let   _navIdx  = -1;
+
+function _navRecord(key) {
+  if (_navHist[_navIdx] === key) return;          // same page, skip
+  _navHist.splice(_navIdx + 1);                   // drop forward stack
+  _navHist.push(key);
+  _navIdx = _navHist.length - 1;
+  _navRefresh();
+}
+
+function _navRefresh() {
+  const back = document.getElementById('nav-back-btn');
+  const next = document.getElementById('nav-next-btn');
+  const canBack = _navIdx > 0;
+  const canNext = _navIdx < _navHist.length - 1;
+  if (back) { back.style.opacity = canBack ? '1' : '0.35'; back.style.pointerEvents = canBack ? 'auto' : 'none'; }
+  if (next) { next.style.opacity = canNext ? '1' : '0.35'; next.style.pointerEvents = canNext ? 'auto' : 'none'; }
+}
+
+function _navJump(key) {
+  if (!key) return;
+  if (key.startsWith('user-tasks:')) {
+    const uid = key.slice('user-tasks:'.length);
+    state.targetUserId = uid;
+    state.view = 'user-tasks';
+    showView('user-tasks');
+  } else {
+    showView(key);
+  }
+}
+
+function headerNavHome() {
+  const r = state.currentUser?.role;
+  if (r === 'admin' || r === 'manager') goAdminHome();
+  else showView('worker-home');
+}
+
+function headerNavBack() {
+  if (_navIdx <= 0) return;
+  _navIdx--;
+  _navRefresh();
+  _navJump(_navHist[_navIdx]);
+}
+
+function headerNavNext() {
+  if (_navIdx >= _navHist.length - 1) return;
+  _navIdx++;
+  _navRefresh();
+  _navJump(_navHist[_navIdx]);
+}
 async function signIn() {
   const loginBtn = document.getElementById('login-btn');
   if (!_lockOp('login', loginBtn, '⏳ Signing in...')) return;
@@ -666,7 +785,7 @@ async function signIn() {
     API.setToken(data.token);
     state.currentUser = data.user;
 
-    document.getElementById('login-screen').classList.add('hidden');
+    EL.loginScreen||document.getElementById('login-screen').classList.add('hidden');
 
     if (data.user.role === 'superadmin') {
       // Super-admin goes to their own panel, not the main app
@@ -711,7 +830,7 @@ async function signOut() {
   Object.keys(cache).forEach(k => cache[k] = null);
   document.getElementById('app').classList.add('hidden');
   document.getElementById('sa-panel').classList.add('hidden');
-  document.getElementById('login-screen').classList.remove('hidden');
+  EL.loginScreen||document.getElementById('login-screen').classList.remove('hidden');
   document.getElementById('login-username').value = '';
   document.getElementById('login-password').value = '';
   document.getElementById('login-error').classList.add('hidden');
@@ -730,6 +849,9 @@ function setupHeader() {
   roleEl.textContent = roleLabels[u.role] || u.role.toUpperCase();
   const roleClass = { admin: 'role-admin', manager: 'role-manager', user: 'role-user' };
   roleEl.className = 'header-role ' + (roleClass[u.role] || 'role-user');
+  // Settings (change password) button — admin only
+  const chpwBtn = document.getElementById('header-chpw-btn');
+  if (chpwBtn) chpwBtn.classList.toggle('hidden', u.role !== 'admin');
   updateNotifBadge();
 }
 
@@ -739,13 +861,20 @@ function setupHeader() {
 const views = ['admin-home', 'worker-home', 'task-board', 'timeline-view', 'leave-calendar-view', 'user-list-view', 'calendar-view', 'teams-view'];
 
 function showView(v) {
-  state.previousView = state.view; // Track previous view
+  state.previousView = state.view;
   state.view = v;
   views.forEach(id => document.getElementById(id)?.classList.add('hidden'));
-  document.getElementById('board-filter-bar')?.classList.remove('visible');
-  document.getElementById('add-task-fab').classList.add('hidden');
+  EL.boardFilterBar||document.getElementById('board-filter-bar')?.classList.remove('visible');
+  EL.addTaskFab||document.getElementById('add-task-fab').classList.add('hidden');
   document.getElementById('breadcrumb').classList.add('hidden');
+  // Restore mobile "New Task" button when leaving calendar
+  if (v !== 'calendar') {
+    var mobAddBtn = document.getElementById('mob-nav-add');
+    if (mobAddBtn) mobAddBtn.style.display = '';
+  }
   const isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
+  // Track nav for Back/Next buttons (skip 'user-tasks' here — viewUserTasks records with uid)
+  if (v !== 'user-tasks') _navRecord(v);
 
   if (v === 'worker-home') {
     document.getElementById('worker-home').classList.remove('hidden');
@@ -830,11 +959,10 @@ function showView(v) {
     // Always show breadcrumbs in calendar
     var breadcrumb = document.getElementById('breadcrumb');
     if (breadcrumb) breadcrumb.classList.remove('hidden');
-    
-    // Show FAB for workers so they can add tasks from calendar
-    if (state.currentUser.role === 'user') {
-      document.getElementById('add-task-fab').classList.remove('hidden');
-    }
+
+    // Hide mobile "New Task" button — add tasks from the task board, not calendar
+    var mobAddBtn = document.getElementById('mob-nav-add');
+    if (mobAddBtn) mobAddBtn.style.display = 'none';
     
     // Add back button to calendar header
     var calHeader = document.getElementById('cal-header');
@@ -861,21 +989,42 @@ function showView(v) {
     if (state._calendarJumpDate) {
       var jumpDate = state._calendarJumpDate;
       var highlightUserId = state._calendarHighlightUserId || null;
+      var focusTaskId = state._calendarFocusTaskId || null;
       calState.year = jumpDate.getFullYear();
       calState.month = jumpDate.getMonth();
       state._calendarJumpDate = null;
       state._calendarHighlightUserId = null;
+      state._calendarFocusTaskId = null;
       renderCalendar();
       setTimeout(function() {
-        // Scroll to the task's date column
-        var taskDateStr = jumpDate.toISOString().slice(0, 10);
-        var cols = document.querySelectorAll('#cal-dates-panel [data-date]');
-        for (var i = 0; i < cols.length; i++) {
-          if (cols[i].dataset.date === taskDateStr) {
-            cols[i].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-            cols[i].style.outline = '2px solid var(--amber)';
-            setTimeout(function(el) { el.style.outline = ''; }.bind(null, cols[i]), 3000);
-            break;
+        // Scroll to and highlight the specific task block if available
+        var focused = false;
+        if (focusTaskId) {
+          var taskBlock = document.querySelector('.cal-block[data-taskid="' + focusTaskId + '"]');
+          if (taskBlock) {
+            taskBlock.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            taskBlock.style.outline = '2px solid var(--amber)';
+            taskBlock.style.outlineOffset = '2px';
+            taskBlock.style.zIndex = '100';
+            setTimeout(function() {
+              taskBlock.style.outline = '';
+              taskBlock.style.outlineOffset = '';
+              taskBlock.style.zIndex = '';
+            }, 3000);
+            focused = true;
+          }
+        }
+        // Fallback: scroll to the date column header
+        if (!focused) {
+          var taskDateStr = jumpDate.toISOString().slice(0, 10);
+          var cols = document.querySelectorAll('#cal-dates-panel [data-date]');
+          for (var i = 0; i < cols.length; i++) {
+            if (cols[i].dataset.date === taskDateStr) {
+              cols[i].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+              cols[i].style.outline = '2px solid var(--amber)';
+              setTimeout(function(el) { el.style.outline = ''; }.bind(null, cols[i]), 3000);
+              break;
+            }
           }
         }
         // If viewing a worker's row, scroll to and highlight that row
@@ -897,9 +1046,8 @@ function showView(v) {
 
 function showBoardView(userId) {
   document.getElementById('task-board').classList.remove('hidden');
-  document.getElementById('add-task-fab').classList.remove('hidden');
-  document.getElementById('board-filter-bar').classList.add('visible');
-  // Reset search/filter state on view switch
+  EL.addTaskFab||document.getElementById('add-task-fab').classList.remove('hidden');
+  EL.boardFilterBar||document.getElementById('board-filter-bar').classList.add('visible');
   _boardSearchVal = '';
   _boardFilter = 'all';
   const inp = document.getElementById('board-search');
@@ -922,7 +1070,7 @@ function showBoardView(userId) {
 
 function showTimelineView(userId) {
   document.getElementById('timeline-view').classList.remove('hidden');
-  document.getElementById('add-task-fab').classList.remove('hidden');
+  EL.addTaskFab||document.getElementById('add-task-fab').classList.remove('hidden');
   const isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
   const targetUser = getUsers().find(u => u.id === userId);
   document.getElementById('timeline-title').textContent = isElevated && state.view === 'user-tasks' 
@@ -1396,7 +1544,7 @@ async function saveLeave() {
   } catch(err) { toast(err.message || 'Failed to save leave.', 'error'); _unlockOp('saveLeave', _btn); return; }
   _unlockOp('saveLeave', _btn);
   closeModal('leave-modal');
-  if (state.view === 'calendar') renderCalendar();
+  if (state.view === 'calendar') renderCalendarDebounced();
   else renderLeaveCalendar();
 }
 
@@ -1409,7 +1557,7 @@ async function deleteLeaveById(leaveId) {
     state.editingLeaveId = null;
     toast('Leave removed.', 'info');
     closeModal('leave-modal');
-    if (state.view === 'calendar') renderCalendar();
+    if (state.view === 'calendar') renderCalendarDebounced();
     else renderLeaveCalendar();
   } catch(err) { toast(err.message || 'Failed to delete leave.', 'error'); }
 }
@@ -1459,7 +1607,7 @@ async function removeLeaveDay(leaveId, dayStr) {
       if (newLeave) cache.leaves.push(newLeave);
     }
     toast('Day removed from leave.', 'info');
-    if (state.view === 'calendar') renderCalendar();
+    if (state.view === 'calendar') renderCalendarDebounced();
     else renderLeaveCalendar();
   } catch(err) { toast(err.message || 'Failed to remove day.', 'error'); }
 }
@@ -1982,8 +2130,11 @@ function onTaskFieldChange() {
     ? (getTasks().find(t => t.id === state.editingTaskId)?.userId || state.currentUser.id)
     : (state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id);
 
+  // Preview: simple wall-clock end (start + duration). calculateScheduledEnd is for work-hours scheduling only.
+  const wallClockEnd = new Date(new Date(startVal).getTime() + durVal * 3600000);
+  if (previewEl) previewEl.textContent = '⏱ Ends: ' + wallClockEnd.toLocaleString('en-US', { weekday:'short', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+
   const scheduledEnd = calculateScheduledEnd(new Date(startVal).toISOString(), durVal, targetUserId);
-  if (previewEl) previewEl.textContent = '⏱ Ends: ' + scheduledEnd.toLocaleString('en-US', { weekday:'short', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
 
   // Weekend restriction check
   const startDate = new Date(startVal);
@@ -2067,41 +2218,49 @@ function notifyManagerOfOverlap(task, overlaps, wasMoved) {
    ============================================================ */
 function renderTasks(userId) {
   const board = document.getElementById('task-board');
-  board.innerHTML = ''; // clear stale content before re-render
+  board.innerHTML = '';
   let tasks = getTasks().filter(t => t.userId === userId);
   const isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
 
-  // Sort: active by priority then oldest first → cancelled → done
+  // Sort: active by priority → cancelled → done
   tasks.sort((a, b) => {
     const statusOrder = (t) => t.done ? 2 : t.cancelled ? 1 : 0;
     if (statusOrder(a) !== statusOrder(b)) return statusOrder(a) - statusOrder(b);
     if (!a.done && !a.cancelled && !b.done && !b.cancelled) {
       if (a.priority !== b.priority) return a.priority - b.priority;
-      // Same priority: oldest (earliest createdAt/start) first = leftmost
-      const aDate = new Date(a.start || a.createdAt);
-      const bDate = new Date(b.start || b.createdAt);
-      return aDate - bDate;
+      return new Date(a.start || a.createdAt) - new Date(b.start || b.createdAt);
     }
     return 0;
   });
 
   if (tasks.length === 0) {
     board.innerHTML = `<div class="board-empty"><div class="board-empty-icon">📋</div><div class="board-empty-text">No tasks yet</div><div class="board-empty-sub">Your task board is clear.</div></div>`;
-    // On mobile, hide FAB when no tasks
-    const fab = document.getElementById('add-task-fab');
+    const fab = EL.addTaskFab||document.getElementById('add-task-fab');
     if (fab) fab.classList.remove('show-fab');
     return;
   }
 
-  // Show FAB on mobile when tasks exist
-  const fab = document.getElementById('add-task-fab');
+  const fab = EL.addTaskFab||document.getElementById('add-task-fab');
   if (fab && window.innerWidth <= 768) fab.classList.add('show-fab');
   const now = new Date();
   let lastPriority = null;
   let shownCancelledHeader = false;
   let shownDoneHeader = false;
 
+  // For team tasks, only render the first copy per group; collect members for that group
+  const allTasks = getTasks();
+  const renderedGroups = new Set();
+
   tasks.forEach(task => {
+    // ── Team task deduplication ──
+    // If this task belongs to a team group, check if we already rendered that group
+    const meta = task.isTeamTask ? _getGroupMeta(task.description) : null;
+    const groupId = meta ? meta.groupId : null;
+    if (groupId) {
+      if (renderedGroups.has(groupId)) return; // already rendered, skip
+      renderedGroups.add(groupId);
+    }
+
     const deadline = new Date(task.deadline);
     const hoursLeft = (deadline - now) / 1000 / 60 / 60;
     const isActive = !task.done && !task.cancelled;
@@ -2145,8 +2304,7 @@ function renderTasks(userId) {
     }
 
     let flickerClass = '';
-    if (isOverdue) flickerClass = 'flicker-critical';
-    else if (isDue) flickerClass = 'flicker-critical';
+    if (isOverdue || isDue) flickerClass = 'flicker-critical';
     else if (isWarning) flickerClass = 'flicker-warning';
 
     let deadlineStr = formatDeadline(deadline);
@@ -2167,8 +2325,37 @@ function renderTasks(userId) {
       </button>`;
     }
 
-    // Checklist: disable interaction for cancelled/done
     const checklistDisabled = task.cancelled || task.done;
+
+    // ── Build team member list for grouped team tasks ──
+    let memberListHtml = '';
+    if (groupId) {
+      const siblings = allTasks.filter(t => {
+        if (!t.isTeamTask) return false;
+        const m = _getGroupMeta(t.description);
+        return m && m.groupId === groupId;
+      });
+      const allMembers = siblings.concat([task]);
+      const users = getUsers();
+      memberListHtml = `
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">👥 Assigned to (${allMembers.length})</div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            ${allMembers.map(m => {
+              const u = users.find(u => u.id === m.userId);
+              const mDone = m.done;
+              const mCancelled = m.cancelled;
+              const statusIcon = mDone ? '✅' : mCancelled ? '🚫' : '🔄';
+              const statusColor = mDone ? 'var(--success)' : mCancelled ? 'var(--danger)' : 'var(--text3)';
+              return `<div style="display:flex;align-items:center;gap:8px;font-size:11px;padding:3px 0;">
+                <span style="color:${statusColor};font-size:12px;">${statusIcon}</span>
+                <span style="font-weight:600;color:var(--text2);">${escHtml(u ? u.name : 'Unknown')}</span>
+                <span style="color:var(--text3);font-size:10px;">${mDone ? 'Done' : mCancelled ? 'Cancelled' : 'In progress'}</span>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+    }
 
     const card = document.createElement('div');
     card.className = `task-card p${task.priority} ${flickerClass} ${task.done ? 'done' : ''} ${task.cancelled ? 'cancelled' : ''}`;
@@ -2181,6 +2368,7 @@ function renderTasks(userId) {
           <div class="priority-badge">${task.priority}</div>
         </div>
         ${task.teamName ? `<div style="font-size:10px;color:#F59E0B;margin-bottom:4px;letter-spacing:0.04em;">🏷️ ${escHtml(task.teamName)}</div>` : ''}
+        ${task.isMultiPersonnel ? `<div style="font-size:10px;color:var(--info);margin-bottom:4px;">👥 Multi-personnel task</div>` : ''}
         ${task.cancelled && task.cancelReason ? `<div class="cancel-reason">Reason: ${escHtml(task.cancelReason)}</div>` : ''}
         <div class="card-meta">
           <span class="meta-item"><span class="icon">👤</span>${escHtml(task.requestor)}</span>
@@ -2207,6 +2395,7 @@ function renderTasks(userId) {
             `).join('')}
           </div>
         </div>` : `<div style="font-size:12px;color:var(--text3);">${task.cancelled ? 'Task was cancelled.' : 'No checklist items — task can be marked done directly.'}</div>`}
+        ${memberListHtml}
       </div>
       <div class="card-footer">
         ${footerContent}
@@ -2216,9 +2405,8 @@ function renderTasks(userId) {
 
     card.querySelector('.card-body').addEventListener('click', () => toggleExpand(task.id));
     card.addEventListener('click', (e) => {
-      // Whole card is tappable — stop propagation to prevent double trigger on card-body
       if (e.target.closest('.done-btn') || e.target.closest('.btn-secondary') || e.target.closest('.btn-danger') || e.target.closest('input[type="checkbox"]') || e.target.closest('label')) return;
-      if (e.target.closest('.card-body')) return; // already handled above
+      if (e.target.closest('.card-body')) return;
       toggleExpand(task.id);
     });
     card.addEventListener('contextmenu', (e) => {
@@ -2226,7 +2414,6 @@ function renderTasks(userId) {
       showContextMenu(e, task.id);
     });
 
-    // Long-press for mobile context menu
     let _lpTimer = null;
     card.addEventListener('touchstart', (e) => {
       _lpTimer = setTimeout(() => {
@@ -2251,16 +2438,15 @@ let _boardFilter = 'all';
 
 function onBoardSearch(val) {
   _boardSearchVal = (val || '').trim().toLowerCase();
-  const clearBtn = document.getElementById('board-search-clear');
+  const clearBtn = EL.boardSearch ? EL.boardSearch.parentElement.querySelector('#board-search-clear') : $('board-search-clear');
   if (clearBtn) clearBtn.classList.toggle('hidden', !_boardSearchVal);
   applyBoardFilter();
 }
 
 function clearBoardSearch() {
   _boardSearchVal = '';
-  const inp = document.getElementById('board-search');
-  if (inp) inp.value = '';
-  const clearBtn = document.getElementById('board-search-clear');
+  if (EL.boardSearch) EL.boardSearch.value = '';
+  const clearBtn = $('board-search-clear');
   if (clearBtn) clearBtn.classList.add('hidden');
   applyBoardFilter();
 }
@@ -2387,7 +2573,7 @@ async function markDone(e, taskId) {
     }
     const count = siblings.length + 1;
     toast(count > 1 ? `Task marked as done! ✓ (${count} members updated)` : 'Task marked as done! ✓', 'success');
-    if (state.view === 'calendar') { renderCalendar(); return; }
+    if (state.view === 'calendar') { renderCalendarDebounced(); return; }
     const userId = state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
     if (state.currentViewMode === 'timeline') renderTimeline(userId);
     else renderTasks(userId);
@@ -2421,7 +2607,7 @@ async function confirmDelete() {
     toast(count > 1 ? `Task deleted (${count} members updated).` : 'Task deleted.', 'info');
   } catch(err) { toast('Failed to delete task.', 'error'); _unlockOp('confirmDelete'); return; }
   _unlockOp('confirmDelete');
-  if (state.view === 'calendar') { renderCalendar(); return; }
+  if (state.view === 'calendar') { renderCalendarDebounced(); return; }
   const userId = state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
   if (state.currentViewMode === 'timeline') renderTimeline(userId);
   else renderTasks(userId);
@@ -2455,7 +2641,7 @@ async function confirmCancel() {
     toast(count > 1 ? `Task cancelled (${count} members updated).` : 'Task cancelled.', 'info');
   } catch(err) { toast('Failed to cancel task.', 'error'); _unlockOp('confirmCancel'); return; }
   _unlockOp('confirmCancel');
-  if (state.view === 'calendar') { renderCalendar(); return; }
+  if (state.view === 'calendar') { renderCalendarDebounced(); return; }
   const userId = state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
   if (state.currentViewMode === 'timeline') renderTimeline(userId);
   else renderTasks(userId);
@@ -2463,9 +2649,10 @@ async function confirmCancel() {
 
 async function reopenTask(e, taskId) {
   if (e) e.stopPropagation();
+  if (!_lockOp('reopen_' + taskId, null, 'Reopening task…')) return;
   const tasks = getTasks();
   const task = tasks.find(t => t.id === taskId);
-  if (!task) return;
+  if (!task) { _unlockOp('reopen_' + taskId); return; }
   const siblings = _getTeamSiblings(task);
   try {
     const updated = await API.put(`/tasks/${taskId}`, { cancelled: false, cancelReason: '', done: false, doneAt: null });
@@ -2476,15 +2663,19 @@ async function reopenTask(e, taskId) {
     }
     const reopenedUser = getUsers().find(u => u.id === task.userId);
     if (reopenedUser) sendTaskEmail(reopenedUser, task, 'reopened').catch(() => {});
-    // Reopen all sibling copies
     for (const s of siblings) {
       s.cancelled = false; s.cancelReason = ''; s.done = false; s.doneAt = null;
       API.put(`/tasks/${s.id}`, { cancelled: false, cancelReason: '', done: false, doneAt: null }).catch(() => {});
     }
     const count = siblings.length + 1;
     toast(count > 1 ? `Task reopened! ✓ (${count} members updated)` : 'Task reopened! ✓', 'success');
-  } catch(err) { toast('Failed to reopen task.', 'error'); return; }
-  if (state.view === 'calendar') { renderCalendar(); return; }
+  } catch(err) {
+    toast('Failed to reopen task.', 'error');
+    _unlockOp('reopen_' + taskId);
+    return;
+  }
+  _unlockOp('reopen_' + taskId);
+  if (state.view === 'calendar') { renderCalendarDebounced(); return; }
   const userId = state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
   if (state.currentViewMode === 'timeline') renderTimeline(userId);
   else renderTasks(userId);
@@ -2548,6 +2739,7 @@ function ctxViewInCalendar() {
   if (!task) return;
   const taskStart = new Date(task.start || task.createdAt);
   state._calendarJumpDate = taskStart;
+  state._calendarFocusTaskId = task.id;
 
   const isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
   const isViewingWorker = isElevated && state.view === 'user-tasks' && state.targetUserId;
@@ -2646,7 +2838,7 @@ function openAddTask() {
   _taskScheduleMode = 'duration';
   document.getElementById('task-modal-title').textContent = 'Add New Task';
   document.getElementById('f-title').value = '';
-  document.getElementById('f-requestor').value = '';
+  document.getElementById('f-requestor').value = state.currentUser?.name || '';
   document.getElementById('f-priority').value = '3';
   const now = new Date();
   document.getElementById('f-start').value = toLocalISO(now);
@@ -2859,6 +3051,7 @@ async function saveTask() {
 function viewUserTasks(userId) {
   state.targetUserId = userId;
   state.view = 'user-tasks';
+  _navRecord('user-tasks:' + userId);
   showView('user-tasks');
 }
 
@@ -3314,7 +3507,7 @@ async function deleteCompletedTask(e, taskId) {
     cache.tasks = cache.tasks.filter(t => t.id !== taskId);
     addLog({ taskId, taskTitle: task.title, action: 'deleted', actorName: state.currentUser.name, userId: task.userId });
     toast('Completed task deleted.', 'success');
-    if (state.view === 'calendar') { renderCalendar(); return; }
+    if (state.view === 'calendar') { renderCalendarDebounced(); return; }
     const uid = state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
     if (state.currentViewMode === 'timeline') renderTimeline(uid); else renderTasks(uid);
   } catch(err) { toast(err.message || 'Failed to delete task.', 'error'); }
@@ -3491,6 +3684,9 @@ function mobileNavTasks() {
 function mobileNavCal() {
   updateMobileNavActive('mob-nav-cal');
   if (!state.currentUser) return;
+  // Hide "New Task" button in calendar — tasks are managed from the task board
+  var addBtn = document.getElementById('mob-nav-add');
+  if (addBtn) addBtn.style.display = 'none';
   showView('calendar');
 }
 
@@ -3498,6 +3694,11 @@ function updateMobileNavActive(activeId) {
   document.querySelectorAll('.mob-nav-item').forEach(btn => btn.classList.remove('active'));
   const el = document.getElementById(activeId);
   if (el) el.classList.add('active');
+  // Restore "New Task" button on all views except calendar
+  if (activeId !== 'mob-nav-cal') {
+    var addBtn = document.getElementById('mob-nav-add');
+    if (addBtn) addBtn.style.display = '';
+  }
 }
 
 function updateMobileNavNotifBadge() {
@@ -3649,7 +3850,7 @@ function renderTeamsView() {
         </div>`).join('');
 
     const editBtn = isElevated ? `<button class="btn-secondary" style="font-size:11px;padding:6px 12px;" onclick="openEditTeam('${team.id}')">✏️ Edit</button>` : '';
-    const assignBtn = isElevated ? `<button class="btn-primary" style="width:auto;font-size:11px;padding:6px 14px;" onclick="openTeamTaskModal('${team.id}')">📋 Assign Task</button>` : '';
+    const assignBtn = isElevated ? `<button class="btn-primary" style="width:auto;font-size:11px;padding:6px 14px;" onclick="openTeamTaskModal('${team.id}')">📋 Assign Multi Team Task</button>` : '';
     const viewTasksBtn = `<button class="btn-secondary" style="font-size:11px;padding:6px 12px;" onclick="showTeamTasks('${team.id}')">📌 View Tasks</button>`;
 
     return `<div class="team-card">
@@ -3880,8 +4081,9 @@ function getTtDeadline() {
   const unit = document.getElementById('tt-duration-unit').value;
   if (!raw || raw <= 0) return null;
   const hours = unit === 'days' ? raw * 8 : raw;
+  // Simple wall-clock: start + hours, converted back to local datetime string
   const end = new Date(new Date(start).getTime() + hours * 3600000);
-  return end.toISOString().slice(0, 16);
+  return toLocalISO(end);
 }
 function updateTtDeadlinePreview() {
   const prev = document.getElementById('tt-deadline-preview');
@@ -3889,7 +4091,7 @@ function updateTtDeadlinePreview() {
   const dl = getTtDeadline();
   if (dl) {
     const d = new Date(dl);
-    prev.textContent = 'Ends: ' + d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    prev.textContent = '⏱ Ends: ' + d.toLocaleString('en-US', { weekday:'short', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
   } else {
     prev.textContent = '';
   }
@@ -4343,8 +4545,9 @@ function getMtDeadline() {
   var unit = document.getElementById('mt-duration-unit').value;
   if (!raw || raw <= 0) return null;
   var hours = unit === 'days' ? raw * 8 : raw;
+  // Simple wall-clock: start + hours, converted to local datetime string
   var end = new Date(new Date(start).getTime() + hours * 3600000);
-  return end.toISOString().slice(0, 16);
+  return toLocalISO(end);
 }
 
 function updateMtDeadlinePreview() {
@@ -4353,7 +4556,7 @@ function updateMtDeadlinePreview() {
   var dl = getMtDeadline();
   if (dl) {
     var d = new Date(dl);
-    prev.textContent = 'Ends: ' + d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    prev.textContent = '⏱ Ends: ' + d.toLocaleString('en-US', { weekday:'short', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
   } else {
     prev.textContent = '';
   }
@@ -4365,7 +4568,7 @@ function openMultiTask() {
   mtDescItems = [];
   _mtScheduleMode = 'duration';
   document.getElementById('mt-title').value = '';
-  document.getElementById('mt-requestor').value = '';
+  document.getElementById('mt-requestor').value = state.currentUser?.name || '';
   document.getElementById('mt-priority').value = '3';
   var now = new Date();
   document.getElementById('mt-start').value = toLocalISO(now);
@@ -4541,7 +4744,7 @@ async function saveMultiTask() {
   closeModal('multi-task-modal');
   if (skippedLeave.length > 0) toast('Task assigned to ' + assignedCount + ' user(s). Skipped: ' + skippedLeave.join(', ') + ' (on leave).', 'warning');
   else toast('Task assigned to ' + assignedCount + ' user(s)! ✓', 'success');
-  if (state.view === 'calendar') renderCalendar();
+  if (state.view === 'calendar') renderCalendarDebounced();
   else if (state.view === 'user-list') renderUserList();
   else { var userId = state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id; if (state.currentViewMode === 'timeline') renderTimeline(userId); else renderTasks(userId); }
 }
@@ -4550,6 +4753,14 @@ async function saveMultiTask() {
    TABLE-BASED CALENDAR
    ============================================================ */
 var calState = { year: new Date().getFullYear(), month: new Date().getMonth(), zoom: 'year' };
+
+/**
+ * Debounced version of renderCalendar.
+ * Use this wherever the calendar needs to refresh in response to
+ * data changes (task save, cancel, reopen, leave update etc.)
+ * so rapid successive calls are collapsed into one paint.
+ */
+var renderCalendarDebounced = debounce(function() { renderCalendar(); }, CONFIG.DEBOUNCE_RENDER_MS);
 var _calColWidth = 80; // px — default column width for zoom
 
 function calZoom(dir) {
@@ -4579,6 +4790,49 @@ function calNav(dir) {
     if (calState.month < 0)  { calState.month = 11; calState.year--; }
   }
   renderCalendar();
+}
+
+/**
+ * calNavigateToTask — clicking a calendar task block navigates to that
+ * user's task board and highlights / expands the specific task card.
+ * • Admin/manager viewing team calendar → goes to user-tasks for that user.
+ * • Personal calendar or worker → stays on own board.
+ */
+function calNavigateToTask(task) {
+  const role = state.currentUser?.role;
+  const isElevated = role === 'admin' || role === 'manager';
+  const isOtherUser = isElevated && task.userId !== state.currentUser.id;
+
+  function _scrollAndExpand(taskId) {
+    // Wait a tick for renderTasks to finish, then scroll + expand
+    setTimeout(function() {
+      var card = document.querySelector('.task-card[data-id="' + taskId + '"]');
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.style.outline = '2px solid var(--amber)';
+        setTimeout(function() { card.style.outline = ''; }, 3000);
+        // Auto-expand the card
+        var expandSection = document.getElementById('expand-' + taskId);
+        if (expandSection && !expandSection.classList.contains('open')) {
+          expandSection.classList.add('open');
+        }
+      }
+    }, 120);
+  }
+
+  if (isOtherUser) {
+    // Navigate to that user's task board
+    state.targetUserId = task.userId;
+    state.view = 'user-tasks';
+    _navRecord('user-tasks:' + task.userId);
+    showView('user-tasks');
+    _scrollAndExpand(task.id);
+  } else {
+    // Own tasks — just navigate to my task board
+    state.view = 'my-tasks';
+    showBoardView(state.currentUser.id);
+    _scrollAndExpand(task.id);
+  }
 }
 
 function calGoToday() {
@@ -5130,21 +5384,21 @@ function renderCalendarYearView() {
 }
 
 function renderCalendar() {
-  var old = document.getElementById('cal-year-grid');
-  var legacyTable = document.getElementById('cal-table');
+  var old = $('cal-year-grid');
+  var legacyTable = $('cal-table');
   updateCalHeaderUI();
   if (calState.zoom === 'year') {
-    var splitW = document.getElementById('cal-split-wrapper');
+    var splitW = $('cal-split-wrapper');
     if (splitW) splitW.style.display = 'none';
     if (legacyTable) legacyTable.style.display = 'none';
-    var yearStrip = document.getElementById('cal-week-strip');
+    var yearStrip = $('cal-week-strip');
     if (yearStrip) yearStrip.classList.add('hidden');
     renderCalendarYearView();
     return;
   }
   if (old) old.remove();
   // Show split wrapper, hide legacy table
-  var splitWrapper = document.getElementById('cal-split-wrapper');
+  var splitWrapper = $('cal-split-wrapper');
   if (splitWrapper) splitWrapper.style.display = 'flex';
   if (legacyTable) legacyTable.style.display = 'none';
 
@@ -5154,10 +5408,10 @@ function renderCalendar() {
   var year = calState.year;
   var month = calState.month;
   var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  document.getElementById('cal-month-label').textContent = monthNames[month] + ' ' + year;
+  if (EL.calMonthLabel) EL.calMonthLabel.textContent = monthNames[month] + ' ' + year;
 
-  var namesTable = document.getElementById('cal-names-table');
-  var datesTable = document.getElementById('cal-dates-table');
+  var namesTable = EL.calNamesTable || $('cal-names-table');
+  var datesTable = EL.calDatesTable || $('cal-dates-table');
   namesTable.innerHTML = '';
   datesTable.innerHTML = '';
 
@@ -5211,6 +5465,9 @@ function renderCalendar() {
 
   var namesTbody = document.createElement('tbody');
   var datesTbody = document.createElement('tbody');
+  // Fragments for batched DOM writes — avoids per-row reflow
+  var namesFrag = document.createDocumentFragment();
+  var datesFrag = document.createDocumentFragment();
   var roleColors = { manager: '#A78BFA', user: 'var(--p4)' };
   var typeLabels = { lieu: '🟢 Lieu', loa: '🔵 LOA', awol: '🔴 AWOL' };
 
@@ -5239,7 +5496,7 @@ function renderCalendar() {
 
     // ── Dates panel row ──
     var datesTr = document.createElement('tr');
-    var userTasks = allTasks.filter(function(t) { return t.userId === user.id && !t.cancelled; });
+    var userTasks = allTasks.filter(function(t) { return t.userId === user.id; });
     var userLeaves = allLeaves.filter(function(l) { return l.userId === user.id; });
 
     // ── Pre-compute global slot assignments for this user ──
@@ -5528,10 +5785,12 @@ function renderCalendar() {
           }
 
           var block = document.createElement('div');
-          block.className = 'cal-block task-p' + task.priority + (task.isMultiPersonnel ? ' multi-task' : '') + spanClass;
+          var cancelledClass = task.cancelled ? ' cal-block-cancelled' : '';
+          block.className = 'cal-block task-p' + task.priority + (task.isMultiPersonnel ? ' multi-task' : '') + spanClass + cancelledClass;
           block.dataset.taskid = task.id;
-          block.title = task.title + ' — P' + task.priority + ' — ' + checkedItems + '/' + (totalItems||'–') + ' done (' + pct + '%) — ' + new Date(ts).toLocaleString() + ' → ' + new Date(te).toLocaleString();
-          block.onclick = (function(tid) { return function(e) { e.stopPropagation(); openEditTask(tid); }; })(task.id);
+          var statusSuffix = task.cancelled ? ' — 🚫 CANCELLED' : (task.done ? ' — ✓ DONE' : '');
+          block.title = task.title + ' — P' + task.priority + ' — ' + checkedItems + '/' + (totalItems||'–') + ' done (' + pct + '%) — ' + new Date(ts).toLocaleString() + ' → ' + new Date(te).toLocaleString() + statusSuffix;
+          block.onclick = (function(t) { return function(e) { e.stopPropagation(); calNavigateToTask(t); }; })(task);
 
           var isFirstVisible = isTaskStart || dayStr === toDateStr(days[0]);
           if (isFirstVisible) {
@@ -5544,7 +5803,7 @@ function renderCalendar() {
             dot.textContent = task.priority;
             var titleEl = document.createElement('span');
             titleEl.className = 'cal-block-title';
-            titleEl.textContent = (task.title.length > 14 ? task.title.substring(0, 14) + '…' : task.title) + (task.done ? ' ✓' : '');
+            titleEl.textContent = (task.title.length > 14 ? task.title.substring(0, 14) + '…' : task.title) + (task.done ? ' ✓' : '') + (task.cancelled ? ' 🚫' : '');
             inner.appendChild(dot);
             inner.appendChild(titleEl);
             block.appendChild(inner);
@@ -5613,15 +5872,18 @@ function renderCalendar() {
       }
       datesTr.appendChild(td);
     });
-    datesTbody.appendChild(datesTr);
+    datesFrag.appendChild(datesTr);
   });
 
+  // Flush fragments → single reflow per panel
+  namesTbody.appendChild(namesFrag);
+  datesTbody.appendChild(datesFrag);
   namesTable.appendChild(namesTbody);
   datesTable.appendChild(datesTbody);
 
   // ── Sync vertical scroll between panels ──
-  var namesPanel = document.getElementById('cal-names-panel');
-  var datesPanel = document.getElementById('cal-dates-panel');
+  var namesPanel = EL.calNamesPanel || $('cal-names-panel');
+  var datesPanel = EL.calDatesPanel || $('cal-dates-panel');
   // Remove old listeners by cloning
   var newNamesPanel = namesPanel.cloneNode(false);
   var newDatesPanel = datesPanel.cloneNode(false);
@@ -5629,28 +5891,36 @@ function renderCalendar() {
   newDatesPanel.appendChild(datesTable);
   namesPanel.parentNode.replaceChild(newNamesPanel, namesPanel);
   datesPanel.parentNode.replaceChild(newDatesPanel, datesPanel);
+  // passive:true lets the browser skip calling preventDefault — improves scroll performance
   newDatesPanel.addEventListener('scroll', function() {
     newNamesPanel.scrollTop = newDatesPanel.scrollTop;
-  });
+  }, { passive: true });
   newNamesPanel.addEventListener('scroll', function() {
     newDatesPanel.scrollTop = newNamesPanel.scrollTop;
-  });
+  }, { passive: true });
 
   // ── Sync row heights between panels ──
-  // height on <tr> is ignored by browsers; must be set on cells.
+  // Separates DOM reads from DOM writes to avoid layout thrashing.
   function syncRowHeights() {
     var nameRows = namesTable.querySelectorAll('tr');
     var dateRows = datesTable.querySelectorAll('tr');
     var len = Math.min(nameRows.length, dateRows.length);
-    // Reset all cells first so natural heights are measured
+    // PHASE 1: reset all heights (single write pass)
     for (var i = 0; i < len; i++) {
       Array.from(nameRows[i].cells).forEach(function(c) { c.style.height = ''; });
       Array.from(dateRows[i].cells).forEach(function(c) { c.style.height = ''; });
     }
-    // Measure and apply max height to all cells in each row pair
+    // PHASE 2: read all heights in one pass (no interleaved writes)
+    var heights = new Array(len);
     for (var i = 0; i < len; i++) {
-      var h = Math.max(nameRows[i].getBoundingClientRect().height, dateRows[i].getBoundingClientRect().height);
-      var hpx = h + 'px';
+      heights[i] = Math.max(
+        nameRows[i].getBoundingClientRect().height,
+        dateRows[i].getBoundingClientRect().height
+      );
+    }
+    // PHASE 3: write all heights in one pass (no interleaved reads)
+    for (var i = 0; i < len; i++) {
+      var hpx = heights[i] + 'px';
       Array.from(nameRows[i].cells).forEach(function(c) { c.style.height = hpx; });
       Array.from(dateRows[i].cells).forEach(function(c) { c.style.height = hpx; });
     }
@@ -5720,7 +5990,7 @@ function confirmAddLieuDays() {
   
   closeModal('lieu-day-modal');
   toast(`Added ${count} lieu day${count !== 1 ? 's' : ''} to ${_lieuTargetUserName}'s balance.`, 'success');
-  if (state.view === 'calendar') renderCalendar();
+  if (state.view === 'calendar') renderCalendarDebounced();
 }
 
 function addUserCustomWorkday(userId, dateStr) {
@@ -5757,12 +6027,21 @@ function renderUserList() {
     var done      = userTasks.filter(function(t) { return t.done; }).length;
     var roleColor = roleColors[u.role] || 'var(--p4)';
     var roleLabel = roleLabels[u.role] || u.role;
+    var userTeams = getTeams().filter(function(t) { return (t.memberIds || []).includes(u.id); });
+    var teamBadges = userTeams.length > 0
+      ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin:5px 0 2px;">' +
+          userTeams.map(function(t) {
+            var c = t.color || '#F59E0B';
+            return '<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;background:' + c + '18;border:1px solid ' + c + '44;color:' + c + ';">🏷 ' + escHtml(t.name) + '</span>';
+          }).join('') + '</div>'
+      : '';
     return '<div class="user-card" onclick="viewUserTasks(\'' + u.id + '\')">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
       '<div class="user-card-name">' + escHtml(u.name) + '</div>' +
       '<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px;background:' + roleColor + '18;color:' + roleColor + ';border:1px solid ' + roleColor + '30;">' + roleLabel + '</span>' +
       '</div>' +
       '<div class="user-card-username">@' + escHtml(u.username) + '</div>' +
+      teamBadges +
       '<div class="user-card-stats">' +
         '<div class="stat"><div class="stat-num">' + userTasks.length + '</div><div class="stat-label">Total</div></div>' +
         '<div class="stat"><div class="stat-num" style="color:var(--p1)">' + active    + '</div><div class="stat-label">Active</div></div>' +
@@ -5806,13 +6085,6 @@ document.addEventListener('contextmenu', e => {
     if (isElevated) {
       e.preventDefault();
       showCalDayCtxMenu(e, calTd.dataset.dateStr, calTd.dataset.userId, calTd.dataset.userName);
-      return;
-    }
-
-    // Workers can create tasks on their own calendar row
-    if (isWorker && calTd.dataset.userId === state.currentUser.id) {
-      e.preventDefault();
-      showWorkerCalDayCtxMenu(e, calTd.dataset.dateStr, calTd.dataset.userId, calTd.dataset.userName);
       return;
     }
   }
@@ -6045,60 +6317,6 @@ document.addEventListener('keydown', function(e) {
 });
 
 /* ============================================================
-   WORKER CALENDAR RIGHT-CLICK MENU — create task only
-   ============================================================ */
-var _workerCalCtxDate = null;
-var _workerCalCtxUserId = null;
-
-function showWorkerCalDayCtxMenu(e, dateStr, userId, userName) {
-  hideWorkerCalDayCtxMenu();
-  _workerCalCtxDate = dateStr;
-  _workerCalCtxUserId = userId;
-
-  const d = new Date(dateStr + 'T12:00:00');
-  const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const label = dayNames[d.getDay()] + ', ' + monthNames[d.getMonth()] + ' ' + d.getDate();
-
-  const menu = document.getElementById('worker-cal-day-ctx-menu');
-  document.getElementById('worker-cal-ctx-date-label').textContent = label;
-  menu.classList.remove('hidden');
-  menu.style.left = e.clientX + 'px';
-  menu.style.top  = e.clientY + 'px';
-  requestAnimationFrame(() => {
-    const rect = menu.getBoundingClientRect();
-    if (rect.right  > window.innerWidth)  menu.style.left = (e.clientX - rect.width) + 'px';
-    if (rect.bottom > window.innerHeight) menu.style.top  = (e.clientY - rect.height) + 'px';
-  });
-}
-
-function hideWorkerCalDayCtxMenu() {
-  const menu = document.getElementById('worker-cal-day-ctx-menu');
-  if (menu) menu.classList.add('hidden');
-  _workerCalCtxDate = null;
-  _workerCalCtxUserId = null;
-}
-document.addEventListener('click', hideWorkerCalDayCtxMenu);
-
-function workerCalCtxCreateTask() {
-  if (!_workerCalCtxDate) return;
-  const dateStr = _workerCalCtxDate;
-  hideWorkerCalDayCtxMenu();
-  openAddTask();
-  setTimeout(function() {
-    const _wh = getWorkHours();
-    const startHour = _wh.start || 8;
-    const d = new Date(dateStr + 'T' + String(startHour).padStart(2,'0') + ':00:00');
-    const startEl = document.getElementById('f-start');
-    if (startEl) {
-      startEl.value = toLocalISO(d);
-      if (typeof onTaskFieldChange === 'function') onTaskFieldChange();
-    }
-    state._returnToCalendar = true;
-  }, 80);
-}
-
-/* ============================================================
    IMPORT USERS — Excel / CSV bulk import (multi-sheet)
    ============================================================ */
 var _importRows    = [];
@@ -6302,8 +6520,8 @@ async function importSubmit() {
   if (!validRows.length) { toast('No valid rows to import.', 'error'); return; }
   if (_importRunning) return;
   _importRunning = true;
-
-  document.getElementById('import-submit-btn').disabled = true;
+  var _importBtn = document.getElementById('import-submit-btn');
+  _lockOp('importUsers', _importBtn, 'Importing users…');
   document.getElementById('import-progress-wrap').classList.remove('hidden');
 
   var fill  = document.getElementById('import-progress-fill');
@@ -6364,7 +6582,7 @@ async function importSubmit() {
   fill.style.width = '100%';
   label.textContent = '✓ Done — ' + done + ' imported' + (failed ? ', ' + failed + ' failed' : '') + '.';
   _importRunning = false;
-  document.getElementById('import-submit-btn').disabled = false;
+  _unlockOp('importUsers', _importBtn);
   document.getElementById('import-submit-btn').classList.add('hidden');
 
   try { cache.teams = await API.get('/teams') || cache.teams; } catch(e) {}
@@ -6439,7 +6657,8 @@ async function executeDeleteAll() {
   if (!confirmed) { toast('Type DELETE to confirm.', 'error'); return; }
   if (!delTasks && !delUsers && !delTeams) { toast('Select at least one option.', 'error'); return; }
 
-  document.getElementById('delete-all-btn').disabled = true;
+  var _delBtn = document.getElementById('delete-all-btn');
+  _lockOp('deleteAll', _delBtn, 'Deleting data…');
   document.getElementById('del-progress-wrap').classList.remove('hidden');
   var fill  = document.getElementById('del-progress-fill');
   var label = document.getElementById('del-progress-label');
@@ -6495,6 +6714,7 @@ async function executeDeleteAll() {
     toast('Deleted all ' + parts.join(', ') + '.', 'success');
 
     setTimeout(function() {
+      _unlockOp('deleteAll', _delBtn);
       closeModal('delete-all-modal');
       if (state.view === 'user-list') renderUserList();
       else if (state.view === 'task-board') renderTasks(state.currentUser.id);
@@ -6503,7 +6723,7 @@ async function executeDeleteAll() {
 
   } catch(err) {
     toast('Delete failed: ' + (err.message || 'Unknown error'), 'error');
-    document.getElementById('delete-all-btn').disabled = false;
+    _unlockOp('deleteAll', _delBtn);
   }
 }
 
@@ -6905,10 +7125,45 @@ const Session = (() => {
    INITIALIZE APP — called after body.html is injected into DOM
    ============================================================ */
 async function initializeApp() {
+  /* ── DOM element cache ──────────────────────────────────────
+     Populated once so the rest of the app can read EL.xxx
+     instead of calling getElementById() on every render.
+     To add a new cached element: add a line here.
+  ────────────────────────────────────────────────────────── */
+  window.EL = {
+    app:            $('app'),
+    loginScreen:    $('login-screen'),
+    loginBtn:       $('login-btn'),
+    loginUser:      $('login-username'),
+    loginPw:        $('login-password'),
+    loginError:     $('login-error'),
+    saPanel:        $('sa-panel'),
+    taskBoard:      $('task-board'),
+    taskModal:      $('task-modal'),
+    cancelModal:    $('cancel-modal'),
+    confirmModal:   $('confirm-modal'),
+    calView:        $('calendar-view'),
+    calNamesPanel:  $('cal-names-panel'),
+    calDatesPanel:  $('cal-dates-panel'),
+    calNamesTable:  $('cal-names-table'),
+    calDatesTable:  $('cal-dates-table'),
+    calMonthLabel:  $('cal-month-label'),
+    addTaskFab:     $('add-task-fab'),
+    breadcrumb:     $('breadcrumb'),
+    boardFilterBar: $('board-filter-bar'),
+    boardSearch:    $('board-search'),
+    headerRole:     $('header-role'),
+    headerUsername: $('header-username'),
+    notifBtn:       $('notif-btn'),
+    globalOverlay:  $('global-overlay'),
+    pushContainer:  $('push-notif-container'),
+    mobNavAdd:      $('mob-nav-add'),
+  };
+
   // Wire up login event listeners
-  document.getElementById('login-btn').addEventListener('click', signIn);
-  document.getElementById('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') signIn(); });
-  document.getElementById('login-username').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('login-password').focus(); });
+  EL.loginBtn.addEventListener('click', signIn);
+  EL.loginPw.addEventListener('keydown', function(e) { if (e.key === 'Enter') signIn(); });
+  EL.loginUser.addEventListener('keydown', function(e) { if (e.key === 'Enter') EL.loginPw.focus(); });
 
   // Wire up modal overlay click-to-close
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
@@ -6934,7 +7189,7 @@ async function initializeApp() {
     const u = rows[0];
     state.currentUser = { id: u.id, name: u.name, username: u.username, role: u.role, companyId: u.company_id };
 
-    document.getElementById('login-screen').classList.add('hidden');
+    EL.loginScreen||document.getElementById('login-screen').classList.add('hidden');
 
     if (role === 'superadmin') {
       document.getElementById('sa-panel').classList.remove('hidden');
@@ -6984,7 +7239,7 @@ window._sessionClaimOnRestore = async function() {
       // Someone else is logged in — boot us to login
       API.clearToken();
       document.getElementById('app').classList.add('hidden');
-      document.getElementById('login-screen').classList.remove('hidden');
+      EL.loginScreen||document.getElementById('login-screen').classList.remove('hidden');
       toast('Your session was opened on another device. Please sign in.', 'warning');
       return;
     }

@@ -52,9 +52,9 @@ body.app-ready #app, body.app-ready #sa-panel { visibility: visible; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--amber); }
 
-button { cursor: pointer; border: none; outline: none; font-family: var(--mono); }
+button { cursor: pointer; border: none; outline: none; font-family: var(--mono); touch-action: manipulation; }
 input, textarea, select { font-family: var(--mono); outline: none; }
-a { color: inherit; text-decoration: none; }
+a { color: inherit; text-decoration: none; touch-action: manipulation; }
 
 /* ============================================================
    UTILITY
@@ -190,6 +190,7 @@ a { color: inherit; text-decoration: none; }
   width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
   background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
   color: var(--text2); font-size: 16px; transition: all var(--trans);
+  touch-action: manipulation;
 }
 .icon-btn:hover { border-color: var(--amber); color: var(--amber); background: var(--amber-glow); }
 .icon-btn.active {
@@ -260,6 +261,8 @@ a { color: inherit; text-decoration: none; }
   border-radius: var(--radius-lg); padding: 40px 48px;
   text-align: center; cursor: pointer; transition: all var(--trans);
   min-width: 200px; display: flex; flex-direction: column; align-items: center; gap: 14px;
+  will-change: transform;
+  touch-action: manipulation;
 }
 .admin-nav-card:hover {
   border-color: var(--amber); transform: translateY(-4px);
@@ -278,11 +281,14 @@ a { color: inherit; text-decoration: none; }
    TASK BOARD SEARCH / FILTER BAR
    ============================================================ */
 #board-filter-bar {
-  padding: 12px 20px 0 80px;
+  padding: 12px 20px 10px 80px;
   display: none;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  position: sticky; top: 100px; z-index: 39;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
 }
 #board-filter-bar.visible { display: flex; }
 .board-search-wrap {
@@ -308,12 +314,15 @@ a { color: inherit; text-decoration: none; }
   padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;
   background: var(--bg3); border: 1px solid var(--border); color: var(--text3);
   cursor: pointer; transition: all var(--trans);
+  touch-action: manipulation;
 }
 .board-filter-pill:hover { border-color: var(--amber); color: var(--text); }
 .board-filter-pill.active { background: var(--amber); color: var(--bg); border-color: var(--amber); }
 @media (max-width: 768px) {
-  #board-filter-bar { padding: 10px 12px 0; }
+  #board-filter-bar { padding: 10px 12px 8px; gap: 8px; }
   .board-search-wrap { max-width: 100%; }
+  .board-filter-pills { gap: 8px; }
+  .board-filter-pill { padding: 8px 14px; font-size: 12px; }
 }
 #task-board {
   padding: 20px 20px 20px 80px;
@@ -321,6 +330,7 @@ a { color: inherit; text-decoration: none; }
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 16px;
   align-content: start;
+  overscroll-behavior-y: contain;
 }
 .board-empty {
   grid-column: 1/-1; text-align: center; padding: 80px 20px; color: var(--text3);
@@ -596,6 +606,8 @@ a { color: inherit; text-decoration: none; }
   cursor: pointer; user-select: none;
   transition: transform var(--trans), box-shadow var(--trans), border-color var(--trans);
   position: relative;
+  will-change: transform;
+  touch-action: manipulation;
 }
 .task-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--border2); }
 .task-card.done {
@@ -905,6 +917,10 @@ a { color: inherit; text-decoration: none; }
 .breadcrumb {
   display: flex; align-items: center; gap: 8px; padding: 12px 20px 0 80px;
   font-size: 12px; color: var(--text3);
+  position: sticky; top: 58px; z-index: 40;
+  background: var(--bg);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
 }
 .breadcrumb-item { cursor: pointer; transition: color var(--trans); }
 .breadcrumb-item:hover { color: var(--amber); }
@@ -938,6 +954,7 @@ a { color: inherit; text-decoration: none; }
   animation: push-slide-in 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards;
   cursor: pointer;
   transform-origin: top right;
+  will-change: transform, opacity;
 }
 .push-notif.dismissing {
   animation: push-slide-out 0.3s cubic-bezier(0.4,0,0.2,1) forwards;
@@ -1031,12 +1048,15 @@ a { color: inherit; text-decoration: none; }
 }
 .mob-nav-item {
   flex: 1; display: flex; flex-direction: column; align-items: center;
-  gap: 3px; padding: 6px 4px; cursor: pointer;
+  gap: 3px; padding: 8px 4px; cursor: pointer;
   border: none; background: transparent;
   color: rgba(255,255,255,0.4); font-size: 10px; font-weight: 600;
   letter-spacing: 0.04em; transition: color 0.2s;
   position: relative;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  /* iOS minimum touch target */
+  min-height: 44px;
 }
 .mob-nav-item.active { color: var(--amber); }
 .mob-nav-item svg, .mob-nav-item .mob-nav-icon { font-size: 22px; line-height: 1; }
@@ -1466,6 +1486,10 @@ body.modal-open .modal-overlay { pointer-events: auto; }
 .calendar-header {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
   flex-shrink: 0;
+  position: sticky; top: 58px; z-index: 50;
+  background: var(--bg); padding: 10px 0;
+  margin: -10px 0;
+  border-bottom: 1px solid var(--border);
 }
 .calendar-title { font-family: var(--display); font-size: 18px; font-weight: 700; }
 .calendar-controls { display: flex; align-items: center; gap: 12px; }
@@ -1503,6 +1527,8 @@ body.modal-open .modal-overlay { pointer-events: auto; }
 .cal-names-panel::-webkit-scrollbar { display: none; }
 .cal-dates-panel {
   flex: 1; overflow-x: auto; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 /* Keep both panels scrolled in sync vertically */
 .cal-names-panel table, .cal-dates-panel table {
@@ -1549,6 +1575,7 @@ body.modal-open .modal-overlay { pointer-events: auto; }
   border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
   padding: 4px 0; vertical-align: top; min-width: var(--cal-col-w, 80px);
   overflow: visible; position: relative;
+  contain: layout style; /* limit repaint scope per cell */
 }
 /* Task cell content never clips — grows to show all tasks */
 .cal-cell-content { min-height: 52px; display: flex; flex-direction: column; gap: 3px; padding: 2px 4px; overflow: visible; }
@@ -1625,6 +1652,8 @@ body.modal-open .modal-overlay { pointer-events: auto; }
   transition: filter var(--trans), box-shadow var(--trans); line-height: 22px;
   display: flex; align-items: center; justify-content: center; position: relative;
   border-radius: 4px;
+  will-change: filter;
+  touch-action: manipulation;
 }
 .cal-block:hover { filter: brightness(1.15); box-shadow: 0 2px 8px rgba(0,0,0,0.35); z-index: 50; }
 .cal-block.task-p1 { background: rgba(255,64,64,0.28); color: #FF6B6B; border-left: 3px solid var(--p1); }
@@ -1632,6 +1661,27 @@ body.modal-open .modal-overlay { pointer-events: auto; }
 .cal-block.task-p3 { background: rgba(245,197,24,0.22); color: #EAB308; border-left: 3px solid var(--p3); }
 .cal-block.task-p4 { background: rgba(56,189,248,0.18); color: var(--p4); border-left: 3px solid var(--p4); }
 .cal-block.task-p5 { background: rgba(100,116,139,0.18); color: var(--p5); border-left: 3px solid var(--p5); }
+
+/* Cancelled task — red overlay, strikethrough title */
+.cal-block.cal-block-cancelled {
+  background: rgba(239,68,68,0.12) !important;
+  border-left-color: var(--danger) !important;
+  color: rgba(239,68,68,0.7) !important;
+  opacity: 0.65;
+  pointer-events: auto;
+}
+.cal-block.cal-block-cancelled .cal-block-title {
+  text-decoration: line-through;
+  color: rgba(239,68,68,0.8);
+}
+.cal-block.cal-block-cancelled .cal-priority-dot {
+  background: var(--danger) !important;
+  opacity: 0.6;
+}
+.cal-block.cal-block-cancelled .cal-completion-fill {
+  background: var(--danger) !important;
+  opacity: 0.4 !important;
+}
 .cal-block.leave-lieu { background: rgba(16,185,129,0.2); color: #10B981; border-left: 3px solid #10B981; }
 .cal-block.leave-loa { background: rgba(59,130,246,0.2); color: var(--info); border-left: 3px solid var(--info); }
 .cal-block.leave-awol { background: rgba(239,68,68,0.2); color: var(--danger); border-left: 3px solid var(--danger); }
@@ -2281,7 +2331,13 @@ body.modal-open .modal-overlay { pointer-events: auto; }
   #task-board {
     grid-template-columns: 1fr !important;
     padding: 12px 12px 80px !important;
+    gap: 12px !important;
   }
+  /* Task cards: comfortable touch size */
+  .task-card { touch-action: manipulation; }
+  .done-btn { min-height: 44px; padding: 10px 14px; font-size: 12px; }
+  .card-body { padding: 14px; }
+  .card-footer { padding: 10px 14px; }
 
   /* FAB above bottom nav */
   #add-task-fab {
@@ -2348,13 +2404,14 @@ body.modal-open .modal-overlay { pointer-events: auto; }
    ============================================================ */
 /* Make context menus more touch-friendly */
 @media (max-width: 768px) {
-  #context-menu, #cal-ctx-menu, #cal-day-ctx-menu, #worker-cal-day-ctx-menu {
+  #context-menu, #cal-ctx-menu, #cal-day-ctx-menu {
     min-width: 220px;
     border-radius: 16px;
   }
   .ctx-item {
-    padding: 13px 16px;
+    padding: 14px 16px;
     font-size: 14px;
+    min-height: 44px; /* iOS minimum touch target */
   }
   /* Mobile task tooltip — shown as bottom sheet hint */
   #tf-task-tooltip-mobile {
