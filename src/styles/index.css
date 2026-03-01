@@ -1526,10 +1526,17 @@ body.modal-open .modal-overlay { pointer-events: auto; }
 }
 .cal-names-panel::-webkit-scrollbar { display: none; }
 .cal-dates-panel {
-  flex: 1; overflow-x: auto; overflow-y: auto;
+  flex: 1; overflow-x: scroll; overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
+/* Always show horizontal scrollbar on cal-dates-panel */
+.cal-dates-panel::-webkit-scrollbar { width: 6px; height: 8px; }
+.cal-dates-panel::-webkit-scrollbar-track:horizontal { background: var(--bg3); border-top: 1px solid var(--border); }
+.cal-dates-panel::-webkit-scrollbar-thumb:horizontal { background: var(--border2); border-radius: 4px; }
+.cal-dates-panel::-webkit-scrollbar-thumb:horizontal:hover { background: var(--amber); }
+.cal-dates-panel { scrollbar-width: thin; scrollbar-color: var(--border2) var(--bg3); }
 /* Keep both panels scrolled in sync vertically */
 .cal-names-panel table, .cal-dates-panel table {
   border-collapse: separate; border-spacing: 0;

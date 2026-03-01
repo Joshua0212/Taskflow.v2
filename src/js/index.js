@@ -785,7 +785,7 @@ async function signIn() {
     API.setToken(data.token);
     state.currentUser = data.user;
 
-    EL.loginScreen||document.getElementById('login-screen').classList.add('hidden');
+    (EL.loginScreen||document.getElementById('login-screen')).classList.add('hidden');
 
     if (data.user.role === 'superadmin') {
       // Super-admin goes to their own panel, not the main app
@@ -830,7 +830,7 @@ async function signOut() {
   Object.keys(cache).forEach(k => cache[k] = null);
   document.getElementById('app').classList.add('hidden');
   document.getElementById('sa-panel').classList.add('hidden');
-  EL.loginScreen||document.getElementById('login-screen').classList.remove('hidden');
+  (EL.loginScreen||document.getElementById('login-screen')).classList.remove('hidden');
   document.getElementById('login-username').value = '';
   document.getElementById('login-password').value = '';
   document.getElementById('login-error').classList.add('hidden');
@@ -864,8 +864,8 @@ function showView(v) {
   state.previousView = state.view;
   state.view = v;
   views.forEach(id => document.getElementById(id)?.classList.add('hidden'));
-  EL.boardFilterBar||document.getElementById('board-filter-bar')?.classList.remove('visible');
-  EL.addTaskFab||document.getElementById('add-task-fab').classList.add('hidden');
+  (EL.boardFilterBar||document.getElementById('board-filter-bar'))?.classList.remove('visible');
+  (EL.addTaskFab||document.getElementById('add-task-fab')).classList.add('hidden');
   document.getElementById('breadcrumb').classList.add('hidden');
   // Restore mobile "New Task" button when leaving calendar
   if (v !== 'calendar') {
@@ -1046,8 +1046,8 @@ function showView(v) {
 
 function showBoardView(userId) {
   document.getElementById('task-board').classList.remove('hidden');
-  EL.addTaskFab||document.getElementById('add-task-fab').classList.remove('hidden');
-  EL.boardFilterBar||document.getElementById('board-filter-bar').classList.add('visible');
+  (EL.addTaskFab||document.getElementById('add-task-fab')).classList.remove('hidden');
+  (EL.boardFilterBar||document.getElementById('board-filter-bar')).classList.add('visible');
   _boardSearchVal = '';
   _boardFilter = 'all';
   const inp = document.getElementById('board-search');
@@ -1070,7 +1070,7 @@ function showBoardView(userId) {
 
 function showTimelineView(userId) {
   document.getElementById('timeline-view').classList.remove('hidden');
-  EL.addTaskFab||document.getElementById('add-task-fab').classList.remove('hidden');
+  (EL.addTaskFab||document.getElementById('add-task-fab')).classList.remove('hidden');
   const isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
   const targetUser = getUsers().find(u => u.id === userId);
   document.getElementById('timeline-title').textContent = isElevated && state.view === 'user-tasks' 
@@ -5899,6 +5899,20 @@ function renderCalendar() {
     newDatesPanel.scrollTop = newNamesPanel.scrollTop;
   }, { passive: true });
 
+  // ── Pass vertical wheel to page; only consume horizontal (Shift+wheel) ──
+  function calWheelHandler(e) {
+    var isHorizontal = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
+    if (!isHorizontal) {
+      // Let the event bubble — don't prevent default, so page scrolls normally
+      return;
+    }
+    // Horizontal: scroll the dates panel
+    e.preventDefault();
+    newDatesPanel.scrollLeft += (e.deltaX || e.deltaY);
+  }
+  newDatesPanel.addEventListener('wheel', calWheelHandler, { passive: false });
+  newNamesPanel.addEventListener('wheel', calWheelHandler, { passive: false });
+
   // ── Sync row heights between panels ──
   // Separates DOM reads from DOM writes to avoid layout thrashing.
   function syncRowHeights() {
@@ -7189,7 +7203,7 @@ async function initializeApp() {
     const u = rows[0];
     state.currentUser = { id: u.id, name: u.name, username: u.username, role: u.role, companyId: u.company_id };
 
-    EL.loginScreen||document.getElementById('login-screen').classList.add('hidden');
+    (EL.loginScreen||document.getElementById('login-screen')).classList.add('hidden');
 
     if (role === 'superadmin') {
       document.getElementById('sa-panel').classList.remove('hidden');
@@ -7239,7 +7253,7 @@ window._sessionClaimOnRestore = async function() {
       // Someone else is logged in — boot us to login
       API.clearToken();
       document.getElementById('app').classList.add('hidden');
-      EL.loginScreen||document.getElementById('login-screen').classList.remove('hidden');
+      (EL.loginScreen||document.getElementById('login-screen')).classList.remove('hidden');
       toast('Your session was opened on another device. Please sign in.', 'warning');
       return;
     }
