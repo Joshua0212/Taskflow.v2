@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>TaskFlow — Command Center</title>
+
+  <!-- Font Imports — display:swap avoids invisible text during load -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- External Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles/index.css">
+</head>
+<body>
+  <!-- Application container — body.html is fetched and injected here -->
+  <div id="app-container"></div>
+
+  <!-- Load all app logic (function definitions, no top-level DOM access) -->
+  <script src="js/index.js"></script>
+
+  <!-- Bootstrap: inject HTML then initialize -->
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const res = await fetch('pages/body.html');
+        if (!res.ok) throw new Error('HTTP ' + res.status + ' — failed to load pages/body.html');
+        const html = await res.text();
+        document.getElementById('app-container').innerHTML = html;
+        // All DOM elements now exist — safe to call initializeApp
+        await initializeApp();
+      } catch (err) {
+        console.error('TaskFlow bootstrap error:', err);
+        document.getElementById('app-container').innerHTML =
+          '<div style="padding:40px;color:#EF4444;font-family:monospace;">' +
+          '<strong>⚠ Error loading TaskFlow</strong><br><br>' + err.message + '</div>';
+      }
+    });
+  </script>
+</body>
+</html>
