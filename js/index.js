@@ -715,15 +715,22 @@ function _unlockOp(key, btn) {
   }
 }
 
-/* ── Nav history for Home / Back / Next header buttons ── */
+/* ── Nav history — backed by browser History API ── */
+/* On mobile: physical/browser back button navigates within the app.  */
+/* On desktop: header Back/Next buttons still work via history.go().  */
 const _navHist = [];
 let   _navIdx  = -1;
+let   _navIgnorePopstate = false; // prevents re-push on popstate-triggered showView
 
 function _navRecord(key) {
   if (_navHist[_navIdx] === key) return;          // same page, skip
   _navHist.splice(_navIdx + 1);                   // drop forward stack
   _navHist.push(key);
   _navIdx = _navHist.length - 1;
+  // Push into browser history so the OS back gesture works
+  if (!_navIgnorePopstate) {
+    try { window.history.pushState({ tfView: key, tfIdx: _navIdx }, '', ''); } catch(e) {}
+  }
   _navRefresh();
 }
 
@@ -735,6 +742,31 @@ function _navRefresh() {
   if (back) { back.style.opacity = canBack ? '1' : '0.35'; back.style.pointerEvents = canBack ? 'auto' : 'none'; }
   if (next) { next.style.opacity = canNext ? '1' : '0.35'; next.style.pointerEvents = canNext ? 'auto' : 'none'; }
 }
+
+/* Handle browser/OS back & forward gestures */
+window.addEventListener('popstate', function(e) {
+  if (!state.currentUser) return; // not logged in — let browser handle normally
+  // Prevent default navigation away from the SPA
+  var targetView = (e.state && e.state.tfView) ? e.state.tfView : null;
+  var targetIdx  = (e.state && e.state.tfIdx  != null) ? e.state.tfIdx  : -1;
+  if (targetView) {
+    _navIgnorePopstate = true;
+    _navIdx = targetIdx;
+    _navJump(targetView);
+    _navRefresh();
+    _navIgnorePopstate = false;
+  } else {
+    // No state — user hit back past our app entry; go home
+    _navIgnorePopstate = true;
+    var homeView = (state.currentUser.role === 'admin' || state.currentUser.role === 'manager') ? 'admin-home' : 'worker-home';
+    _navIdx = 0;
+    showView(homeView);
+    _navRefresh();
+    _navIgnorePopstate = false;
+    // Re-push so the back button stays within the app
+    try { window.history.pushState({ tfView: homeView, tfIdx: 0 }, '', ''); } catch(e2) {}
+  }
+});
 
 function _navJump(key) {
   if (!key) return;
@@ -956,9 +988,16 @@ function showView(v) {
     const label = isPersonal ? 'My Calendar' : 'Calendar';
     setBreadcrumb([{label:'Home', fn: isPersonal ? 'goToMyTasks' : 'goAdminHome'}, {label}]);
     
-    // Always show breadcrumbs in calendar
+    // Show breadcrumbs in calendar on desktop; hide on mobile to give calendar full height
     var breadcrumb = document.getElementById('breadcrumb');
-    if (breadcrumb) breadcrumb.classList.remove('hidden');
+    if (breadcrumb) {
+      var isMobileView = window.innerWidth <= 768 || ('ontouchstart' in window);
+      if (isMobileView) {
+        breadcrumb.classList.add('hidden');
+      } else {
+        breadcrumb.classList.remove('hidden');
+      }
+    }
 
     // Hide mobile "New Task" button — add tasks from the task board, not calendar
     var mobAddBtn = document.getElementById('mob-nav-add');
@@ -5899,20 +5938,64 @@ function renderCalendar() {
     newDatesPanel.scrollTop = newNamesPanel.scrollTop;
   }, { passive: true });
 
-  // ── Wheel: vertical scrolls the PAGE, Shift+wheel scrolls calendar horizontally ──
+  // ── Wheel: vertical scrolls dates panel, Shift+wheel scrolls horizontally ──
+  // On desktop: ANY wheel event inside the calendar view is captured so the
+  // user doesn't have to precisely hit the thin dates panel to scroll vertically.
   function calWheelHandler(e) {
-    var isHorizontal = e.shiftKey || (Math.abs(e.deltaX) > Math.abs(e.deltaY));
+    var isHorizontal = e.shiftKey || (Math.abs(e.deltaX) > Math.abs(e.deltaY) && !e.shiftKey);
     if (isHorizontal) {
       // Consume and apply horizontal scroll to dates panel
       e.preventDefault();
       e.stopPropagation();
       newDatesPanel.scrollLeft += (e.shiftKey ? e.deltaY : e.deltaX);
+    } else {
+      // Vertical: forward to dates panel so hover anywhere on the calendar scrolls it
+      var isMobileDevice = window.innerWidth <= 768 || ('ontouchstart' in window);
+      if (!isMobileDevice) {
+        // Only hijack if the dates panel actually has scrollable content
+        var canScrollV = newDatesPanel.scrollHeight > newDatesPanel.clientHeight;
+        if (canScrollV) {
+          e.preventDefault();
+          e.stopPropagation();
+          newDatesPanel.scrollTop += e.deltaY;
+          // Sync names panel
+          newNamesPanel.scrollTop = newDatesPanel.scrollTop;
+        }
+      }
+      // On mobile: let native touch scroll handle it — don't preventDefault
     }
-    // Vertical: do NOT prevent default — let the event bubble so the panel's
-    // own vertical scroll (when content overflows) or the page scroll works normally.
   }
   newDatesPanel.addEventListener('wheel', calWheelHandler, { passive: false });
   newNamesPanel.addEventListener('wheel', calWheelHandler, { passive: false });
+
+  // Attach wheel listener to the outer calendar-view container so hovering
+  // over the header row or padding areas also scrolls the dates panel (desktop only)
+  var calViewEl = document.getElementById('calendar-view');
+  if (calViewEl) {
+    // Remove previous outer wheel listener to avoid stacking on re-render
+    if (calViewEl._tfWheelHandler) {
+      calViewEl.removeEventListener('wheel', calViewEl._tfWheelHandler);
+    }
+    calViewEl._tfWheelHandler = function(e) {
+      var isMobileDevice = window.innerWidth <= 768 || ('ontouchstart' in window);
+      if (isMobileDevice) return; // let native touch do its thing
+      // Only intercept if the event didn't already originate from inside the dates/names panel
+      if (newDatesPanel.contains(e.target) || newNamesPanel.contains(e.target)) return;
+      var isHoriz = e.shiftKey || (Math.abs(e.deltaX) > Math.abs(e.deltaY));
+      if (isHoriz) {
+        e.preventDefault();
+        newDatesPanel.scrollLeft += (e.shiftKey ? e.deltaY : e.deltaX);
+      } else {
+        var canScrollV = newDatesPanel.scrollHeight > newDatesPanel.clientHeight;
+        if (canScrollV) {
+          e.preventDefault();
+          newDatesPanel.scrollTop += e.deltaY;
+          newNamesPanel.scrollTop = newDatesPanel.scrollTop;
+        }
+      }
+    };
+    calViewEl.addEventListener('wheel', calViewEl._tfWheelHandler, { passive: false });
+  }
 
   // ── Sync row heights between panels ──
   // Separates DOM reads from DOM writes to avoid layout thrashing.
