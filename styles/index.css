@@ -356,7 +356,8 @@ a { color: inherit; text-decoration: none; touch-action: manipulation; }
   padding: 20px 20px 20px 80px;
   display: flex; flex-direction: column; gap: 16px;
   min-height: calc(100vh - 58px);
-  overflow: hidden;
+  /* overflow:hidden was blocking vertical scroll on hover — use clip instead */
+  overflow: clip;
 }
 .timeline-header {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
@@ -381,6 +382,8 @@ a { color: inherit; text-decoration: none; touch-action: manipulation; }
 .timeline-container {
   flex: 1; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg);
   overflow: auto; position: relative; min-height: 400px;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 .timeline-grid {
   display: grid;
@@ -486,7 +489,8 @@ a { color: inherit; text-decoration: none; touch-action: manipulation; }
   padding: 20px 20px 20px 80px;
   display: flex; flex-direction: column; gap: 16px;
   min-height: calc(100vh - 58px);
-  overflow: hidden;
+  /* overflow:hidden was blocking vertical scroll on hover — use clip instead */
+  overflow: clip;
 }
 .leave-calendar-header {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
@@ -510,6 +514,9 @@ a { color: inherit; text-decoration: none; touch-action: manipulation; }
 .leave-calendar-container {
   flex: 1; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg);
   overflow: auto; position: relative; min-height: 400px;
+  /* Fix: ensure wheel/scroll events aren't swallowed by the parent overflow:hidden */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 .leave-calendar-grid {
   display: grid;
@@ -2592,3 +2599,369 @@ body.modal-open .modal-overlay { pointer-events: auto; }
   }
 }
 
+
+/* ============================================================
+   MOBILE CALENDAR — CONSOLIDATED UX OVERHAUL (2026)
+   Fixes:
+   1. Vertical scroll blocked when hovering calendar containers
+   2. Touch targets too small (< 44px iOS minimum)
+   3. Name panel too narrow — text unreadable
+   4. Task blocks too small to tap accurately
+   5. No visual feedback on touch
+   6. Week strip missing on portrait (wasted nav opportunity)
+   7. Conflicting height calcs leaving dead space
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+  /* ── Calendar outer view: fill viewport correctly ── */
+  #calendar-view {
+    display: flex !important;
+    flex-direction: column !important;
+    /* header(52) + breadcrumb(33) + bottom-nav(60) */
+    height: calc(100dvh - 52px - 33px - 60px) !important;
+    max-height: calc(100dvh - 52px - 33px - 60px) !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    gap: 0 !important;
+  }
+
+  /* ── Calendar header: 2-row grid, no overflow clipping ── */
+  .calendar-header {
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    grid-template-rows: auto auto !important;
+    align-items: center !important;
+    padding: 8px 12px 6px !important;
+    gap: 6px 8px !important;
+    background: var(--bg2) !important;
+    border-bottom: 1px solid var(--border) !important;
+    flex-shrink: 0 !important;
+    /* No overflow:hidden — let children define their own scroll */
+    overflow: visible !important;
+  }
+
+  .calendar-title {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    font-size: 14px !important;
+    font-weight: 800 !important;
+  }
+
+  /* Controls row: horizontally scrollable strip */
+  .calendar-controls {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    padding-bottom: 2px !important;
+  }
+  .calendar-controls::-webkit-scrollbar { display: none; }
+
+  /* Nav buttons: meet 44px iOS touch minimum */
+  .cal-nav-btn {
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 16px !important;
+    flex-shrink: 0 !important;
+    border-radius: 8px !important;
+  }
+
+  .cal-month-label {
+    min-width: 96px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    flex-shrink: 0 !important;
+    text-align: center !important;
+  }
+
+  /* Control buttons: 36px tall to meet touch target */
+  #cal-zoom-btn,
+  #cal-team-toggle-btn,
+  #add-leave-btn,
+  .btn-secondary[onclick="calGoToday()"] {
+    font-size: 11px !important;
+    padding: 8px 10px !important;
+    min-height: 36px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    border-radius: 8px !important;
+  }
+
+  /* ── Calendar container: fill remaining flex space ── */
+  .calendar-container {
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    border-radius: 0 !important;
+    border: none !important;
+    border-top: 1px solid var(--border) !important;
+  }
+
+  .cal-split-wrapper {
+    height: 100% !important;
+    display: flex !important;
+    overflow: hidden !important;
+  }
+
+  /* ── Names panel: wider for readability (was 70px, now 90px) ── */
+  .cal-names-panel {
+    width: 90px !important;
+    min-width: 90px !important;
+    box-shadow: 3px 0 12px rgba(0,0,0,0.5) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    /* scrollbar hidden — dates panel drives sync scroll */
+    scrollbar-width: none !important;
+  }
+  .cal-names-panel::-webkit-scrollbar { display: none; }
+
+  .cal-names-panel table {
+    width: 90px !important;
+    table-layout: fixed !important;
+  }
+
+  .cal-names-panel tbody td {
+    width: 90px !important;
+    min-width: 90px !important;
+  }
+
+  /* User label: taller rows = easier to tap */
+  .cal-user-label {
+    padding: 8px 8px !important;
+    min-height: 44px !important; /* iOS minimum touch */
+    justify-content: center !important;
+  }
+
+  .cal-user-name {
+    font-size: 10px !important;
+    max-width: 74px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    color: var(--amber) !important;
+    font-weight: 700 !important;
+  }
+
+  .cal-user-role {
+    font-size: 8px !important;
+    opacity: 0.7 !important;
+  }
+
+  /* Hide lieu button on mobile — too small to be useful */
+  .cal-lieu-btn { display: none !important; }
+
+  /* ── Dates panel: native scroll, momentum, overscroll bounce ── */
+  .cal-dates-panel {
+    flex: 1 !important;
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+  }
+
+  /* ── Column width: 52px — comfortably fits 5-6 on screen ── */
+  :root { --cal-col-w: 52px; }
+
+  .cal-dates-panel thead th {
+    min-width: 52px !important;
+    padding: 6px 3px !important;
+    font-size: 9px !important;
+    letter-spacing: 0 !important;
+  }
+
+  /* Date header: big number, small day name */
+  .cal-date-num {
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    display: block !important;
+    line-height: 1.1 !important;
+  }
+  .cal-date-day {
+    font-size: 8px !important;
+    display: block !important;
+    opacity: 0.6 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.02em !important;
+  }
+
+  /* ── Task blocks: tall enough to tap (20px), clear text ── */
+  .cal-block {
+    height: 22px !important;
+    font-size: 9px !important;
+    padding: 0 4px !important;
+    line-height: 22px !important;
+    border-radius: 4px !important;
+    /* Slightly bolder left accent on mobile */
+    border-left-width: 3px !important;
+  }
+
+  /* Tap feedback — stronger than hover (no hover on touch) */
+  .cal-block:active {
+    filter: brightness(1.35) !important;
+    transform: scale(0.97) !important;
+    transition: transform 0.08s ease, filter 0.08s ease !important;
+  }
+
+  .cal-slot-spacer { height: 22px !important; }
+
+  .cal-leave-bar,
+  .cal-leave-slot { height: 22px !important; line-height: 22px !important; font-size: 9px !important; }
+
+  /* Cell content: enough vertical room for 2-3 tasks to breathe */
+  .cal-cell-content {
+    min-height: 52px !important;
+    gap: 2px !important;
+    padding: 3px 2px !important;
+  }
+
+  /* Priority dot: slightly larger for legibility */
+  .cal-priority-dot {
+    width: 11px !important;
+    height: 11px !important;
+    font-size: 7px !important;
+  }
+
+  /* ── Today column: clear amber highlight ── */
+  .cal-dates-panel thead th.today-col {
+    background: rgba(245,158,11,0.16) !important;
+    box-shadow: inset 0 -3px 0 var(--amber) !important;
+    color: var(--amber) !important;
+  }
+  .cal-dates-panel tbody td.today-col {
+    background: rgba(245,158,11,0.07) !important;
+  }
+
+  /* ── Zebra row striping — easier to scan horizontally ── */
+  .cal-names-panel tbody tr:nth-child(even) td,
+  .cal-dates-panel tbody tr:nth-child(even) td {
+    background-color: rgba(255,255,255,0.025) !important;
+  }
+  .cal-dates-panel tbody tr:nth-child(even) td.today-col {
+    background-color: rgba(245,158,11,0.09) !important;
+  }
+
+  /* ── Legend hidden on mobile — saves header space ── */
+  .calendar-legend { display: none !important; }
+
+  /* ── Week strip: show on mobile (portrait) with horizontal scroll ── */
+  #cal-week-strip {
+    display: flex !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    flex-shrink: 0 !important;
+    background: var(--bg2) !important;
+    border-bottom: 1px solid var(--border) !important;
+    padding: 4px 8px 0 !important;
+  }
+  #cal-week-strip::-webkit-scrollbar { display: none; }
+
+  .cal-week-chip {
+    min-width: 40px !important;
+    padding: 3px 2px 5px !important;
+  }
+
+  .cal-week-chip-day { font-size: 8px !important; }
+  .cal-week-chip-num { font-size: 16px !important; }
+  .cal-week-chip-num-circle { width: 26px !important; height: 26px !important; font-size: 14px !important; }
+
+}
+
+/* ── Landscape mobile: hide bottom nav, compact everything ── */
+@media (max-width: 900px) and (orientation: landscape) {
+
+  #calendar-view {
+    height: calc(100dvh - 44px - 33px) !important;
+    max-height: calc(100dvh - 44px - 33px) !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Compact header strip */
+  .calendar-header {
+    display: flex !important;
+    align-items: center !important;
+    padding: 4px 8px !important;
+    gap: 5px !important;
+    flex-shrink: 0 !important;
+    min-height: 40px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    flex-wrap: nowrap !important;
+    background: var(--bg2) !important;
+    border-bottom: 1px solid var(--border) !important;
+  }
+  .calendar-header::-webkit-scrollbar { display: none; }
+
+  .calendar-title { display: none !important; }
+  .calendar-legend { display: none !important; }
+
+  .calendar-controls {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 4px !important;
+    align-items: center !important;
+    flex: 1 !important;
+  }
+
+  .cal-nav-btn { width: 30px !important; height: 30px !important; font-size: 14px !important; flex-shrink: 0 !important; }
+  .cal-month-label { font-size: 11px !important; min-width: 90px !important; flex-shrink: 0 !important; }
+
+  #cal-zoom-btn, #cal-team-toggle-btn, #add-leave-btn,
+  .btn-secondary[onclick="calGoToday()"], .btn-secondary {
+    font-size: 10px !important;
+    padding: 4px 8px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  .calendar-container { flex: 1 !important; min-height: 0 !important; overflow: hidden !important; border-radius: 0 !important; border: none !important; }
+  .cal-split-wrapper { height: 100% !important; }
+
+  /* Names panel */
+  .cal-names-panel { width: 88px !important; min-width: 88px !important; }
+  .cal-names-panel table { width: 88px !important; table-layout: fixed !important; }
+  .cal-names-panel tbody td { width: 88px !important; min-width: 88px !important; }
+  .cal-user-label { padding: 5px 7px !important; }
+  .cal-user-name { font-size: 10px !important; max-width: 72px !important; }
+  .cal-user-role { font-size: 8px !important; }
+  .cal-lieu-btn { display: none !important; }
+
+  /* Landscape columns: wider to show task labels */
+  :root { --cal-col-w: 60px; }
+  .cal-dates-panel thead th { min-width: 60px !important; padding: 4px 3px !important; font-size: 9px !important; }
+
+  .cal-block { height: 20px !important; font-size: 9px !important; padding: 0 3px !important; line-height: 20px !important; border-radius: 3px !important; }
+  .cal-slot-spacer { height: 20px !important; }
+  .cal-leave-bar, .cal-leave-slot { height: 20px !important; line-height: 20px !important; font-size: 9px !important; }
+  .cal-cell-content { min-height: 44px !important; gap: 2px !important; padding: 2px 3px !important; }
+
+  #mobile-bottom-nav { display: none !important; }
+  body { padding-bottom: 0 !important; }
+
+  /* Breadcrumb compact */
+  .breadcrumb { padding: 4px 10px !important; font-size: 10px !important; min-height: 33px !important; }
+}
+
+/* ── Very small phones (≤ 375px) ── */
+@media (max-width: 375px) {
+  :root { --cal-col-w: 44px; }
+
+  .cal-names-panel,
+  .cal-names-panel table,
+  .cal-names-panel tbody td { width: 72px !important; min-width: 72px !important; }
+  .cal-user-name { max-width: 58px !important; font-size: 9px !important; }
+
+  .cal-date-num { font-size: 13px !important; }
+  .cal-block { height: 20px !important; font-size: 8px !important; line-height: 20px !important; }
+  .cal-slot-spacer { height: 20px !important; }
+  .cal-leave-bar, .cal-leave-slot { height: 20px !important; line-height: 20px !important; }
+}
