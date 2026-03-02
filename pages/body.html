@@ -34,9 +34,9 @@
     <span class="mob-nav-icon" style="font-size:28px;line-height:1;">＋</span>
     <span>New</span>
   </button>
-  <button class="mob-nav-item" id="mob-nav-cal" onclick="mobileNavCal()" title="Calendar">
-    <span class="mob-nav-icon">📅</span>
-    <span>Calendar</span>
+  <button class="mob-nav-item" id="mob-nav-cal" onclick="mobileNavTeams()" title="Teams">
+    <span class="mob-nav-icon">👥</span>
+    <span>Teams</span>
   </button>
   <button class="mob-nav-item" id="mob-nav-notif" onclick="toggleNotifications()" title="Alerts">
     <span class="mob-nav-icon">🔔</span>
@@ -330,7 +330,7 @@
 
     <!-- Calendar View (Table-based) -->
     <div id="calendar-view" class="hidden">
-      <div class="calendar-header">
+      <div class="calendar-header" id="cal-header">
         <div class="calendar-title">📅 Calendar</div>
         <div class="calendar-controls">
           <div class="calendar-legend">
@@ -808,6 +808,19 @@
         <div style="display:flex;gap:8px;margin-top:12px;">
           <button class="btn-secondary" onclick="document.getElementById('ws-add-form').classList.add('hidden')">Cancel</button>
           <button class="btn-primary" style="width:auto;padding:8px 20px;font-size:12px;" onclick="saveNewSchedule()">Save Schedule</button>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px;">
+        <div style="font-size:11px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Weekend Working Days</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;">
+            <input type="checkbox" id="ws-sat-working" onchange="saveWeekendSettings()" style="width:16px;height:16px;accent-color:var(--amber);">
+            <span>Saturday is a working day</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;">
+            <input type="checkbox" id="ws-sun-working" onchange="saveWeekendSettings()" style="width:16px;height:16px;accent-color:var(--amber);">
+            <span>Sunday is a working day</span>
+          </label>
         </div>
       </div>
     </div>

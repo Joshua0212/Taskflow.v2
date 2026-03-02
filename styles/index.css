@@ -2594,15 +2594,15 @@ body.modal-open .modal-overlay { pointer-events: auto; }
 
 
 /* ============================================================
-   ✦ DEFINITIVE MOBILE + DESKTOP FIXES — applied last so they
-     win over all prior conflicting rules.
+   ✦ DEFINITIVE OVERRIDES — wins over all prior conflicting rules
    ============================================================ */
 
-/* ── 1. DESKTOP: header nav buttons stay visible ─────────── */
-/* Already default visible — no change needed.                */
+/* ── Always hide the date chip strip ─────────────────────── */
+#cal-week-strip {
+  display: none !important;
+}
 
-/* ── 2. MOBILE: hide header Home / Back / Next buttons ────── */
-/* The browser's native swipe-back gesture replaces them.     */
+/* ── Hide header Home/Back/Next on mobile ─────────────────── */
 @media (max-width: 768px) {
   #nav-home-btn,
   #nav-back-btn,
@@ -2611,14 +2611,9 @@ body.modal-open .modal-overlay { pointer-events: auto; }
   }
 }
 
-/* ── 3. MOBILE: calendar fills ALL space below header ─────── */
-/* On mobile in calendar view, the breadcrumb is hidden so    */
-/* the only things consuming space are: header(52) + nav(60). */
-/* We hide the breadcrumb via JS (showView) but also enforce  */
-/* it here to prevent the dead zone.                          */
+/* ── Mobile calendar: fill full space (header 52 + bottom-nav 60) ── */
+/* Week strip is now gone so no extra offset needed              */
 @media (max-width: 768px) {
-  /* When inside calendar view, breadcrumb is hidden (JS sets .hidden)
-     so we don't subtract it from the height.                  */
   #calendar-view {
     height: calc(100dvh - 52px - 60px) !important;
     max-height: calc(100dvh - 52px - 60px) !important;
@@ -2629,7 +2624,7 @@ body.modal-open .modal-overlay { pointer-events: auto; }
     gap: 0 !important;
   }
 
-  /* Calendar header — compact, 2-row grid */
+  /* Calendar header — compact 2-row */
   .calendar-header {
     display: grid !important;
     grid-template-columns: 1fr !important;
@@ -2645,19 +2640,13 @@ body.modal-open .modal-overlay { pointer-events: auto; }
     z-index: 10 !important;
   }
 
-  .calendar-title {
-    font-size: 14px !important;
-    font-weight: 800 !important;
-    line-height: 1.2 !important;
-  }
+  .calendar-title { font-size: 14px !important; font-weight: 800 !important; }
 
-  /* Controls: horizontally scrollable single row */
   .calendar-controls {
     display: flex !important;
     flex-wrap: nowrap !important;
     gap: 6px !important;
     overflow-x: auto !important;
-    overflow-y: visible !important;
     -webkit-overflow-scrolling: touch !important;
     scrollbar-width: none !important;
     align-items: center !important;
@@ -2665,93 +2654,42 @@ body.modal-open .modal-overlay { pointer-events: auto; }
   }
   .calendar-controls::-webkit-scrollbar { display: none; }
 
-  /* Touch-friendly control buttons */
-  .cal-nav-btn {
-    width: 36px !important;
-    height: 36px !important;
-    font-size: 16px !important;
-    flex-shrink: 0 !important;
-  }
-  .cal-month-label {
-    min-width: 96px !important;
-    font-size: 12px !important;
-    font-weight: 700 !important;
-    flex-shrink: 0 !important;
-  }
-  #cal-zoom-btn,
-  #cal-team-toggle-btn,
-  #add-leave-btn,
+  .cal-nav-btn { width: 36px !important; height: 36px !important; font-size: 16px !important; flex-shrink: 0 !important; }
+  .cal-month-label { min-width: 96px !important; font-size: 12px !important; font-weight: 700 !important; flex-shrink: 0 !important; }
+
+  #cal-zoom-btn, #cal-team-toggle-btn, #add-leave-btn,
   .btn-secondary[onclick="calGoToday()"] {
-    font-size: 11px !important;
-    padding: 8px 10px !important;
-    min-height: 36px !important;
-    white-space: nowrap !important;
-    flex-shrink: 0 !important;
+    font-size: 11px !important; padding: 8px 10px !important;
+    min-height: 36px !important; white-space: nowrap !important; flex-shrink: 0 !important;
   }
 
-  /* Legend hidden — saves precious vertical space */
   .calendar-legend { display: none !important; }
 
-  /* Week strip: show, horizontally scrollable */
-  #cal-week-strip {
-    display: flex !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    scrollbar-width: none !important;
-    flex-shrink: 0 !important;
-    background: var(--bg2) !important;
-    border-bottom: 1px solid var(--border) !important;
-    padding: 4px 8px 0 !important;
-  }
-  #cal-week-strip::-webkit-scrollbar { display: none; }
-
-  /* Container fills remaining space */
   .calendar-container {
-    flex: 1 !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
-    border-radius: 0 !important;
-    border: none !important;
+    flex: 1 !important; min-height: 0 !important;
+    overflow: hidden !important; border-radius: 0 !important; border: none !important;
   }
 
-  .cal-split-wrapper {
-    height: 100% !important;
-    display: flex !important;
-    overflow: hidden !important;
-  }
+  .cal-split-wrapper { height: 100% !important; display: flex !important; overflow: hidden !important; }
 
-  /* Names panel — wide enough to read names */
-  .cal-names-panel {
-    width: 90px !important;
-    min-width: 90px !important;
-    box-shadow: 3px 0 12px rgba(0,0,0,0.5) !important;
-    scrollbar-width: none !important;
-  }
+  /* Names panel */
+  .cal-names-panel { width: 90px !important; min-width: 90px !important; box-shadow: 3px 0 12px rgba(0,0,0,0.5) !important; scrollbar-width: none !important; }
   .cal-names-panel::-webkit-scrollbar { display: none; }
   .cal-names-panel table { width: 90px !important; table-layout: fixed !important; }
   .cal-names-panel tbody td { width: 90px !important; min-width: 90px !important; }
-
   .cal-user-label { padding: 8px 8px !important; min-height: 44px !important; }
   .cal-user-name { font-size: 10px !important; max-width: 74px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
   .cal-user-role { font-size: 8px !important; }
   .cal-lieu-btn { display: none !important; }
 
-  /* Dates panel — native momentum scroll */
-  .cal-dates-panel {
-    flex: 1 !important;
-    overflow-x: auto !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    overscroll-behavior: contain !important;
-  }
+  /* Dates panel */
+  .cal-dates-panel { flex: 1 !important; overflow-x: auto !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; overscroll-behavior: contain !important; }
 
-  /* Column width */
   :root { --cal-col-w: 52px; }
   .cal-dates-panel thead th { min-width: 52px !important; padding: 6px 3px !important; font-size: 9px !important; }
   .cal-date-num { font-size: 15px !important; font-weight: 800 !important; display: block !important; line-height: 1.1 !important; }
   .cal-date-day { font-size: 8px !important; display: block !important; opacity: 0.6 !important; text-transform: uppercase !important; }
 
-  /* Task blocks */
   .cal-block { height: 22px !important; font-size: 9px !important; padding: 0 4px !important; line-height: 22px !important; border-radius: 4px !important; }
   .cal-block:active { filter: brightness(1.35) !important; transform: scale(0.97) !important; }
   .cal-slot-spacer { height: 22px !important; }
@@ -2760,64 +2698,45 @@ body.modal-open .modal-overlay { pointer-events: auto; }
   .cal-priority-dot { width: 11px !important; height: 11px !important; font-size: 7px !important; }
 }
 
-/* ── 4. LANDSCAPE MOBILE: lean header, no bottom nav ──────── */
+/* ── Landscape mobile ─────────────────────────────────────── */
 @media (max-width: 900px) and (orientation: landscape) {
   #calendar-view {
-    /* Only subtract app header — no bottom nav in landscape */
     height: calc(100dvh - 44px) !important;
     max-height: calc(100dvh - 44px) !important;
-    padding: 0 !important;
-    overflow: hidden !important;
+    padding: 0 !important; overflow: hidden !important;
   }
-
-  /* Hide breadcrumb in landscape calendar — no space */
-  #calendar-view ~ #breadcrumb,
-  .breadcrumb { display: none !important; }
-
   .calendar-header {
-    display: flex !important;
-    align-items: center !important;
-    padding: 4px 8px !important;
-    gap: 5px !important;
-    flex-shrink: 0 !important;
-    min-height: 40px !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    scrollbar-width: none !important;
-    flex-wrap: nowrap !important;
-    background: var(--bg2) !important;
+    display: flex !important; align-items: center !important;
+    padding: 4px 8px !important; gap: 5px !important;
+    flex-shrink: 0 !important; min-height: 40px !important;
+    overflow-x: auto !important; scrollbar-width: none !important;
+    flex-wrap: nowrap !important; background: var(--bg2) !important;
     border-bottom: 1px solid var(--border) !important;
   }
   .calendar-header::-webkit-scrollbar { display: none; }
   .calendar-title { display: none !important; }
   .calendar-legend { display: none !important; }
-
   .calendar-controls { display: flex !important; flex-wrap: nowrap !important; gap: 4px !important; flex: 1 !important; }
   .cal-nav-btn { width: 30px !important; height: 30px !important; flex-shrink: 0 !important; }
   .cal-month-label { font-size: 11px !important; min-width: 90px !important; flex-shrink: 0 !important; }
   #cal-zoom-btn, #cal-team-toggle-btn, #add-leave-btn,
-  .btn-secondary[onclick="calGoToday()"], .btn-secondary {
-    font-size: 10px !important; padding: 4px 8px !important; white-space: nowrap !important; flex-shrink: 0 !important;
-  }
-
+  .btn-secondary[onclick="calGoToday()"], .btn-secondary { font-size: 10px !important; padding: 4px 8px !important; white-space: nowrap !important; flex-shrink: 0 !important; }
   .calendar-container { flex: 1 !important; min-height: 0 !important; overflow: hidden !important; border-radius: 0 !important; border: none !important; }
   .cal-split-wrapper { height: 100% !important; }
-
   .cal-names-panel { width: 88px !important; min-width: 88px !important; }
   .cal-names-panel table { width: 88px !important; table-layout: fixed !important; }
   .cal-names-panel tbody td { width: 88px !important; min-width: 88px !important; }
-
   #mobile-bottom-nav { display: none !important; }
   body { padding-bottom: 0 !important; }
-
   :root { --cal-col-w: 60px; }
 }
 
-/* ── 5. VERY SMALL PHONES (≤ 375px) ──────────────────────── */
+/* ── Very small phones ────────────────────────────────────── */
 @media (max-width: 375px) {
   :root { --cal-col-w: 44px; }
-  .cal-names-panel,
-  .cal-names-panel table,
-  .cal-names-panel tbody td { width: 72px !important; min-width: 72px !important; }
+  .cal-names-panel, .cal-names-panel table, .cal-names-panel tbody td { width: 72px !important; min-width: 72px !important; }
   .cal-user-name { max-width: 56px !important; font-size: 9px !important; }
 }
+
+/* ── Hide mobile bottom nav (removed per user request) ──────── */
+#mobile-bottom-nav { display: none !important; }

@@ -715,22 +715,15 @@ function _unlockOp(key, btn) {
   }
 }
 
-/* ── Nav history — backed by browser History API ── */
-/* On mobile: physical/browser back button navigates within the app.  */
-/* On desktop: header Back/Next buttons still work via history.go().  */
+/* ── Nav history for Home / Back / Next header buttons ── */
 const _navHist = [];
 let   _navIdx  = -1;
-let   _navIgnorePopstate = false; // prevents re-push on popstate-triggered showView
 
 function _navRecord(key) {
   if (_navHist[_navIdx] === key) return;          // same page, skip
   _navHist.splice(_navIdx + 1);                   // drop forward stack
   _navHist.push(key);
   _navIdx = _navHist.length - 1;
-  // Push into browser history so the OS back gesture works
-  if (!_navIgnorePopstate) {
-    try { window.history.pushState({ tfView: key, tfIdx: _navIdx }, '', ''); } catch(e) {}
-  }
   _navRefresh();
 }
 
@@ -742,31 +735,6 @@ function _navRefresh() {
   if (back) { back.style.opacity = canBack ? '1' : '0.35'; back.style.pointerEvents = canBack ? 'auto' : 'none'; }
   if (next) { next.style.opacity = canNext ? '1' : '0.35'; next.style.pointerEvents = canNext ? 'auto' : 'none'; }
 }
-
-/* Handle browser/OS back & forward gestures */
-window.addEventListener('popstate', function(e) {
-  if (!state.currentUser) return; // not logged in — let browser handle normally
-  // Prevent default navigation away from the SPA
-  var targetView = (e.state && e.state.tfView) ? e.state.tfView : null;
-  var targetIdx  = (e.state && e.state.tfIdx  != null) ? e.state.tfIdx  : -1;
-  if (targetView) {
-    _navIgnorePopstate = true;
-    _navIdx = targetIdx;
-    _navJump(targetView);
-    _navRefresh();
-    _navIgnorePopstate = false;
-  } else {
-    // No state — user hit back past our app entry; go home
-    _navIgnorePopstate = true;
-    var homeView = (state.currentUser.role === 'admin' || state.currentUser.role === 'manager') ? 'admin-home' : 'worker-home';
-    _navIdx = 0;
-    showView(homeView);
-    _navRefresh();
-    _navIgnorePopstate = false;
-    // Re-push so the back button stays within the app
-    try { window.history.pushState({ tfView: homeView, tfIdx: 0 }, '', ''); } catch(e2) {}
-  }
-});
 
 function _navJump(key) {
   if (!key) return;
@@ -911,6 +879,7 @@ function showView(v) {
   if (v === 'worker-home') {
     document.getElementById('worker-home').classList.remove('hidden');
     document.getElementById('worker-name-display').textContent = state.currentUser.name.split(' ')[0];
+    updateMobileNavActive('mob-nav-home');
     // Render groups strip
     const myTeams = getTeams().filter(t => (t.memberIds || []).includes(state.currentUser.id));
     const strip = document.getElementById('worker-groups-strip');
@@ -939,6 +908,7 @@ function showView(v) {
   } else if (v === 'admin-home') {
     document.getElementById('admin-home').classList.remove('hidden');
     document.getElementById('admin-name-display').textContent = state.currentUser.name.split(' ')[0];
+    updateMobileNavActive('mob-nav-home');
     // Hide Register User and Leave Calendar cards for non-admins
     const regCard = document.querySelector('.admin-nav-card[onclick="openRegisterUser()"]');
     const leaveCard = document.querySelector('.admin-nav-card[onclick="goToLeaveCalendar()"]');
@@ -981,28 +951,29 @@ function showView(v) {
     setBreadcrumb([{label:'Home', fn:'goAdminHome'}, {label:'Teams'}]);
     const teamAssignBtn = document.getElementById('team-assign-btn');
     if (teamAssignBtn) teamAssignBtn.style.display = isElevated ? '' : 'none';
+    // Highlight Teams tab in mobile nav
+    updateMobileNavActive('mob-nav-cal');
     renderTeamsView();
   } else if (v === 'calendar') {
     document.getElementById('calendar-view').classList.remove('hidden');
     const isPersonal = state.calendarMode === 'personal' || (state.currentUser.role === 'user' && state.calendarMode !== 'team');
     const label = isPersonal ? 'My Calendar' : 'Calendar';
     setBreadcrumb([{label:'Home', fn: isPersonal ? 'goToMyTasks' : 'goAdminHome'}, {label}]);
-    
-    // Show breadcrumbs in calendar on desktop; hide on mobile to give calendar full height
+
+    // Show breadcrumbs on desktop; hide on mobile (browser back handles navigation)
     var breadcrumb = document.getElementById('breadcrumb');
     if (breadcrumb) {
       var isMobileView = window.innerWidth <= 768 || ('ontouchstart' in window);
-      if (isMobileView) {
-        breadcrumb.classList.add('hidden');
-      } else {
-        breadcrumb.classList.remove('hidden');
-      }
+      if (isMobileView) { breadcrumb.classList.add('hidden'); }
+      else { breadcrumb.classList.remove('hidden'); }
     }
 
-    // Hide mobile "New Task" button — add tasks from the task board, not calendar
+    // Deactivate bottom nav — calendar has no dedicated nav tab now
+    document.querySelectorAll('.mob-nav-item').forEach(btn => btn.classList.remove('active'));
+    // Hide mobile "New Task" button in calendar
     var mobAddBtn = document.getElementById('mob-nav-add');
     if (mobAddBtn) mobAddBtn.style.display = 'none';
-    
+
     // Add back button to calendar header
     var calHeader = document.getElementById('cal-header');
     if (calHeader && !document.getElementById('cal-back-btn')) {
@@ -1011,7 +982,7 @@ function showView(v) {
       backBtn.className = 'btn-secondary';
       backBtn.innerHTML = '← Back';
       backBtn.style.cssText = 'padding:8px 12px;font-size:12px;margin-right:8px;';
-      backBtn.onclick = function() { 
+      backBtn.onclick = function() {
         if (state.previousView && state.previousView !== 'calendar') {
           showView(state.previousView);
         } else if (state.currentUser.role === 'admin' || state.currentUser.role === 'manager') {
@@ -1103,6 +1074,8 @@ function showBoardView(userId) {
       setBreadcrumb([{label:'Home', fn:'goAdminHome'}, {label:'My Tasks'}]);
     }
   }
+  // Highlight Tasks tab in mobile nav
+  updateMobileNavActive('mob-nav-tasks');
   renderTasks(userId);
   startDeadlineChecker();
 }
@@ -3229,7 +3202,7 @@ function useWaParsed() {
   document.getElementById('f-priority').value = p.priority || 3;
   try {
     document.getElementById('f-start').value = p.start.slice(0, 16);
-    document.getElementById('f-deadline').value = p.deadline.slice(0, 16);
+    document.getElementById('f-enddate').value = p.deadline.slice(0, 16);
   } catch {}
   renderDescItems();
   openModal('task-modal');
@@ -3450,6 +3423,9 @@ function startRealtimeNotifs() {
 }
 function stopRealtimeNotifs() { clearInterval(_notifPollInterval); }
 
+
+// Alias: mobile nav calls toggleNotifications(), desktop uses openNotifications()
+function toggleNotifications() { openNotifications(); }
 
 function openNotifications() {
   const notifs = getNotifs().filter(n => n.userId === state.currentUser.id);
@@ -3720,12 +3696,16 @@ function mobileNavTasks() {
   showView('my-tasks');
 }
 
-function mobileNavCal() {
+function mobileNavTeams() {
   updateMobileNavActive('mob-nav-cal');
   if (!state.currentUser) return;
-  // Hide "New Task" button in calendar — tasks are managed from the task board
-  var addBtn = document.getElementById('mob-nav-add');
-  if (addBtn) addBtn.style.display = 'none';
+  showView('teams');
+}
+
+function mobileNavCal() {
+  // Calendar is accessible from the home screen cards — not from bottom nav
+  // Kept for backward-compat but does nothing on mobile
+  if (!state.currentUser) return;
   showView('calendar');
 }
 
@@ -3733,17 +3713,15 @@ function updateMobileNavActive(activeId) {
   document.querySelectorAll('.mob-nav-item').forEach(btn => btn.classList.remove('active'));
   const el = document.getElementById(activeId);
   if (el) el.classList.add('active');
-  // Restore "New Task" button on all views except calendar
-  if (activeId !== 'mob-nav-cal') {
-    var addBtn = document.getElementById('mob-nav-add');
-    if (addBtn) addBtn.style.display = '';
-  }
+  // Only hide "New Task" button when actually viewing the calendar
+  var addBtn = document.getElementById('mob-nav-add');
+  if (addBtn) addBtn.style.display = (state.view === 'calendar') ? 'none' : '';
 }
 
 function updateMobileNavNotifBadge() {
   const badge = document.getElementById('mob-notif-badge');
   if (!badge || !state.currentUser) return;
-  const unread = (state.notifications || []).filter(n => n.userId === state.currentUser.id && !n.read).length;
+  const unread = getNotifs().filter(n => n.userId === state.currentUser.id && !n.read).length;
   if (unread > 0) {
     badge.textContent = unread > 9 ? '9+' : unread;
     badge.classList.remove('hidden');
@@ -3784,6 +3762,7 @@ function formatTime(date) {
 /* ============================================================
    TOOLTIP ENGINE
    ============================================================ */
+document.addEventListener('DOMContentLoaded', function() {
 (function() {
   const tip = document.createElement('div');
   tip.className = 'tf-tooltip';
@@ -3853,6 +3832,7 @@ function formatTime(date) {
   document.addEventListener('click', hideTip, true);
   document.addEventListener('keydown', hideTip, true);
 })();
+}); // end DOMContentLoaded (tooltip)
 
 /* ============================================================
    TEAMS — JS
@@ -4429,6 +4409,7 @@ function openWorkSettings() {
   document.getElementById('ws-new-end').value = '18';
   document.getElementById('ws-add-form').classList.add('hidden');
   updateWsNewPreview();
+  loadWeekendSettings();
   openModal('worksettings-modal');
 }
 
@@ -4766,7 +4747,7 @@ async function saveMultiTask() {
     if (leaveConflicts.length > 0) { skippedLeave.push(user ? user.name : uid_val); continue; }
     var existingTasks = tasks.filter(function(t) { return t.userId === uid_val && !t.cancelled && !t.done; });
     var taskData = { title: title, requestor: requestor, priority: priority, start: new Date(start).toISOString(), deadline: new Date(deadline).toISOString(), description: description, isMultiPersonnel: true, multiGroupId: groupId };
-    var overlapCheck = resolveOverlaps(taskData, existingTasks);
+    var overlapCheck = resolveOverlapsNew(taskData, existingTasks, uid_val);
     if (overlapCheck.moved) { taskData.start = overlapCheck.newStart; taskData.deadline = overlapCheck.newDeadline; notifyManagerOfOverlap(Object.assign({}, taskData, { userId: uid_val }), overlapCheck.overlaps, true); }
     else if (overlapCheck.overlaps && overlapCheck.overlaps.length > 0) { notifyManagerOfOverlap(Object.assign({}, taskData, { userId: uid_val }), overlapCheck.overlaps, false); }
     try {
@@ -4892,6 +4873,7 @@ function calGoToday() {
    SWIPE GESTURES ON CALENDAR (mobile) — improved: only triggers
    when swipe starts on a non-scrollable area, not on the grid
    ============================================================ */
+document.addEventListener('DOMContentLoaded', function() {
 (function initCalSwipe() {
   var _swipeStartX = 0;
   var _swipeStartY = 0;
@@ -4920,6 +4902,7 @@ function calGoToday() {
     }
   }, { passive: true });
 })();
+});
 
 /* ============================================================
    RICH TASK TOOLTIP SYSTEM (desktop hover + mobile tap hint)
@@ -5081,6 +5064,7 @@ const TaskTooltip = (function() {
 })();
 
 /* Attach rich tooltip to all cal-block elements via event delegation */
+document.addEventListener('DOMContentLoaded', function() {
 (function initCalBlockTooltips() {
   var _pendingShow = null;
 
@@ -5114,6 +5098,7 @@ const TaskTooltip = (function() {
     TaskTooltip.show(task, block);
   }, { passive: true });
 })();
+});
 
 /* ============================================================
    BUSYCAL DATE CHIP STRIP — build / rebuild on renderCalendar
@@ -5122,8 +5107,10 @@ function buildCalWeekStrip(year, month, todayStr, users, allTasks, allLeaves) {
   var strip = document.getElementById('cal-week-strip');
   if (!strip) return;
 
-  // Only show on mobile
-  if (window.innerWidth > 768) { strip.classList.add('hidden'); return; }
+  // Date chip strip removed — always hidden on all screen sizes
+  strip.classList.add('hidden');
+  strip.innerHTML = '';
+  return;
 
   var daysInMonth = new Date(year, month + 1, 0).getDate();
   var dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -5938,64 +5925,20 @@ function renderCalendar() {
     newDatesPanel.scrollTop = newNamesPanel.scrollTop;
   }, { passive: true });
 
-  // ── Wheel: vertical scrolls dates panel, Shift+wheel scrolls horizontally ──
-  // On desktop: ANY wheel event inside the calendar view is captured so the
-  // user doesn't have to precisely hit the thin dates panel to scroll vertically.
+  // ── Wheel: vertical scrolls the PAGE, Shift+wheel scrolls calendar horizontally ──
   function calWheelHandler(e) {
-    var isHorizontal = e.shiftKey || (Math.abs(e.deltaX) > Math.abs(e.deltaY) && !e.shiftKey);
+    var isHorizontal = e.shiftKey || (Math.abs(e.deltaX) > Math.abs(e.deltaY));
     if (isHorizontal) {
       // Consume and apply horizontal scroll to dates panel
       e.preventDefault();
       e.stopPropagation();
       newDatesPanel.scrollLeft += (e.shiftKey ? e.deltaY : e.deltaX);
-    } else {
-      // Vertical: forward to dates panel so hover anywhere on the calendar scrolls it
-      var isMobileDevice = window.innerWidth <= 768 || ('ontouchstart' in window);
-      if (!isMobileDevice) {
-        // Only hijack if the dates panel actually has scrollable content
-        var canScrollV = newDatesPanel.scrollHeight > newDatesPanel.clientHeight;
-        if (canScrollV) {
-          e.preventDefault();
-          e.stopPropagation();
-          newDatesPanel.scrollTop += e.deltaY;
-          // Sync names panel
-          newNamesPanel.scrollTop = newDatesPanel.scrollTop;
-        }
-      }
-      // On mobile: let native touch scroll handle it — don't preventDefault
     }
+    // Vertical: do NOT prevent default — let the event bubble so the panel's
+    // own vertical scroll (when content overflows) or the page scroll works normally.
   }
   newDatesPanel.addEventListener('wheel', calWheelHandler, { passive: false });
   newNamesPanel.addEventListener('wheel', calWheelHandler, { passive: false });
-
-  // Attach wheel listener to the outer calendar-view container so hovering
-  // over the header row or padding areas also scrolls the dates panel (desktop only)
-  var calViewEl = document.getElementById('calendar-view');
-  if (calViewEl) {
-    // Remove previous outer wheel listener to avoid stacking on re-render
-    if (calViewEl._tfWheelHandler) {
-      calViewEl.removeEventListener('wheel', calViewEl._tfWheelHandler);
-    }
-    calViewEl._tfWheelHandler = function(e) {
-      var isMobileDevice = window.innerWidth <= 768 || ('ontouchstart' in window);
-      if (isMobileDevice) return; // let native touch do its thing
-      // Only intercept if the event didn't already originate from inside the dates/names panel
-      if (newDatesPanel.contains(e.target) || newNamesPanel.contains(e.target)) return;
-      var isHoriz = e.shiftKey || (Math.abs(e.deltaX) > Math.abs(e.deltaY));
-      if (isHoriz) {
-        e.preventDefault();
-        newDatesPanel.scrollLeft += (e.shiftKey ? e.deltaY : e.deltaX);
-      } else {
-        var canScrollV = newDatesPanel.scrollHeight > newDatesPanel.clientHeight;
-        if (canScrollV) {
-          e.preventDefault();
-          newDatesPanel.scrollTop += e.deltaY;
-          newNamesPanel.scrollTop = newDatesPanel.scrollTop;
-        }
-      }
-    };
-    calViewEl.addEventListener('wheel', calViewEl._tfWheelHandler, { passive: false });
-  }
 
   // ── Sync row heights between panels ──
   // Separates DOM reads from DOM writes to avoid layout thrashing.
@@ -6053,15 +5996,20 @@ function openAddLieuDay(userId, userName) {
   }
   _lieuTargetUserId = userId;
   _lieuTargetUserName = userName;
-  document.getElementById('lieu-modal-user-name').textContent = userName;
-  document.getElementById('lieu-days-count').value = '1';
   const currentBalance = countLieuDays(userId);
-  document.getElementById('lieu-current-balance').textContent = currentBalance;
+  const infoEl = document.getElementById('lieu-day-info');
+  if (infoEl) infoEl.textContent = 'Adding lieu days for ' + userName + '. Current balance: ' + currentBalance + ' day(s).';
+  const countEl = document.getElementById('lieu-day-count');
+  if (countEl) countEl.value = '1';
   openModal('lieu-day-modal');
 }
 
+// Alias: HTML calls saveLieuDays(), logic lives in confirmAddLieuDays()
+function saveLieuDays() { confirmAddLieuDays(); }
+
 function confirmAddLieuDays() {
-  const count = parseInt(document.getElementById('lieu-days-count').value);
+  const countInput = document.getElementById('lieu-day-count') || document.getElementById('lieu-days-count');
+  const count = parseInt(countInput ? countInput.value : 0);
   if (!count || count < 1) { toast('Please enter a valid number of lieu days.', 'error'); return; }
   if (!_lieuTargetUserId) return;
   
@@ -6828,6 +6776,7 @@ async function executeDeleteAll() {
 /* ============================================================
    SWIPE DOWN TO DISMISS MODALS (mobile bottom-sheet gesture)
    ============================================================ */
+document.addEventListener('DOMContentLoaded', function() {
 (function initModalSwipeDismiss() {
   if (!('ontouchstart' in window)) return;
 
@@ -6863,6 +6812,7 @@ async function executeDeleteAll() {
     _isDragging = false; _modal = null;
   }, { passive: true });
 })();
+});
 
 /* ============================================================
    MOBILE KEYBOARD AVOIDANCE FOR MODALS
@@ -6871,6 +6821,7 @@ async function executeDeleteAll() {
    When keyboard closes → modal smoothly expands back to full
    height and stays anchored at the bottom (no position jump).
    ============================================================ */
+document.addEventListener('DOMContentLoaded', function() {
 (function initModalKeyboardAwareness() {
   if (!('ontouchstart' in window)) return;
   const vv = window.visualViewport;
@@ -6952,8 +6903,10 @@ async function executeDeleteAll() {
     setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 380);
   }, true);
 })();
+});
 
 // Enhance openModal to always focus first input field (improves UX on desktop too)
+document.addEventListener('DOMContentLoaded', function() {
 (function enhanceOpenModal() {
   const _base = window.openModal;
   window.openModal = function(id) {
@@ -6969,6 +6922,7 @@ async function executeDeleteAll() {
     });
   };
 })();
+});
 
 
 /* ============================================================
@@ -7079,9 +7033,11 @@ const OfflineQueue = (() => {
   }
 
   // Listen for reconnect — wait 2s for connection to stabilize before syncing
-  window.addEventListener('online', () => {
-    if (state.currentUser) setTimeout(() => replay(), 2000);
-  });
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('online', () => {
+      if (state.currentUser) setTimeout(() => replay(), 2000);
+    });
+  }
 
   async function count() {
     const items = await getAll();
@@ -7106,10 +7062,12 @@ const OfflineQueue = (() => {
     indicator.style.display = navigator.onLine ? 'none' : 'flex';
   }
 
-  window.addEventListener('online',  updateOnlineStatus);
-  window.addEventListener('offline', updateOnlineStatus);
-  // Initial check on load
-  setTimeout(updateOnlineStatus, 1000);
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('online',  updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    // Initial check on load
+    setTimeout(updateOnlineStatus, 1000);
+  }
 
   return { enqueue, getAll, remove, replay, count };
 })();
@@ -7353,3 +7311,6 @@ window.signOut = async function() {
   await _origSignOut.apply(this, arguments);
 };
 
+
+// Expose initializeApp globally so bootstrap script can always find it
+if (typeof window !== 'undefined') window.initializeApp = initializeApp;
