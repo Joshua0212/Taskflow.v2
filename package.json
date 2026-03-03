@@ -4,7 +4,7 @@
   "description": "TaskFlow - Priority Command Center. Enterprise task management system with real-time updates, calendar scheduling, timeline views, and team collaboration.",
   "main": "js/index.js",
   "scripts": {
-    "dev": "http-server . -g -p 8000",
+    "dev": "http-server . -g -p 8000 -c-1",
     "build": "webpack --mode production",
     "serve": "http-server dist -g -p 8000",
     "test": "jest"
