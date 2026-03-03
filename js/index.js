@@ -992,9 +992,9 @@ function showView(v) {
     var mobAddBtn = document.getElementById('mob-nav-add');
     if (mobAddBtn) mobAddBtn.style.display = 'none';
 
-    // Add back button to calendar header
-    var calHeader = document.getElementById('cal-header');
-    if (calHeader && !document.getElementById('cal-back-btn')) {
+    // Add back button to calendar header (desktop only)
+    var isMobileView2 = window.innerWidth <= 768 || ('ontouchstart' in window);
+    if (calHeader && !document.getElementById('cal-back-btn') && !isMobileView2) {
       var backBtn = document.createElement('button');
       backBtn.id = 'cal-back-btn';
       backBtn.className = 'btn-secondary';
@@ -1103,6 +1103,10 @@ function showBoardView(userId) {
   // Hide calendar when showing task board
   document.getElementById('calendar-view').classList.add('hidden');
   (EL.addTaskFab || document.getElementById('add-task-fab')).classList.remove('hidden');
+  // Hide add-task FAB on mobile for task view (users have mobile nav)
+  if (window.innerWidth <= 768 || ('ontouchstart' in window)) {
+    (EL.addTaskFab || document.getElementById('add-task-fab')).classList.add('hidden');
+  }
   (EL.boardFilterBar || document.getElementById('board-filter-bar')).classList.add('visible');
   _boardSearchVal = '';
   _boardFilter = 'all';
@@ -1131,6 +1135,10 @@ function showTimelineView(userId) {
   // Hide calendar when showing timeline view
   document.getElementById('calendar-view').classList.add('hidden');
   (EL.addTaskFab || document.getElementById('add-task-fab')).classList.remove('hidden');
+  // Hide add-task FAB on mobile for timeline view
+  if (window.innerWidth <= 768 || ('ontouchstart' in window)) {
+    (EL.addTaskFab || document.getElementById('add-task-fab')).classList.add('hidden');
+  }
   const isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
   const targetUser = getUsers().find(u => u.id === userId);
   document.getElementById('timeline-title').textContent = isElevated && state.view === 'user-tasks'
