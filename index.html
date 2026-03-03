@@ -8,7 +8,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <link rel="stylesheet" href="index.css">
+  <link rel="stylesheet" href="styles/index.css">
+  <script src="js/index.js" defer></script>
 </head>
 <body>
   <div id="app-container">
@@ -191,7 +192,6 @@
     <div class="header-actions ml-auto">
       <button class="icon-btn hidden" id="header-chpw-btn" data-tip="Change a user's password" onclick="openChangePassword()" style="font-size:15px;">⚙️</button>
       <button class="icon-btn notification-dot hidden" id="notif-btn" data-tip="Notifications" onclick="openNotifications()">🔔</button>
-      <button class="icon-btn hidden" id="my-cal-btn" data-tip="My Calendar" onclick="goToMyCalendar()">📅</button>
       <button class="icon-btn" data-tip="Activity Log — See all task actions and history" onclick="openLogs()">📋</button>
       <button class="icon-btn" data-tip="Import task from a chat message (e.g. WhatsApp)" onclick="openWhatsApp()">💬</button>
       <button class="icon-btn" data-tip="Sign out of TaskFlow" onclick="signOut()">⏻</button>
@@ -253,12 +253,12 @@
           <div class="card-label">Work Settings</div>
           <div class="card-desc">Set workday name, start &amp; end hours</div>
         </div>
-        <!-- Multi-Personnel Task card removed from main window — use Teams view instead -->
         <div class="admin-nav-card" onclick="goToLeaveCalendar()">
           <div class="card-icon">📅</div>
           <div class="card-label">Calendar</div>
           <div class="card-desc">Team calendar, leaves and tasks</div>
         </div>
+        <!-- Multi-Personnel Task card removed from main window — use Teams view instead -->
         <div class="admin-nav-card" id="multi-team-task-card" onclick="openTeamTaskModal(null)" style="display:none">
           <div class="card-icon">📋</div>
           <div class="card-label">Book Multi-Team Task</div>

@@ -934,6 +934,8 @@ function showView(v) {
     }
   } else if (v === 'user-list') {
     document.getElementById('user-list-view').classList.remove('hidden');
+    // Hide calendar when showing user list
+    document.getElementById('calendar-view').classList.add('hidden');
     setBreadcrumb([{label:'Home', fn:'goAdminHome'}, {label:'User Tasks'}]);
     renderUserList();
   } else if (v === 'user-tasks') {
@@ -948,6 +950,8 @@ function showView(v) {
     renderLeaveCalendar();
   } else if (v === 'teams') {
     document.getElementById('teams-view').classList.remove('hidden');
+    // Hide calendar when showing teams view
+    document.getElementById('calendar-view').classList.add('hidden');
     setBreadcrumb([{label:'Home', fn:'goAdminHome'}, {label:'Teams'}]);
     const teamAssignBtn = document.getElementById('team-assign-btn');
     if (teamAssignBtn) teamAssignBtn.style.display = isElevated ? '' : 'none';
@@ -1056,6 +1060,8 @@ function showView(v) {
 
 function showBoardView(userId) {
   document.getElementById('task-board').classList.remove('hidden');
+  // Hide calendar when showing task board
+  document.getElementById('calendar-view').classList.add('hidden');
   (EL.addTaskFab||document.getElementById('add-task-fab')).classList.remove('hidden');
   (EL.boardFilterBar||document.getElementById('board-filter-bar')).classList.add('visible');
   _boardSearchVal = '';
@@ -1082,6 +1088,8 @@ function showBoardView(userId) {
 
 function showTimelineView(userId) {
   document.getElementById('timeline-view').classList.remove('hidden');
+  // Hide calendar when showing timeline view
+  document.getElementById('calendar-view').classList.add('hidden');
   (EL.addTaskFab||document.getElementById('add-task-fab')).classList.remove('hidden');
   const isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
   const targetUser = getUsers().find(u => u.id === userId);

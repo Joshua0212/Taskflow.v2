@@ -1068,6 +1068,17 @@ a { color: inherit; text-decoration: none; touch-action: manipulation; }
   border: 2px solid rgba(13,14,18,0.96);
 }
 
+/* Hide calendar on mobile for non-calendar views */
+#admin-home:not(.hidden) ~ #calendar-view,
+#worker-home:not(.hidden) ~ #calendar-view,
+#task-board:not(.hidden) ~ #calendar-view,
+#user-list-view:not(.hidden) ~ #calendar-view,
+#teams-view:not(.hidden) ~ #calendar-view { display: none !important; }
+
+/* Remove calendar completely from task and user views */
+#task-board:not(.hidden) ~ #calendar-view,
+#user-list-view:not(.hidden) ~ #calendar-view { display: none !important; }
+
 @media (max-width: 768px) {
   #mobile-bottom-nav { display: flex; }
   body { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
