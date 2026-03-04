@@ -209,7 +209,11 @@ const API = {
         if (body.name !== undefined) upd.name = body.name;
         if (body.email !== undefined) upd.email = body.email;
         if (body.emailNotif !== undefined) upd.email_notif = body.emailNotif;
-        const u = await SB.update('tf_users', id, upd);
+        let u = await SB.update('tf_users', id, upd);
+        if (!u) {
+          const rows = await SB.select('tf_users', `id=eq.${id}&limit=1`);
+          if (rows && rows.length > 0) u = rows[0];
+        }
         return u ? { id: u.id, name: u.name, username: u.username, role: u.role, email: u.email, emailNotif: u.email_notif } : null;
       }
       if (method === 'DELETE' && id) {
@@ -976,7 +980,8 @@ function showView(v) {
     document.getElementById('calendar-view').classList.remove('hidden');
     const isPersonal = state.calendarMode === 'personal' || (state.currentUser.role === 'user' && state.calendarMode !== 'team');
     const label = isPersonal ? 'My Calendar' : 'Calendar';
-    setBreadcrumb([{ label: 'Home', fn: isPersonal ? 'goToMyTasks' : 'goAdminHome' }, { label }]);
+    var homeFn = state.currentUser.role === 'user' ? 'goWorkerHome' : 'goAdminHome';
+    setBreadcrumb([{ label: 'Home', fn: isPersonal ? homeFn : homeFn }, { label }]);
 
     // Show breadcrumbs on desktop; hide on mobile (browser back handles navigation)
     var breadcrumb = document.getElementById('breadcrumb');
@@ -993,8 +998,7 @@ function showView(v) {
     if (mobAddBtn) mobAddBtn.style.display = 'none';
 
     // Add back button to calendar header (desktop only)
-    var isMobileView2 = window.innerWidth <= 768 || ('ontouchstart' in window);
-    if (calHeader && !document.getElementById('cal-back-btn') && !isMobileView2) {
+    if (calHeader && !document.getElementById('cal-back-btn') && !isMobileView) {
       var backBtn = document.createElement('button');
       backBtn.id = 'cal-back-btn';
       backBtn.className = 'btn-secondary';
@@ -1103,10 +1107,6 @@ function showBoardView(userId) {
   // Hide calendar when showing task board
   document.getElementById('calendar-view').classList.add('hidden');
   (EL.addTaskFab || document.getElementById('add-task-fab')).classList.remove('hidden');
-  // Hide add-task FAB on mobile for task view (users have mobile nav)
-  if (window.innerWidth <= 768 || ('ontouchstart' in window)) {
-    (EL.addTaskFab || document.getElementById('add-task-fab')).classList.add('hidden');
-  }
   (EL.boardFilterBar || document.getElementById('board-filter-bar')).classList.add('visible');
   _boardSearchVal = '';
   _boardFilter = 'all';
@@ -1123,6 +1123,8 @@ function showBoardView(userId) {
     } else {
       setBreadcrumb([{ label: 'Home', fn: 'goAdminHome' }, { label: 'My Tasks' }]);
     }
+  } else {
+    setBreadcrumb([{ label: 'Home', fn: 'goWorkerHome' }, { label: 'My Tasks' }]);
   }
   // Highlight Tasks tab in mobile nav
   updateMobileNavActive('mob-nav-tasks');
@@ -1150,6 +1152,8 @@ function showTimelineView(userId) {
     } else {
       setBreadcrumb([{ label: 'Home', fn: 'goAdminHome' }, { label: 'My Timeline' }]);
     }
+  } else {
+    setBreadcrumb([{ label: 'Home', fn: 'goWorkerHome' }, { label: 'My Timeline' }]);
   }
   renderTimeline(userId);
   startDeadlineChecker();
@@ -1192,7 +1196,14 @@ function updateCalHeaderUI() {
   const searchBar = document.getElementById('cal-search-bar');
   const addLeaveBtn = document.getElementById('add-leave-btn');
   const zoomBtn = document.getElementById('cal-zoom-btn');
-  if (toggleBtn) toggleBtn.textContent = isPersonal ? '👥 Team View' : '👤 My View';
+  if (toggleBtn) {
+    if (isUser) {
+      toggleBtn.style.display = 'none';
+    } else {
+      toggleBtn.style.display = '';
+      toggleBtn.textContent = isPersonal ? '👥 Team View' : '👤 My View';
+    }
+  }
   // Search only visible in day view + team mode
   if (searchBar) searchBar.classList.toggle('hidden', isPersonal || calState.zoom === 'year');
   // Leave button only for managers in team view
@@ -1203,6 +1214,7 @@ function goAdminHome() { showView('admin-home'); }
 function goToMyTasks() { state.targetUserId = null; state.view = 'my-tasks'; showView('my-tasks'); }
 function goToLeaveCalendar() { state.calendarMode = 'team'; showView('calendar'); }
 function goToMyCalendar() { state.calendarMode = 'personal'; showView('calendar'); }
+function goWorkerHome() { showView('worker-home'); }
 
 function setBreadcrumb(items) {
   const bc = document.getElementById('breadcrumb');
@@ -3742,7 +3754,26 @@ function escHtmlSimple(str) {
 /* ============================================================
    MOBILE NAV HELPERS
    ============================================================ */
-function mobileNavHome() {
+function mobileNavHome() { // ── Hide features based on role ──────────────────────────
+  var mgCard = document.getElementById('manager-add-card');
+  if (mgCard) {
+    if (state.currentUser.role === 'admin' || state.currentUser.role === 'manager') {
+      mgCard.style.display = '';
+    } else {
+      mgCard.style.display = 'none';
+    }
+  }
+
+  // Hide the Teams mobile nav icon for regular users
+  var mobTeamsBtn = document.getElementById('mob-nav-teams');
+  if (mobTeamsBtn) {
+    if (state.currentUser.role === 'user') {
+      mobTeamsBtn.style.display = 'none';
+      if (typeof updateMobileNavTabCount === 'function') updateMobileNavTabCount();
+    } else {
+      mobTeamsBtn.style.display = '';
+    }
+  }
   updateMobileNavActive('mob-nav-home');
   if (!state.currentUser) return;
   if (state.currentUser.role === 'admin' || state.currentUser.role === 'manager') {
@@ -3761,6 +3792,7 @@ function mobileNavTasks() {
 
 function mobileNavTeams() {
   if (!state.currentUser) return;
+  if (state.currentUser.role === 'user') return;
   updateMobileNavActive('mob-nav-teams');
   showView('teams');
 }
@@ -3774,16 +3806,39 @@ function mobileNavCal() {
   state._calendarFocusTaskId = null;
   const isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
   state.calendarMode = isElevated ? 'team' : 'personal';
-  showView('calendar');
+
+  // If cache is not yet populated, wait for it then render
+  if (!cache.tasks || !cache.users) {
+    showView('calendar');
+    loadAll().then(function () { renderCalendar(); });
+  } else {
+    showView('calendar');
+  }
 }
 
 function updateMobileNavActive(activeId) {
   document.querySelectorAll('.mob-nav-item').forEach(btn => btn.classList.remove('active'));
   const el = document.getElementById(activeId);
   if (el) el.classList.add('active');
-  // Restore "New Task" button unless we're in calendar view
+  // Hide "New Task" button on calendar view; show on all other views including tasks
   var addBtn = document.getElementById('mob-nav-add');
-  if (addBtn) addBtn.style.display = (activeId === 'mob-nav-cal') ? 'none' : '';
+  if (addBtn) {
+    if (activeId === 'mob-nav-cal') {
+      addBtn.style.display = 'none';
+    } else {
+      addBtn.style.display = '';
+    }
+  }
+
+  // Permanently hide teams icon for regular users
+  var mobTeamsBtn = document.getElementById('mob-nav-teams');
+  if (mobTeamsBtn && state.currentUser && state.currentUser.role === 'user') {
+    mobTeamsBtn.style.display = 'none';
+  }
+
+  // Remove / Hide Back Button on Mobile Calendar
+  var backBtn = document.getElementById('nav-back-btn');
+  if (backBtn) backBtn.style.display = (activeId === 'mob-nav-cal') ? 'none' : '';
 }
 
 function updateMobileNavNotifBadge() {
@@ -4578,19 +4633,23 @@ async function changeUserPassword() {
   const _btn = document.querySelector('#chpw-modal .btn-primary[onclick="changeUserPassword()"]');
   if (!_lockOp('chpwUser', _btn, 'Updating…')) return;
   const userId = document.getElementById('chpw-user').value;
-  const newPw = document.getElementById('chpw-new').value;
-  const confirmPw = document.getElementById('chpw-confirm').value;
+  const newPw = document.getElementById('chpw-new').value.trim();
+  const confirmPw = document.getElementById('chpw-confirm').value.trim();
   if (!userId) { toast('Please select a user.', 'error'); _unlockOp('chpwUser', _btn); return; }
   if (!newPw || newPw.length < 4) { toast('Password must be at least 4 characters.', 'error'); _unlockOp('chpwUser', _btn); return; }
   if (newPw !== confirmPw) { toast('Passwords do not match.', 'error'); _unlockOp('chpwUser', _btn); return; }
   const user = getUsers().find(u => u.id === userId);
   try {
-    await API.put(`/users/${userId}`, { password: newPw });
+    const result = await API.put(`/users/${userId}`, { password: newPw });
+    if (!result) throw new Error('Password update failed - no response from server');
     addLog({ taskId: null, taskTitle: 'Password changed for ' + (user ? user.name : userId), action: 'edited', actorName: state.currentUser.name, userId });
     pushNotification(userId, '🔑 Password Changed', 'Your account password was changed by ' + state.currentUser.name + '.', null);
     closeModal('chpw-modal');
     toast('Password updated' + (user ? ' for ' + user.name : '') + '!', 'success');
-  } catch (err) { toast(err.message || 'Failed to update password.', 'error'); } finally { _unlockOp('chpwUser', _btn); }
+  } catch (err) {
+    console.error('Password change error:', err);
+    toast(err.message || 'Failed to update password. Please check your connection.', 'error');
+  } finally { _unlockOp('chpwUser', _btn); }
 }
 
 function openChangePasswordFor(userId) {
@@ -5995,10 +6054,8 @@ function renderCalendar() {
   // passive:true lets the browser skip calling preventDefault — improves scroll performance
   // ── Sticky header via JS transform ──
   function stickyHeader(panel) {
-    var thead = panel.querySelector('thead');
-    if (thead) {
-      thead.style.transform = 'translateY(' + panel.scrollTop + 'px)';
-    }
+    // Disabled JS translateY. Relying on native CSS position: sticky
+    // This prevents the double-movement bug on mobile scroll
   }
 
   newDatesPanel.addEventListener('scroll', function () {
@@ -6349,23 +6406,48 @@ function renderCalendar() {
   var _touchTimer = null;
   var _touchStartTd = null;
   document.addEventListener('touchstart', function (e) {
-    var td = findDateCell(e.target);
-    if (!td) return;
-    _touchStartTd = td;
-    _touchTimer = setTimeout(function () {
-      var date = getDateFromCell(_touchStartTd);
-      if (date) {
-        _selectedDates = [date];
-        highlightDates(_selectedDates);
-        var touch = e.touches[0];
-        showCalContextMenu({
-          preventDefault: function () { },
-          stopPropagation: function () { },
-          clientX: touch.clientX,
-          clientY: touch.clientY
-        }, [date]);
+    var el = e.target;
+    var th = null;
+    while (el && el !== document.body) {
+      if (el.tagName === 'TH' && el.dataset && el.dataset.date) {
+        var panel = el.closest('.cal-dates-panel, #cal-dates-panel, [id="cal-dates-panel"]');
+        if (panel) { th = el; break; }
       }
-    }, 600);
+      el = el.parentElement;
+    }
+    if (!th) {
+      var td = findDateCell(e.target);
+      if (!td) return;
+      _touchStartTd = td;
+      _touchTimer = setTimeout(function () {
+        var date = getDateFromCell(_touchStartTd);
+        if (date) {
+          _selectedDates = [date];
+          highlightDates(_selectedDates);
+          var touch = e.touches[0];
+          showCalContextMenu({
+            preventDefault: function () { },
+            stopPropagation: function () { },
+            clientX: touch.clientX,
+            clientY: touch.clientY
+          }, [date]);
+        }
+      }, 600);
+    } else {
+      var clickedDate = th.dataset.date;
+      _touchTimer = setTimeout(function () {
+        if (clickedDate) {
+          _selectedDates = [clickedDate];
+          var touch = e.touches[0];
+          showCalContextMenu({
+            preventDefault: function () { },
+            stopPropagation: function () { },
+            clientX: touch.clientX,
+            clientY: touch.clientY
+          }, [clickedDate]);
+        }
+      }, 600);
+    }
   }, { passive: true });
   document.addEventListener('touchend', function () {
     clearTimeout(_touchTimer);

@@ -2909,6 +2909,30 @@ body.is-processing textarea {
    ============================================================ */
 @media (max-width: 768px) {
 
+  /* Hide calendar back button on mobile */
+  #cal-back-btn {
+    display: none !important;
+  }
+
+  /* Full-width and stacked multi-personnel form on mobile */
+  #team-task-modal .modal {
+    width: 95% !important;
+    max-width: none !important;
+    margin: 10px auto !important;
+  }
+
+  #team-task-modal .field-group {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+
+  #team-task-modal select,
+  #team-task-modal input,
+  #team-task-modal textarea {
+    width: 100% !important;
+  }
+
+
   #task-board,
   #timeline-view,
   #leave-calendar-view {
@@ -2932,9 +2956,9 @@ body.is-processing textarea {
     grid-template-columns: 1fr;
   }
 
-  /* FAB — floats above bottom nav */
+  /* FAB — floats above bottom nav - hidden on mobile task view as requested */
   #add-task-fab {
-    display: none;
+    display: none !important;
   }
 
   #add-task-fab.show-fab {
@@ -3714,7 +3738,7 @@ body.modal-open .modal-overlay {
 .cal-dates-panel thead th {
   position: sticky;
   top: 0;
-  z-index: 5;
+  z-index: 10;
 }
 
 .cal-names-panel thead th {
@@ -3724,10 +3748,11 @@ body.modal-open .modal-overlay {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 10px 12px;
+  padding: 12px 12px;
   border-bottom: 1px solid var(--border);
   text-align: left;
   white-space: nowrap;
+  min-height: 48px;
 }
 
 .cal-dates-panel thead th {
@@ -3737,13 +3762,14 @@ body.modal-open .modal-overlay {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 10px 8px;
+  padding: 12px 8px;
   border-bottom: 1px solid var(--border);
   border-right: 1px solid var(--border);
   text-align: center;
   min-width: var(--cal-col-w, 80px);
   white-space: nowrap;
   overflow: hidden;
+  min-height: 48px;
 }
 
 .cal-dates-panel thead th.today-col {
@@ -5587,9 +5613,17 @@ body.modal-open .modal-overlay {
     display: none;
   }
 
-  /* Worker home buttons */
+  /* Worker home buttons — uniform grid like admin cards */
   #worker-home .admin-nav-card {
     padding: 22px 16px;
+  }
+
+  #worker-home>div>div:has(> .admin-nav-card) {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;
+    max-width: 420px;
   }
 
   /* Timeline — hide on mobile, show board instead */
@@ -5936,7 +5970,7 @@ body.modal-open .modal-overlay {
 /* ── Mobile calendar: fill full space (header 52 + bottom-nav 60) ── */
 /* Week strip is now gone so no extra offset needed              */
 @media (max-width: 768px) {
-  #calendar-view {
+  #calendar-view:not(.hidden) {
     height: calc(100dvh - 52px - 60px) !important;
     max-height: calc(100dvh - 52px - 60px) !important;
     padding: 0 !important;
@@ -6085,6 +6119,10 @@ body.modal-open .modal-overlay {
     min-width: 52px !important;
     padding: 6px 3px !important;
     font-size: 9px !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 10 !important;
+    background: var(--bg) !important;
   }
 
   .cal-date-num {
