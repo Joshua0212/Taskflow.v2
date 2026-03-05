@@ -3532,9 +3532,20 @@ function stopRealtimeNotifs() {
   _disconnectRealtime();
 }
 
-// Silent re-render: refreshes current view without toast/scroll disruption
+// Silent re-render: refreshes current view only when data actually changed
+// and no modal is open (to avoid disrupting user interactions)
+var _lastTaskHash = '';
 function _silentRerender() {
   if (!state.currentUser) return;
+  // Don't re-render if a modal is open
+  var openModal = document.querySelector('.modal-overlay:not(.hidden)');
+  if (openModal) return;
+  // Simple change detection: hash task count + done/cancelled counts
+  var tasks = cache.tasks || [];
+  var hash = tasks.length + ':' + tasks.filter(t => t.done).length + ':' + tasks.filter(t => t.cancelled).length +
+    ':' + tasks.map(t => (t.description || []).filter(d => d.checked).length).join(',');
+  if (hash === _lastTaskHash) return; // no actual change
+  _lastTaskHash = hash;
   var v = state.view;
   if (v === 'my-tasks' || v === 'user-tasks') {
     var uid = v === 'user-tasks' ? state.targetUserId : state.currentUser.id;
