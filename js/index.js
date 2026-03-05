@@ -3472,36 +3472,222 @@ function composeTaskEmail(user, task, action, companyName) {
 }
 
 /* ============================================================
-   REAL-TIME NOTIFICATION POLLING
+   REAL-TIME SYNC via Supabase Realtime WebSocket
+   Subscribes to tf_tasks and tf_notifications for live updates.
+   Falls back to polling if WebSocket is unavailable.
    ============================================================ */
 let _notifPollInterval = null;
 let _lastNotifCount = 0;
+let _realtimeWs = null;
+let _realtimeConnected = false;
 
 function startRealtimeNotifs() {
+  // Try Supabase Realtime WebSocket first
+  try {
+    _connectRealtime();
+  } catch (e) {
+    console.warn('Realtime connection failed, falling back to polling:', e);
+  }
+  // Always run polling as backup (slower interval if realtime is active)
   clearInterval(_notifPollInterval);
   _notifPollInterval = setInterval(async () => {
     if (!state.currentUser) return;
     try {
+      // Refresh notifications
       const fresh = await API.get('/notifications');
       if (!fresh) return;
       cache.notifications = fresh;
       const unread = fresh.filter(n => n.userId === state.currentUser.id && !n.read).length;
       if (unread > _lastNotifCount && _lastNotifCount >= 0) {
-        // New notification arrived — show browser notification
         const newest = fresh.filter(n => n.userId === state.currentUser.id && !n.read)[0];
         if (newest && Notification.permission === 'granted') {
-          new Notification(newest.title, { body: newest.body, icon: '/favicon.ico', tag: 'tf-' + newest.id });
+          if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({
+              type: 'SHOW_NOTIFICATION', title: newest.title, body: newest.body, tag: 'tf-' + newest.id
+            });
+          } else {
+            new Notification(newest.title, { body: newest.body, icon: '/favicon.ico', tag: 'tf-' + newest.id });
+          }
         }
-        // Pulse the bell
         const btn = document.getElementById('notif-btn');
         if (btn) { btn.style.animation = 'none'; setTimeout(() => btn.style.animation = '', 10); }
       }
       _lastNotifCount = unread;
       updateNotifBadge();
+
+      // Also refresh tasks for sync (only if realtime is not connected)
+      if (!_realtimeConnected) {
+        const freshTasks = await API.get('/tasks');
+        if (freshTasks) {
+          cache.tasks = freshTasks;
+          _silentRerender();
+        }
+      }
     } catch { }
-  }, 8000); // poll every 8 seconds for near-real-time
+  }, _realtimeConnected ? 30000 : 8000);
 }
-function stopRealtimeNotifs() { clearInterval(_notifPollInterval); }
+
+function stopRealtimeNotifs() {
+  clearInterval(_notifPollInterval);
+  _disconnectRealtime();
+}
+
+// Silent re-render: refreshes current view without toast/scroll disruption
+function _silentRerender() {
+  if (!state.currentUser) return;
+  var v = state.view;
+  if (v === 'my-tasks' || v === 'user-tasks') {
+    var uid = v === 'user-tasks' ? state.targetUserId : state.currentUser.id;
+    if (state.currentViewMode === 'timeline') renderTimeline(uid);
+    else renderTasks(uid);
+  } else if (v === 'calendar') {
+    renderCalendarDebounced();
+  }
+}
+
+// ── Supabase Realtime WebSocket ──
+function _connectRealtime() {
+  if (_realtimeWs) _disconnectRealtime();
+
+  var wsUrl = SUPA_URL.replace('https://', 'wss://').replace('http://', 'ws://') +
+    '/realtime/v1/websocket?apikey=' + SUPA_KEY + '&vsn=1.0.0';
+
+  _realtimeWs = new WebSocket(wsUrl);
+  var heartbeatTimer = null;
+  var ref = 1;
+
+  _realtimeWs.onopen = function () {
+    _realtimeConnected = true;
+    console.log('[Realtime] Connected');
+
+    // Join tasks channel
+    _realtimeWs.send(JSON.stringify({
+      topic: 'realtime:public:tf_tasks',
+      event: 'phx_join',
+      payload: {
+        config: {
+          broadcast: { self: false }, postgres_changes: [
+            { event: '*', schema: 'public', table: 'tf_tasks' }
+          ]
+        }
+      },
+      ref: String(ref++)
+    }));
+
+    // Join notifications channel
+    _realtimeWs.send(JSON.stringify({
+      topic: 'realtime:public:tf_notifications',
+      event: 'phx_join',
+      payload: {
+        config: {
+          broadcast: { self: false }, postgres_changes: [
+            { event: 'INSERT', schema: 'public', table: 'tf_notifications' }
+          ]
+        }
+      },
+      ref: String(ref++)
+    }));
+
+    // Heartbeat every 30s to keep connection alive
+    heartbeatTimer = setInterval(function () {
+      if (_realtimeWs && _realtimeWs.readyState === WebSocket.OPEN) {
+        _realtimeWs.send(JSON.stringify({
+          topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(ref++)
+        }));
+      }
+    }, 30000);
+  };
+
+  _realtimeWs.onmessage = function (evt) {
+    try {
+      var msg = JSON.parse(evt.data);
+      if (msg.event === 'postgres_changes') {
+        var payload = msg.payload;
+        if (!payload || !payload.data) return;
+        var data = payload.data;
+        var table = data.table;
+        var type = data.type; // INSERT, UPDATE, DELETE
+
+        if (table === 'tf_tasks') {
+          _handleRealtimeTaskChange(type, data.record, data.old_record);
+        } else if (table === 'tf_notifications') {
+          _handleRealtimeNotification(type, data.record);
+        }
+      }
+    } catch (e) { /* ignore parse errors */ }
+  };
+
+  _realtimeWs.onclose = function () {
+    _realtimeConnected = false;
+    clearInterval(heartbeatTimer);
+    console.log('[Realtime] Disconnected — falling back to polling');
+    // Reconnect after 5s
+    setTimeout(function () {
+      if (state.currentUser) {
+        try { _connectRealtime(); } catch (e) { }
+      }
+    }, 5000);
+  };
+
+  _realtimeWs.onerror = function () {
+    _realtimeConnected = false;
+    console.warn('[Realtime] WebSocket error');
+  };
+}
+
+function _disconnectRealtime() {
+  if (_realtimeWs) {
+    try { _realtimeWs.close(); } catch (e) { }
+    _realtimeWs = null;
+  }
+  _realtimeConnected = false;
+}
+
+function _handleRealtimeTaskChange(type, record, oldRecord) {
+  if (!cache.tasks) cache.tasks = [];
+  var cid = _cid();
+
+  if (type === 'INSERT' && record) {
+    // Only add if same company and not already in cache
+    if (record.company_id === cid && !cache.tasks.find(t => t.id === record.id)) {
+      cache.tasks.push(record);
+      _silentRerender();
+    }
+  } else if (type === 'UPDATE' && record) {
+    var idx = cache.tasks.findIndex(t => t.id === record.id);
+    if (idx >= 0) {
+      Object.assign(cache.tasks[idx], record);
+      _silentRerender();
+    }
+  } else if (type === 'DELETE' && oldRecord) {
+    cache.tasks = cache.tasks.filter(t => t.id !== oldRecord.id);
+    _silentRerender();
+  }
+}
+
+function _handleRealtimeNotification(type, record) {
+  if (type === 'INSERT' && record && record.userId === state.currentUser?.id) {
+    if (!cache.notifications) cache.notifications = [];
+    // Avoid duplicates
+    if (!cache.notifications.find(n => n.id === record.id)) {
+      cache.notifications.unshift(record);
+      updateNotifBadge();
+      // Show browser notification
+      if (Notification.permission === 'granted') {
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({
+            type: 'SHOW_NOTIFICATION', title: record.title, body: record.body, tag: 'tf-' + record.id
+          });
+        } else {
+          new Notification(record.title, { body: record.body, icon: '/favicon.ico', tag: 'tf-' + record.id });
+        }
+      }
+      // Pulse bell
+      var btn = document.getElementById('notif-btn');
+      if (btn) { btn.style.animation = 'none'; setTimeout(function () { btn.style.animation = ''; }, 10); }
+    }
+  }
+}
 
 
 // Alias: mobile nav calls toggleNotifications(), desktop uses openNotifications()
