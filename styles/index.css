@@ -747,6 +747,7 @@ a {
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 16px;
   align-content: start;
+  align-items: start;
   overscroll-behavior-y: contain;
 }
 
