@@ -1457,9 +1457,7 @@ function showView(v) {
     renderTeamsView();
   } else if (v === 'calendar') {
     document.getElementById('calendar-view').classList.remove('hidden');
-    const isPersonal =
-      state.calendarMode === 'personal' ||
-      (state.currentUser.role === 'user' && state.calendarMode !== 'team');
+    const isPersonal = state.calendarMode === 'personal';
     const label = isPersonal ? 'My Calendar' : 'Calendar';
     var homeFn =
       state.currentUser.role === 'user' ? 'goWorkerHome' : 'goAdminHome';
@@ -1757,12 +1755,8 @@ function updateCalHeaderUI() {
   const addLeaveBtn = document.getElementById('add-leave-btn');
   const zoomBtn = document.getElementById('cal-zoom-btn');
   if (toggleBtn) {
-    if (isUser) {
-      toggleBtn.style.display = 'none';
-    } else {
-      toggleBtn.style.display = '';
-      toggleBtn.textContent = isPersonal ? '👥 Team View' : '👤 My View';
-    }
+    toggleBtn.style.display = '';
+    toggleBtn.textContent = isPersonal ? '👥 Team View' : '👤 My View';
   }
   // Search only visible in day view + team mode
   if (searchBar)
@@ -7886,9 +7880,7 @@ function renderCalendar() {
   if (splitWrapper) splitWrapper.style.display = 'flex';
   if (legacyTable) legacyTable.style.display = 'none';
 
-  var isPersonal =
-    state.calendarMode === 'personal' ||
-    (state.currentUser.role === 'user' && state.calendarMode !== 'team');
+  var isPersonal = state.calendarMode === 'personal';
   var isElevated =
     state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
 
