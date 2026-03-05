@@ -854,6 +854,10 @@ async function signOut() {
   document.getElementById('login-password').value = '';
   document.getElementById('login-error').classList.add('hidden');
   clearInterval(deadlineInterval);
+  // Clear saved view state
+  localStorage.removeItem('tf_view');
+  localStorage.removeItem('tf_target_uid');
+  history.replaceState(null, '', location.pathname);
 }
 
 
@@ -875,13 +879,65 @@ function setupHeader() {
 }
 
 /* ============================================================
-   VIEW ROUTING
+   VIEW ROUTING — with hash-based URLs and persistence
    ============================================================ */
 const views = ['admin-home', 'worker-home', 'task-board', 'timeline-view', 'leave-calendar-view', 'user-list-view', 'calendar-view', 'teams-view'];
+
+// Map view names to URL-friendly hashes
+var _viewToHash = {
+  'admin-home': 'home', 'worker-home': 'home', 'my-tasks': 'tasks',
+  'user-list': 'users', 'user-tasks': 'user-tasks', 'calendar': 'calendar',
+  'teams': 'teams', 'leave-calendar': 'leaves'
+};
+var _hashToView = {
+  'home': null, // resolved by role
+  'tasks': 'my-tasks', 'users': 'user-list', 'user-tasks': 'user-tasks',
+  'calendar': 'calendar', 'teams': 'teams', 'leaves': 'leave-calendar'
+};
+
+function _saveViewState(v) {
+  localStorage.setItem('tf_view', v);
+  if (state.targetUserId) localStorage.setItem('tf_target_uid', state.targetUserId);
+  // Update URL hash without triggering hashchange handler
+  var hash = _viewToHash[v] || v;
+  if (location.hash !== '#' + hash) {
+    history.replaceState(null, '', '#' + hash);
+  }
+}
+
+function _getSavedView() {
+  // Check URL hash first, then localStorage
+  var hash = location.hash.replace('#', '');
+  if (hash && _hashToView[hash] !== undefined) {
+    var mapped = _hashToView[hash];
+    if (mapped === null) return null; // role-dependent home
+    return mapped;
+  }
+  return localStorage.getItem('tf_view') || null;
+}
+
+// Listen for browser back/forward
+window.addEventListener('hashchange', function () {
+  if (!state.currentUser) return;
+  var hash = location.hash.replace('#', '');
+  var mapped = _hashToView[hash];
+  if (mapped === null) {
+    // home — resolve by role
+    mapped = (state.currentUser.role === 'admin' || state.currentUser.role === 'manager') ? 'admin-home' : 'worker-home';
+  }
+  if (mapped && mapped !== state.view) {
+    if (mapped === 'user-tasks') {
+      var savedUid = localStorage.getItem('tf_target_uid');
+      if (savedUid) { state.targetUserId = savedUid; }
+    }
+    showView(mapped);
+  }
+});
 
 function showView(v) {
   state.previousView = state.view;
   state.view = v;
+  _saveViewState(v);
   views.forEach(id => document.getElementById(id)?.classList.add('hidden'));
   (EL.boardFilterBar || document.getElementById('board-filter-bar'))?.classList.remove('visible');
   (EL.addTaskFab || document.getElementById('add-task-fab')).classList.add('hidden');
@@ -3989,15 +4045,11 @@ function mobileNavHome() { // ── Hide features based on role ─────
     }
   }
 
-  // Hide the Teams mobile nav icon for regular users
+  // Show Teams mobile nav icon for all roles
   var mobTeamsBtn = document.getElementById('mob-nav-teams');
   if (mobTeamsBtn) {
-    if (state.currentUser.role === 'user') {
-      mobTeamsBtn.style.display = 'none';
-      if (typeof updateMobileNavTabCount === 'function') updateMobileNavTabCount();
-    } else {
-      mobTeamsBtn.style.display = '';
-    }
+    mobTeamsBtn.style.display = '';
+    if (typeof updateMobileNavTabCount === 'function') updateMobileNavTabCount();
   }
   updateMobileNavActive('mob-nav-home');
   if (!state.currentUser) return;
@@ -7995,11 +8047,28 @@ async function initializeApp() {
       startPolling();
       startRealtimeNotifs();
       await loadAll();
-      if (role === 'admin' || role === 'manager') {
-        showView('admin-home');
-      } else {
+      // Restore saved view or default to home
+      var savedView = _getSavedView();
+      // Always show calendar button for regular users
+      if (role !== 'admin' && role !== 'manager') {
         const calBtn = document.getElementById('my-cal-btn');
         if (calBtn) calBtn.classList.remove('hidden');
+      }
+      if (savedView && savedView !== 'admin-home' && savedView !== 'worker-home') {
+        if (savedView === 'user-tasks') {
+          var savedUid = localStorage.getItem('tf_target_uid');
+          if (savedUid) {
+            state.targetUserId = savedUid;
+            showView('user-tasks');
+          } else {
+            showView(role === 'admin' || role === 'manager' ? 'user-list' : 'my-tasks');
+          }
+        } else {
+          showView(savedView);
+        }
+      } else if (role === 'admin' || role === 'manager') {
+        showView('admin-home');
+      } else {
         showView('worker-home');
       }
       // Check & claim session after restore (single-session enforcement)
