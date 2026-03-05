@@ -30,10 +30,14 @@
    ============================================================ */
 
 /** Fast getElementById alias */
-function $(id) { return document.getElementById(id); }
+function $(id) {
+  return document.getElementById(id);
+}
 
 /** Fast querySelectorAll alias — returns Array */
-function $$(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
+function $$(sel, root) {
+  return Array.from((root || document).querySelectorAll(sel));
+}
 
 /**
  * Debounce: collapses rapid repeated calls into one.
@@ -45,18 +49,20 @@ function debounce(fn, ms) {
     var args = arguments;
     var ctx = this;
     clearTimeout(t);
-    t = setTimeout(function () { fn.apply(ctx, args); }, ms);
+    t = setTimeout(function () {
+      fn.apply(ctx, args);
+    }, ms);
   };
 }
 
 /** App-wide configuration. Centralises all magic numbers. */
 var CONFIG = {
-  POLL_INTERVAL_MS: 30000,   // how often we poll for notifications
-  DEBOUNCE_RENDER_MS: 60,      // calendar / board re-render debounce
-  DEBOUNCE_SEARCH_MS: 120,     // search input debounce
-  SCROLL_TO_TASK_MS: 100,     // delay before scrolling to a focused task
-  TOAST_DURATION_MS: 4000,    // how long toasts stay visible
-  CAL_BLOCK_H: 22,      // px — height of one calendar task block
+  POLL_INTERVAL_MS: 30000, // how often we poll for notifications
+  DEBOUNCE_RENDER_MS: 60, // calendar / board re-render debounce
+  DEBOUNCE_SEARCH_MS: 120, // search input debounce
+  SCROLL_TO_TASK_MS: 100, // delay before scrolling to a focused task
+  TOAST_DURATION_MS: 4000, // how long toasts stay visible
+  CAL_BLOCK_H: 22, // px — height of one calendar task block
 };
 
 /* ============================================================
@@ -64,7 +70,8 @@ var CONFIG = {
    URL: https://xtlaqgititvfjorxdbgi.supabase.co
    ============================================================ */
 const SUPA_URL = 'https://xtlaqgititvfjorxdbgi.supabase.co';
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh0bGFxZ2l0aXR2ZmpvcnhkYmdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3NjkzMDQsImV4cCI6MjA4NzM0NTMwNH0.Lrqo4504z-4r9SZWn1FagPHHk8ogFqpjqnnsqxJascg';
+const SUPA_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh0bGFxZ2l0aXR2ZmpvcnhkYmdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3NjkzMDQsImV4cCI6MjA4NzM0NTMwNH0.Lrqo4504z-4r9SZWn1FagPHHk8ogFqpjqnnsqxJascg';
 
 // ---------- Core Supabase REST helpers ----------
 async function supa(method, table, body, filters, options) {
@@ -72,10 +79,10 @@ async function supa(method, table, body, filters, options) {
   options = options || {};
   const url = SUPA_URL + '/rest/v1/' + table + (filters ? '?' + filters : '');
   const headers = {
-    'apikey': SUPA_KEY,
-    'Authorization': 'Bearer ' + SUPA_KEY,
+    apikey: SUPA_KEY,
+    Authorization: 'Bearer ' + SUPA_KEY,
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
+    Accept: 'application/json',
   };
   // Always ask Supabase to return the full row(s) after mutating
   if (method === 'POST' || method === 'PATCH' || method === 'PUT') {
@@ -89,7 +96,9 @@ async function supa(method, table, body, filters, options) {
   if (!navigator.onLine && method !== 'GET') {
     if (typeof OfflineQueue !== 'undefined') {
       const path = '/direct/' + table + (filters ? '?' + filters : '');
-      OfflineQueue.enqueue({ method, path, body: body || null }).catch(() => { });
+      OfflineQueue.enqueue({ method, path, body: body || null }).catch(
+        () => { },
+      );
     }
     return null; // Callers handle null gracefully
   }
@@ -99,10 +108,19 @@ async function supa(method, table, body, filters, options) {
   const text = await res.text();
   if (!text) return null;
   let data;
-  try { data = JSON.parse(text); } catch (e) { throw new Error('Bad JSON from Supabase: ' + text.slice(0, 120)); }
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    throw new Error('Bad JSON from Supabase: ' + text.slice(0, 120));
+  }
   if (!res.ok) {
-    const msg = (Array.isArray(data) ? data[0] : data);
-    throw new Error(msg?.message || msg?.error || msg?.hint || ('Supabase error ' + res.status + ': ' + text.slice(0, 200)));
+    const msg = Array.isArray(data) ? data[0] : data;
+    throw new Error(
+      msg?.message ||
+      msg?.error ||
+      msg?.hint ||
+      'Supabase error ' + res.status + ': ' + text.slice(0, 200),
+    );
   }
   return data;
 }
@@ -129,20 +147,28 @@ const SB = {
   },
   async deleteWhere(table, filters) {
     return supa('DELETE', table, null, filters);
-  }
+  },
 };
 
 // ---------- API shim — multi-tenant, company-scoped ----------
 // Every query is automatically filtered to the current user's company_id.
 // Super-admin (role='superadmin') bypasses company scoping.
 
-function _cid() { return localStorage.getItem('tf_cid') || ''; }
+function _cid() {
+  return localStorage.getItem('tf_cid') || '';
+}
 
 const API = {
-  getToken() { return localStorage.getItem('tf_token'); },
-  setToken(t) { localStorage.setItem('tf_token', t); },
+  getToken() {
+    return localStorage.getItem('tf_token');
+  },
+  setToken(t) {
+    localStorage.setItem('tf_token', t);
+  },
   clearToken() {
-    ['tf_token', 'tf_uid', 'tf_cid', 'tf_role'].forEach(k => localStorage.removeItem(k));
+    ['tf_token', 'tf_uid', 'tf_cid', 'tf_role'].forEach((k) =>
+      localStorage.removeItem(k),
+    );
   },
 
   async request(method, path, body) {
@@ -155,8 +181,15 @@ const API = {
     // ── AUTH ────────────────────────────────────────────────────
     if (resource === 'auth') {
       if (id === 'login') {
-        const rows = await SB.select('tf_users', `username=eq.${body.username}&select=*&limit=1`);
-        if (!rows || rows.length === 0 || rows[0].password_hash !== body.password)
+        const rows = await SB.select(
+          'tf_users',
+          `username=eq.${body.username}&select=*&limit=1`,
+        );
+        if (
+          !rows ||
+          rows.length === 0 ||
+          rows[0].password_hash !== body.password
+        )
           throw new Error('Invalid credentials');
         const u = rows[0];
         localStorage.setItem('tf_uid', u.id);
@@ -164,43 +197,81 @@ const API = {
         localStorage.setItem('tf_role', u.role);
         return {
           token: 'app-session-' + u.id,
-          user: { id: u.id, name: u.name, username: u.username, role: u.role, companyId: u.company_id }
+          user: {
+            id: u.id,
+            name: u.name,
+            username: u.username,
+            role: u.role,
+            companyId: u.company_id,
+          },
         };
       }
-      if (id === 'logout') { this.clearToken(); return null; }
+      if (id === 'logout') {
+        this.clearToken();
+        return null;
+      }
     }
 
     // ── COMPANIES (super-admin only) ─────────────────────────────
     if (resource === 'companies') {
       if (!isSA) throw new Error('Not authorised');
-      if (method === 'GET') return SB.select('tf_companies', 'select=*&order=created_at.asc');
-      if (method === 'POST') return SB.insert('tf_companies', { name: body.name });
-      if (method === 'DELETE') { await SB.delete('tf_companies', id); return null; }
+      if (method === 'GET')
+        return SB.select('tf_companies', 'select=*&order=created_at.asc');
+      if (method === 'POST')
+        return SB.insert('tf_companies', { name: body.name });
+      if (method === 'DELETE') {
+        await SB.delete('tf_companies', id);
+        return null;
+      }
     }
 
     // ── USERS ────────────────────────────────────────────────────
     if (resource === 'users') {
       const cidFilter = isSA ? '' : `company_id=eq.${cid}&`;
       if (method === 'GET' && !id) {
-        const rows = await SB.select('tf_users', cidFilter + 'select=id,name,username,role,company_id,email,email_notif,created_at');
-        return (rows || []).map(u => ({
-          id: u.id, name: u.name, username: u.username, role: u.role, companyId: u.company_id,
-          email: u.email, emailNotif: u.email_notif, createdAt: u.created_at
+        const rows = await SB.select(
+          'tf_users',
+          cidFilter +
+          'select=id,name,username,role,company_id,email,email_notif,created_at',
+        );
+        return (rows || []).map((u) => ({
+          id: u.id,
+          name: u.name,
+          username: u.username,
+          role: u.role,
+          companyId: u.company_id,
+          email: u.email,
+          emailNotif: u.email_notif,
+          createdAt: u.created_at,
         }));
       }
       if (method === 'POST') {
-        const exists = await SB.select('tf_users', `username=eq.${body.username}&select=id&limit=1`);
-        if (exists && exists.length > 0) throw new Error('Username already taken');
+        const exists = await SB.select(
+          'tf_users',
+          `username=eq.${body.username}&select=id&limit=1`,
+        );
+        if (exists && exists.length > 0)
+          throw new Error('Username already taken');
         const ins = {
-          name: body.name, username: body.username, password_hash: body.password, role: body.role || 'user',
-          email: body.email || null, email_notif: body.emailNotif !== false
+          name: body.name,
+          username: body.username,
+          password_hash: body.password,
+          role: body.role || 'user',
+          email: body.email || null,
+          email_notif: body.emailNotif !== false,
         };
         if (!isSA) ins.company_id = cid;
         else if (body.companyId) ins.company_id = body.companyId;
         const nu = await SB.insert('tf_users', ins);
         return {
-          id: nu.id, name: nu.name, username: nu.username, role: nu.role, companyId: nu.company_id,
-          email: nu.email, emailNotif: nu.email_notif, createdAt: nu.created_at
+          id: nu.id,
+          name: nu.name,
+          username: nu.username,
+          role: nu.role,
+          companyId: nu.company_id,
+          email: nu.email,
+          emailNotif: nu.email_notif,
+          createdAt: nu.created_at,
         };
       }
       if (method === 'PUT' && id) {
@@ -214,7 +285,16 @@ const API = {
           const rows = await SB.select('tf_users', `id=eq.${id}&limit=1`);
           if (rows && rows.length > 0) u = rows[0];
         }
-        return u ? { id: u.id, name: u.name, username: u.username, role: u.role, email: u.email, emailNotif: u.email_notif } : null;
+        return u
+          ? {
+            id: u.id,
+            name: u.name,
+            username: u.username,
+            role: u.role,
+            email: u.email,
+            emailNotif: u.email_notif,
+          }
+          : null;
       }
       if (method === 'DELETE' && id) {
         await SB.deleteWhere('tf_tasks', `user_id=eq.${id}`);
@@ -227,7 +307,10 @@ const API = {
     if (resource === 'tasks') {
       const cidFilter = isSA ? '' : `company_id=eq.${cid}&`;
       if (method === 'GET') {
-        const rows = await SB.select('tf_tasks', cidFilter + 'select=*&order=created_at.desc');
+        const rows = await SB.select(
+          'tf_tasks',
+          cidFilter + 'select=*&order=created_at.desc',
+        );
         return (rows || []).map(_mapTask);
       }
       if (method === 'POST') {
@@ -239,21 +322,49 @@ const API = {
         const r = await SB.update('tf_tasks', id, _taskToDb(body));
         return r ? _mapTask(r) : null;
       }
-      if (method === 'DELETE' && id) { await SB.delete('tf_tasks', id); return null; }
+      if (method === 'DELETE' && id) {
+        await SB.delete('tf_tasks', id);
+        return null;
+      }
     }
 
     // ── LOGS ─────────────────────────────────────────────────────
     if (resource === 'logs') {
       const cidFilter = isSA ? '' : `company_id=eq.${cid}&`;
       if (method === 'GET') {
-        const rows = await SB.select('tf_logs', cidFilter + 'select=*&order=created_at.desc&limit=500');
-        return (rows || []).map(r => ({ id: r.id, taskId: r.task_id, taskTitle: r.task_title, action: r.action, actorName: r.actor_name, userId: r.user_id, timestamp: r.created_at }));
+        const rows = await SB.select(
+          'tf_logs',
+          cidFilter + 'select=*&order=created_at.desc&limit=500',
+        );
+        return (rows || []).map((r) => ({
+          id: r.id,
+          taskId: r.task_id,
+          taskTitle: r.task_title,
+          action: r.action,
+          actorName: r.actor_name,
+          userId: r.user_id,
+          timestamp: r.created_at,
+        }));
       }
       if (method === 'POST') {
-        const ins = { task_id: body.taskId, task_title: body.taskTitle, action: body.action, actor_name: body.actorName, user_id: body.userId };
+        const ins = {
+          task_id: body.taskId,
+          task_title: body.taskTitle,
+          action: body.action,
+          actor_name: body.actorName,
+          user_id: body.userId,
+        };
         if (!isSA) ins.company_id = cid;
         const r = await SB.insert('tf_logs', ins);
-        return { id: r.id, taskId: r.task_id, taskTitle: r.task_title, action: r.action, actorName: r.actor_name, userId: r.user_id, timestamp: r.created_at };
+        return {
+          id: r.id,
+          taskId: r.task_id,
+          taskTitle: r.task_title,
+          action: r.action,
+          actorName: r.actor_name,
+          userId: r.user_id,
+          timestamp: r.created_at,
+        };
       }
     }
 
@@ -261,19 +372,33 @@ const API = {
     if (resource === 'notifications') {
       const uid = localStorage.getItem('tf_uid');
       if (method === 'GET') {
-        const rows = await SB.select('tf_notifications', `user_id=eq.${uid}&select=*&order=created_at.desc&limit=200`);
+        const rows = await SB.select(
+          'tf_notifications',
+          `user_id=eq.${uid}&select=*&order=created_at.desc&limit=200`,
+        );
         return (rows || []).map(_mapNotif);
       }
       if (method === 'POST') {
-        const ins = { user_id: body.userId, title: body.title, body: body.body, task_id: body.taskId || null, metadata: body.metadata || null, is_read: false };
+        const ins = {
+          user_id: body.userId,
+          title: body.title,
+          body: body.body,
+          task_id: body.taskId || null,
+          metadata: body.metadata || null,
+          is_read: false,
+        };
         if (!isSA) ins.company_id = cid;
         return _mapNotif(await SB.insert('tf_notifications', ins));
       }
       if (method === 'PUT' && id && action === 'read') {
-        await SB.update('tf_notifications', id, { is_read: true }); return null;
+        await SB.update('tf_notifications', id, { is_read: true });
+        return null;
       }
       if (method === 'PUT' && id === 'read-all') {
-        await SB.updateWhere('tf_notifications', `user_id=eq.${uid}`, { is_read: true }); return null;
+        await SB.updateWhere('tf_notifications', `user_id=eq.${uid}`, {
+          is_read: true,
+        });
+        return null;
       }
     }
 
@@ -281,11 +406,20 @@ const API = {
     if (resource === 'leaves') {
       const cidFilter = isSA ? '' : `company_id=eq.${cid}&`;
       if (method === 'GET') {
-        const rows = await SB.select('tf_leaves', cidFilter + 'select=*&order=start_date.asc');
+        const rows = await SB.select(
+          'tf_leaves',
+          cidFilter + 'select=*&order=start_date.asc',
+        );
         return (rows || []).map(_mapLeave);
       }
       if (method === 'POST') {
-        const ins = { user_id: body.userId, type: body.type, start_date: body.startDate, end_date: body.endDate, reason: body.reason || null };
+        const ins = {
+          user_id: body.userId,
+          type: body.type,
+          start_date: body.startDate,
+          end_date: body.endDate,
+          reason: body.reason || null,
+        };
         if (!isSA) ins.company_id = cid;
         return _mapLeave(await SB.insert('tf_leaves', ins));
       }
@@ -298,40 +432,72 @@ const API = {
         if (body.reason !== undefined) upd.reason = body.reason;
         return _mapLeave(await SB.update('tf_leaves', id, upd));
       }
-      if (method === 'DELETE' && id) { await SB.delete('tf_leaves', id); return null; }
+      if (method === 'DELETE' && id) {
+        await SB.delete('tf_leaves', id);
+        return null;
+      }
     }
 
     // ── SCHEDULES ────────────────────────────────────────────────
     if (resource === 'schedules') {
       const cidFilter = isSA ? '' : `company_id=eq.${cid}&`;
       if (method === 'GET') {
-        const rows = await SB.select('tf_schedules', cidFilter + 'select=*&order=created_at.asc');
-        if (!rows || rows.length === 0) return [{ id: 'ws-default', name: 'Standard Workday', start: 9, end: 18, active: true }];
+        const rows = await SB.select(
+          'tf_schedules',
+          cidFilter + 'select=*&order=created_at.asc',
+        );
+        if (!rows || rows.length === 0)
+          return [
+            {
+              id: 'ws-default',
+              name: 'Standard Workday',
+              start: 9,
+              end: 18,
+              active: true,
+            },
+          ];
         return rows.map(_mapSchedule);
       }
       if (method === 'POST') {
-        const ins = { name: body.name, start_hour: body.startHour, end_hour: body.endHour, is_active: false };
+        const ins = {
+          name: body.name,
+          start_hour: body.startHour,
+          end_hour: body.endHour,
+          is_active: false,
+        };
         if (!isSA) ins.company_id = cid;
         return _mapSchedule(await SB.insert('tf_schedules', ins));
       }
       if (method === 'PUT' && id && action === 'activate') {
-        const f = isSA ? 'id=neq.00000000-0000-0000-0000-000000000000' : `company_id=eq.${cid}`;
+        const f = isSA
+          ? 'id=neq.00000000-0000-0000-0000-000000000000'
+          : `company_id=eq.${cid}`;
         await SB.updateWhere('tf_schedules', f, { is_active: false });
         await SB.update('tf_schedules', id, { is_active: true });
         return null;
       }
-      if (method === 'DELETE' && id) { await SB.delete('tf_schedules', id); return null; }
+      if (method === 'DELETE' && id) {
+        await SB.delete('tf_schedules', id);
+        return null;
+      }
     }
 
     // ── TEAMS ────────────────────────────────────────────────────
     if (resource === 'teams') {
       const cidFilter = isSA ? '' : `company_id=eq.${cid}&`;
       if (method === 'GET') {
-        const rows = await SB.select('tf_teams', cidFilter + 'select=*&order=created_at.asc');
+        const rows = await SB.select(
+          'tf_teams',
+          cidFilter + 'select=*&order=created_at.asc',
+        );
         return (rows || []).map(_mapTeam);
       }
       if (method === 'POST') {
-        const ins = { name: body.name, color: body.color || '#F59E0B', member_ids: body.memberIds || [] };
+        const ins = {
+          name: body.name,
+          color: body.color || '#F59E0B',
+          member_ids: body.memberIds || [],
+        };
         if (!isSA) ins.company_id = cid;
         return _mapTeam(await SB.insert('tf_teams', ins));
       }
@@ -342,29 +508,53 @@ const API = {
         if (body.memberIds !== undefined) upd.member_ids = body.memberIds;
         return _mapTeam(await SB.update('tf_teams', id, upd));
       }
-      if (method === 'DELETE' && id) { await SB.delete('tf_teams', id); return null; }
+      if (method === 'DELETE' && id) {
+        await SB.delete('tf_teams', id);
+        return null;
+      }
     }
 
     return null;
   },
 
-  get(path) { return this.request('GET', path); },
-  post(path, body) { return this.request('POST', path, body); },
-  put(path, body) { return this.request('PUT', path, body); },
-  del(path) { return this.request('DELETE', path); },
+  get(path) {
+    return this.request('GET', path);
+  },
+  post(path, body) {
+    return this.request('POST', path, body);
+  },
+  put(path, body) {
+    return this.request('PUT', path, body);
+  },
+  del(path) {
+    return this.request('DELETE', path);
+  },
 };
 
 // ---------- Field mappers ------------------------------------------------
 function _mapTask(r) {
   if (!r) return null;
   return {
-    id: r.id, userId: r.user_id, title: r.title, requestor: r.requestor,
-    priority: r.priority, start: r.start_at, deadline: r.deadline_at,
-    description: r.description || [], done: r.is_done || false, doneAt: r.done_at,
-    cancelled: r.is_cancelled || false, cancelledAt: r.cancelled_at, cancelReason: r.cancel_reason,
-    createdAt: r.created_at, isMultiPersonnel: r.is_multi || false, multiGroupId: r.group_id,
-    isTeamTask: r.is_team_task || false, teamId: r.team_id, teamName: r.team_name,
-    createdBy: r.created_by || null
+    id: r.id,
+    userId: r.user_id,
+    title: r.title,
+    requestor: r.requestor,
+    priority: r.priority,
+    start: r.start_at,
+    deadline: r.deadline_at,
+    description: r.description || [],
+    done: r.is_done || false,
+    doneAt: r.done_at,
+    cancelled: r.is_cancelled || false,
+    cancelledAt: r.cancelled_at,
+    cancelReason: r.cancel_reason,
+    createdAt: r.created_at,
+    isMultiPersonnel: r.is_multi || false,
+    multiGroupId: r.group_id,
+    isTeamTask: r.is_team_task || false,
+    teamId: r.team_id,
+    teamName: r.team_name,
+    createdBy: r.created_by || null,
   };
 }
 function _taskToDb(b) {
@@ -399,12 +589,12 @@ function _makeGroupMeta(groupId, memberIds) {
 }
 function _getGroupMeta(description) {
   if (!Array.isArray(description)) return null;
-  return description.find(d => d.__meta) || null;
+  return description.find((d) => d.__meta) || null;
 }
 // Returns the visible (non-meta) checklist items
 function _visibleDesc(description) {
   if (!Array.isArray(description)) return [];
-  return description.filter(d => !d.__meta);
+  return description.filter((d) => !d.__meta);
 }
 // Build a full description array from visible items + existing meta
 function _buildDesc(visibleItems, meta) {
@@ -417,7 +607,7 @@ async function _syncGroupCheck(changedTask, newDescription) {
   if (!meta || !meta.groupId) return; // not a group task — nothing to sync
   const groupId = meta.groupId;
   const allTasks = getTasks();
-  const groupTasks = allTasks.filter(t => {
+  const groupTasks = allTasks.filter((t) => {
     const m = _getGroupMeta(t.description);
     return m && m.groupId === groupId && t.id !== changedTask.id;
   });
@@ -439,40 +629,73 @@ function _getTeamSiblings(task) {
   const meta = _getGroupMeta(task.description);
   if (!meta || !meta.groupId) return [];
   const groupId = meta.groupId;
-  return getTasks().filter(t =>
-    t.id !== task.id &&
-    t.isTeamTask &&
-    (() => { const m = _getGroupMeta(t.description); return m && m.groupId === groupId; })()
+  return getTasks().filter(
+    (t) =>
+      t.id !== task.id &&
+      t.isTeamTask &&
+      (() => {
+        const m = _getGroupMeta(t.description);
+        return m && m.groupId === groupId;
+      })(),
   );
 }
 
 function _mapNotif(r) {
   if (!r) return null;
   return {
-    id: r.id, userId: r.user_id, title: r.title, body: r.body,
-    taskId: r.task_id, metadata: r.metadata, read: r.is_read || false, timestamp: r.created_at
+    id: r.id,
+    userId: r.user_id,
+    title: r.title,
+    body: r.body,
+    taskId: r.task_id,
+    metadata: r.metadata,
+    read: r.is_read || false,
+    timestamp: r.created_at,
   };
 }
 function _mapLeave(r) {
   if (!r) return null;
   return {
-    id: r.id, userId: r.user_id, type: r.type, startDate: r.start_date,
-    endDate: r.end_date, reason: r.reason, createdAt: r.created_at
+    id: r.id,
+    userId: r.user_id,
+    type: r.type,
+    startDate: r.start_date,
+    endDate: r.end_date,
+    reason: r.reason,
+    createdAt: r.created_at,
   };
 }
 function _mapSchedule(r) {
   if (!r) return null;
-  return { id: r.id, name: r.name, start: r.start_hour, end: r.end_hour, active: r.is_active || false };
+  return {
+    id: r.id,
+    name: r.name,
+    start: r.start_hour,
+    end: r.end_hour,
+    active: r.is_active || false,
+  };
 }
 function _mapTeam(r) {
   if (!r) return null;
-  return { id: r.id, name: r.name, color: r.color || '#F59E0B', memberIds: r.member_ids || [], createdAt: r.created_at };
+  return {
+    id: r.id,
+    name: r.name,
+    color: r.color || '#F59E0B',
+    memberIds: r.member_ids || [],
+    createdAt: r.created_at,
+  };
 }
 
 // ---------- In-memory cache ---------------------------------------------
 const cache = {
-  users: null, tasks: null, logs: null, notifications: null,
-  leaves: null, workSchedules: null, teams: null, companies: null,
+  users: null,
+  tasks: null,
+  logs: null,
+  notifications: null,
+  leaves: null,
+  workSchedules: null,
+  teams: null,
+  companies: null,
 };
 
 // Poll for new notifications every 30s when logged in
@@ -481,50 +704,90 @@ async function startPolling() {
   clearInterval(_pollInterval);
   _pollInterval = setInterval(async () => {
     try {
-      cache.notifications = await API.get('/notifications') || [];
+      cache.notifications = (await API.get('/notifications')) || [];
       updateNotifBadge();
     } catch { }
   }, 30000);
 }
-function stopPolling() { clearInterval(_pollInterval); }
+function stopPolling() {
+  clearInterval(_pollInterval);
+}
 
 // Legacy synchronous-style getters (now use cache)
-function getUsers() { return cache.users || []; }
-function getTasks() { return cache.tasks || []; }
-function getLogs() { return cache.logs || []; }
-function getNotifs() { return cache.notifications || []; }
-function getLeaves() { return cache.leaves || []; }
-function getWorkSchedules() { return cache.workSchedules || [{ id: 'ws-default', name: 'Standard Workday', start: 9, end: 18, active: true }]; }
-function getTeams() { return cache.teams || []; }
+function getUsers() {
+  return cache.users || [];
+}
+function getTasks() {
+  return cache.tasks || [];
+}
+function getLogs() {
+  return cache.logs || [];
+}
+function getNotifs() {
+  return cache.notifications || [];
+}
+function getLeaves() {
+  return cache.leaves || [];
+}
+function getWorkSchedules() {
+  return (
+    cache.workSchedules || [
+      {
+        id: 'ws-default',
+        name: 'Standard Workday',
+        start: 9,
+        end: 18,
+        active: true,
+      },
+    ]
+  );
+}
+function getTeams() {
+  return cache.teams || [];
+}
 
 // Async save helpers
 async function saveTasks(t) {
   // Handled inline in each action via API calls; cache stays in sync
   cache.tasks = t;
 }
-async function saveUsers(u) { cache.users = u; }
-async function saveLogs(l) { cache.logs = l; }
-async function saveNotifs(n) { cache.notifications = n; }
-async function saveLeaves(l) { cache.leaves = l; }
-async function saveWorkSchedules(arr) { cache.workSchedules = arr; }
+async function saveUsers(u) {
+  cache.users = u;
+}
+async function saveLogs(l) {
+  cache.logs = l;
+}
+async function saveNotifs(n) {
+  cache.notifications = n;
+}
+async function saveLeaves(l) {
+  cache.leaves = l;
+}
+async function saveWorkSchedules(arr) {
+  cache.workSchedules = arr;
+}
 
 function getWorkHours() {
   const scheds = getWorkSchedules();
-  return scheds.find(s => s.active) || scheds[0] || { name: 'Standard Workday', start: 9, end: 18 };
+  return (
+    scheds.find((s) => s.active) ||
+    scheds[0] || { name: 'Standard Workday', start: 9, end: 18 }
+  );
 }
 
 async function loadAll() {
   if (localStorage.getItem('tf_role') === 'superadmin') return;
   try {
-    const [users, tasks, logs, notifs, leaves, schedules, teams] = await Promise.all([
-      API.get('/users'),
-      API.get('/tasks'),
-      API.get('/logs'),
-      API.get('/notifications'),
-      API.get('/leaves'),
-      API.get('/schedules'),
-      API.get('/teams'),
-    ]);
+    const [users, tasks, logs, notifs, leaves, schedules, teams] =
+      await Promise.all([
+        API.get('/users'),
+        API.get('/tasks'),
+        API.get('/logs'),
+        API.get('/notifications'),
+        API.get('/leaves'),
+        API.get('/schedules'),
+        API.get('/teams'),
+      ]);
     cache.users = users || [];
     cache.tasks = tasks || [];
     cache.logs = logs || [];
@@ -543,7 +806,8 @@ async function loadAll() {
    ============================================================ */
 async function loadSACompanies() {
   const list = document.getElementById('sa-companies-list');
-  list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);">Loading...</div>';
+  list.innerHTML =
+    '<div style="text-align:center;padding:40px;color:var(--text3);">Loading...</div>';
   try {
     const companies = await API.get('/companies');
     cache.companies = companies || [];
@@ -553,10 +817,15 @@ async function loadSACompanies() {
     }
     // Load user counts per company
     const allUsers = await SB.select('tf_users', 'select=id,company_id,role');
-    list.innerHTML = companies.map(co => {
-      const coUsers = (allUsers || []).filter(u => u.company_id === co.id && u.role !== 'admin');
-      const admins = (allUsers || []).filter(u => u.company_id === co.id && u.role === 'admin');
-      return `<div class="sa-company-card">
+    list.innerHTML = companies
+      .map((co) => {
+        const coUsers = (allUsers || []).filter(
+          (u) => u.company_id === co.id && u.role !== 'admin',
+        );
+        const admins = (allUsers || []).filter(
+          (u) => u.company_id === co.id && u.role === 'admin',
+        );
+        return `<div class="sa-company-card">
         <div class="sa-company-icon">🏢</div>
         <div class="sa-company-info">
           <div class="sa-company-name">${escHtml(co.name)}</div>
@@ -568,7 +837,8 @@ async function loadSACompanies() {
           <button class="btn-danger" style="font-size:11px;padding:6px 10px;" onclick="deleteCompany('${co.id}','${escHtml(co.name)}')">✕</button>
         </div>
       </div>`;
-    }).join('');
+      })
+      .join('');
   } catch (e) {
     list.innerHTML = `<div style="color:var(--danger);padding:20px;">${e.message}</div>`;
   }
@@ -586,22 +856,42 @@ function openCreateCompany() {
 async function saveCompany() {
   const name = document.getElementById('sa-co-name').value.trim();
   const adminName = document.getElementById('sa-admin-name').value.trim();
-  const adminUser = document.getElementById('sa-admin-username').value.trim().toLowerCase().replace(/\s/g, '');
+  const adminUser = document
+    .getElementById('sa-admin-username')
+    .value.trim()
+    .toLowerCase()
+    .replace(/\s/g, '');
   const adminPass = document.getElementById('sa-admin-password').value.trim();
-  if (!name || !adminName || !adminUser || !adminPass) { toast('All fields are required.', 'error'); return; }
+  if (!name || !adminName || !adminUser || !adminPass) {
+    toast('All fields are required.', 'error');
+    return;
+  }
   try {
     // 1. Create company
     const co = await API.post('/companies', { name });
     // 2. Create admin user for that company
-    await API.post('/users', { name: adminName, username: adminUser, password: adminPass, role: 'admin', companyId: co.id });
+    await API.post('/users', {
+      name: adminName,
+      username: adminUser,
+      password: adminPass,
+      role: 'admin',
+      companyId: co.id,
+    });
     closeModal('sa-company-modal');
     toast(`Company "${name}" created with admin account! ✓`, 'success');
     await loadSACompanies();
-  } catch (e) { toast(e.message || 'Failed to create company.', 'error'); }
+  } catch (e) {
+    toast(e.message || 'Failed to create company.', 'error');
+  }
 }
 
 async function deleteCompany(id, name) {
-  if (!confirm(`Delete company "${name}" and ALL their data (users, tasks, teams)? This cannot be undone.`)) return;
+  if (
+    !confirm(
+      `Delete company "${name}" and ALL their data (users, tasks, teams)? This cannot be undone.`,
+    )
+  )
+    return;
   try {
     // Delete all company data in order
     await SB.deleteWhere('tf_tasks', `company_id=eq.${id}`);
@@ -614,21 +904,38 @@ async function deleteCompany(id, name) {
     await API.del('/companies/' + id);
     toast(`Company "${name}" deleted.`, 'info');
     await loadSACompanies();
-  } catch (e) { toast(e.message || 'Failed to delete company.', 'error'); }
+  } catch (e) {
+    toast(e.message || 'Failed to delete company.', 'error');
+  }
 }
 
 async function viewCompanyUsers(companyId, companyName) {
-  document.getElementById('sa-users-modal-title').textContent = '👥 ' + companyName + ' — Users';
+  document.getElementById('sa-users-modal-title').textContent =
+    '👥 ' + companyName + ' — Users';
   const list = document.getElementById('sa-users-list');
-  list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3);">Loading...</div>';
+  list.innerHTML =
+    '<div style="text-align:center;padding:20px;color:var(--text3);">Loading...</div>';
   openModal('sa-users-modal');
   try {
-    const users = await SB.select('tf_users', `company_id=eq.${companyId}&select=id,name,username,role,created_at`);
-    const roleColors = { admin: '#A78BFA', manager: '#38BDF8', user: 'var(--p4)' };
-    const roleLabels = { admin: '🛡 Admin', manager: '🏢 Manager', user: '👤 User' };
-    list.innerHTML = (users || []).map(u => {
-      const rc = roleColors[u.role] || 'var(--p4)';
-      return `<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;">
+    const users = await SB.select(
+      'tf_users',
+      `company_id=eq.${companyId}&select=id,name,username,role,created_at`,
+    );
+    const roleColors = {
+      admin: '#A78BFA',
+      manager: '#38BDF8',
+      user: 'var(--p4)',
+    };
+    const roleLabels = {
+      admin: '🛡 Admin',
+      manager: '🏢 Manager',
+      user: '👤 User',
+    };
+    list.innerHTML =
+      (users || [])
+        .map((u) => {
+          const rc = roleColors[u.role] || 'var(--p4)';
+          return `<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;">
         <div style="width:34px;height:34px;border-radius:50%;background:${rc}18;border:1px solid ${rc}44;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:${rc};flex-shrink:0;">${escHtml((u.name || '?')[0].toUpperCase())}</div>
         <div style="flex:1;min-width:0;">
           <div style="font-weight:600;font-size:13px;">${escHtml(u.name)}</div>
@@ -636,30 +943,43 @@ async function viewCompanyUsers(companyId, companyName) {
         </div>
         <span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;background:${rc}18;color:${rc};border:1px solid ${rc}30;">${roleLabels[u.role] || u.role}</span>
       </div>`;
-    }).join('') || '<div style="text-align:center;padding:20px;color:var(--text3);">No users yet</div>';
+        })
+        .join('') ||
+      '<div style="text-align:center;padding:20px;color:var(--text3);">No users yet</div>';
   } catch (e) {
     list.innerHTML = `<div style="color:var(--danger);padding:12px;">${e.message}</div>`;
   }
 }
 
-function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
 
 /* ============================================================
    SUPER-ADMIN: Change Admin Password
    ============================================================ */
 async function openSAChangeAdminPw(companyId, companyName) {
-  document.getElementById('sa-chpw-info').textContent = 'Set a new password for an admin account of "' + companyName + '".';
+  document.getElementById('sa-chpw-info').textContent =
+    'Set a new password for an admin account of "' + companyName + '".';
   document.getElementById('sa-chpw-new').value = '';
   document.getElementById('sa-chpw-confirm').value = '';
   const sel = document.getElementById('sa-chpw-admin-select');
   sel.innerHTML = '<option value="">Loading...</option>';
   openModal('sa-chpw-modal');
   try {
-    const users = await SB.select('tf_users', `company_id=eq.${companyId}&role=eq.admin&select=id,name,username`);
+    const users = await SB.select(
+      'tf_users',
+      `company_id=eq.${companyId}&role=eq.admin&select=id,name,username`,
+    );
     if (!users || users.length === 0) {
       sel.innerHTML = '<option value="">No admin found</option>';
     } else {
-      sel.innerHTML = users.map(u => `<option value="${u.id}">${escHtml(u.name)} (@${escHtml(u.username)})</option>`).join('');
+      sel.innerHTML = users
+        .map(
+          (u) =>
+            `<option value="${u.id}">${escHtml(u.name)} (@${escHtml(u.username)})</option>`,
+        )
+        .join('');
     }
   } catch (e) {
     sel.innerHTML = '<option value="">Error loading admins</option>';
@@ -670,10 +990,22 @@ async function saveSAAdminPw() {
   const adminId = document.getElementById('sa-chpw-admin-select').value;
   const newPw = document.getElementById('sa-chpw-new').value.trim();
   const confPw = document.getElementById('sa-chpw-confirm').value.trim();
-  if (!adminId) { toast('Please select an admin account.', 'error'); return; }
-  if (!newPw) { toast('Please enter a new password.', 'error'); return; }
-  if (newPw !== confPw) { toast('Passwords do not match.', 'error'); return; }
-  if (newPw.length < 4) { toast('Password must be at least 4 characters.', 'error'); return; }
+  if (!adminId) {
+    toast('Please select an admin account.', 'error');
+    return;
+  }
+  if (!newPw) {
+    toast('Please enter a new password.', 'error');
+    return;
+  }
+  if (newPw !== confPw) {
+    toast('Passwords do not match.', 'error');
+    return;
+  }
+  if (newPw.length < 4) {
+    toast('Password must be at least 4 characters.', 'error');
+    return;
+  }
   try {
     await SB.update('tf_users', adminId, { password_hash: newPw });
     closeModal('sa-chpw-modal');
@@ -683,7 +1015,9 @@ async function saveSAAdminPw() {
   }
 }
 
-function initDB() { /* no-op: handled by backend */ }
+function initDB() {
+  /* no-op: handled by backend */
+}
 
 /* ============================================================
    STATE
@@ -716,17 +1050,27 @@ const _opLocks = new Set();
 function _lockOp(key, btn, busyText) {
   if (_opLocks.has(key)) return false;
   _opLocks.add(key);
-  if (btn) { btn.disabled = true; btn._origText = btn.textContent; if (busyText) btn.textContent = busyText; }
+  if (btn) {
+    btn.disabled = true;
+    btn._origText = btn.textContent;
+    if (busyText) btn.textContent = busyText;
+  }
   // Show global overlay with process name centred on screen
   const ov = document.getElementById('global-overlay');
   const tx = document.getElementById('global-overlay-text');
-  if (ov) { if (tx) tx.textContent = busyText || 'Processing…'; ov.style.display = 'flex'; }
+  if (ov) {
+    if (tx) tx.textContent = busyText || 'Processing…';
+    ov.style.display = 'flex';
+  }
   return true;
 }
 
 function _unlockOp(key, btn) {
   _opLocks.delete(key);
-  if (btn) { btn.disabled = false; if (btn._origText !== undefined) btn.textContent = btn._origText; }
+  if (btn) {
+    btn.disabled = false;
+    if (btn._origText !== undefined) btn.textContent = btn._origText;
+  }
   // Hide overlay only when ALL locks released
   if (_opLocks.size === 0) {
     const ov = document.getElementById('global-overlay');
@@ -739,8 +1083,8 @@ const _navHist = [];
 let _navIdx = -1;
 
 function _navRecord(key) {
-  if (_navHist[_navIdx] === key) return;          // same page, skip
-  _navHist.splice(_navIdx + 1);                   // drop forward stack
+  if (_navHist[_navIdx] === key) return; // same page, skip
+  _navHist.splice(_navIdx + 1); // drop forward stack
   _navHist.push(key);
   _navIdx = _navHist.length - 1;
   _navRefresh();
@@ -751,8 +1095,14 @@ function _navRefresh() {
   const next = document.getElementById('nav-next-btn');
   const canBack = _navIdx > 0;
   const canNext = _navIdx < _navHist.length - 1;
-  if (back) { back.style.opacity = canBack ? '1' : '0.35'; back.style.pointerEvents = canBack ? 'auto' : 'none'; }
-  if (next) { next.style.opacity = canNext ? '1' : '0.35'; next.style.pointerEvents = canNext ? 'auto' : 'none'; }
+  if (back) {
+    back.style.opacity = canBack ? '1' : '0.35';
+    back.style.pointerEvents = canBack ? 'auto' : 'none';
+  }
+  if (next) {
+    next.style.opacity = canNext ? '1' : '0.35';
+    next.style.pointerEvents = canNext ? 'auto' : 'none';
+  }
 }
 
 function _navJump(key) {
@@ -804,7 +1154,9 @@ async function signIn() {
     API.setToken(data.token);
     state.currentUser = data.user;
 
-    (EL.loginScreen || document.getElementById('login-screen')).classList.add('hidden');
+    (EL.loginScreen || document.getElementById('login-screen')).classList.add(
+      'hidden',
+    );
 
     if (data.user.role === 'superadmin') {
       // Super-admin goes to their own panel, not the main app
@@ -840,16 +1192,20 @@ async function signIn() {
 }
 
 async function signOut() {
-  try { await API.post('/auth/logout'); } catch { }
+  try {
+    await API.post('/auth/logout');
+  } catch { }
   API.clearToken();
   stopPolling();
   stopRealtimeNotifs();
   state.currentUser = null;
   state.view = 'login';
-  Object.keys(cache).forEach(k => cache[k] = null);
+  Object.keys(cache).forEach((k) => (cache[k] = null));
   document.getElementById('app').classList.add('hidden');
   document.getElementById('sa-panel').classList.add('hidden');
-  (EL.loginScreen || document.getElementById('login-screen')).classList.remove('hidden');
+  (EL.loginScreen || document.getElementById('login-screen')).classList.remove(
+    'hidden',
+  );
   document.getElementById('login-username').value = '';
   document.getElementById('login-password').value = '';
   document.getElementById('login-error').classList.add('hidden');
@@ -860,7 +1216,6 @@ async function signOut() {
   history.replaceState(null, '', location.pathname);
 }
 
-
 /* ============================================================
    HEADER
    ============================================================ */
@@ -870,7 +1225,11 @@ function setupHeader() {
   const roleEl = document.getElementById('header-role');
   const roleLabels = { admin: 'Admin', manager: 'Manager', user: 'User' };
   roleEl.textContent = roleLabels[u.role] || u.role.toUpperCase();
-  const roleClass = { admin: 'role-admin', manager: 'role-manager', user: 'role-user' };
+  const roleClass = {
+    admin: 'role-admin',
+    manager: 'role-manager',
+    user: 'role-user',
+  };
   roleEl.className = 'header-role ' + (roleClass[u.role] || 'role-user');
   // Settings (change password) button — admin only
   const chpwBtn = document.getElementById('header-chpw-btn');
@@ -881,23 +1240,42 @@ function setupHeader() {
 /* ============================================================
    VIEW ROUTING — with hash-based URLs and persistence
    ============================================================ */
-const views = ['admin-home', 'worker-home', 'task-board', 'timeline-view', 'leave-calendar-view', 'user-list-view', 'calendar-view', 'teams-view'];
+const views = [
+  'admin-home',
+  'worker-home',
+  'task-board',
+  'timeline-view',
+  'leave-calendar-view',
+  'user-list-view',
+  'calendar-view',
+  'teams-view',
+];
 
 // Map view names to URL-friendly hashes
 var _viewToHash = {
-  'admin-home': 'home', 'worker-home': 'home', 'my-tasks': 'tasks',
-  'user-list': 'users', 'user-tasks': 'user-tasks', 'calendar': 'calendar',
-  'teams': 'teams', 'leave-calendar': 'leaves'
+  'admin-home': 'home',
+  'worker-home': 'home',
+  'my-tasks': 'tasks',
+  'user-list': 'users',
+  'user-tasks': 'user-tasks',
+  calendar: 'calendar',
+  teams: 'teams',
+  'leave-calendar': 'leaves',
 };
 var _hashToView = {
-  'home': null, // resolved by role
-  'tasks': 'my-tasks', 'users': 'user-list', 'user-tasks': 'user-tasks',
-  'calendar': 'calendar', 'teams': 'teams', 'leaves': 'leave-calendar'
+  home: null, // resolved by role
+  tasks: 'my-tasks',
+  users: 'user-list',
+  'user-tasks': 'user-tasks',
+  calendar: 'calendar',
+  teams: 'teams',
+  leaves: 'leave-calendar',
 };
 
 function _saveViewState(v) {
   localStorage.setItem('tf_view', v);
-  if (state.targetUserId) localStorage.setItem('tf_target_uid', state.targetUserId);
+  if (state.targetUserId)
+    localStorage.setItem('tf_target_uid', state.targetUserId);
   // Update URL hash without triggering hashchange handler
   var hash = _viewToHash[v] || v;
   if (location.hash !== '#' + hash) {
@@ -923,12 +1301,17 @@ window.addEventListener('hashchange', function () {
   var mapped = _hashToView[hash];
   if (mapped === null) {
     // home — resolve by role
-    mapped = (state.currentUser.role === 'admin' || state.currentUser.role === 'manager') ? 'admin-home' : 'worker-home';
+    mapped =
+      state.currentUser.role === 'admin' || state.currentUser.role === 'manager'
+        ? 'admin-home'
+        : 'worker-home';
   }
   if (mapped && mapped !== state.view) {
     if (mapped === 'user-tasks') {
       var savedUid = localStorage.getItem('tf_target_uid');
-      if (savedUid) { state.targetUserId = savedUid; }
+      if (savedUid) {
+        state.targetUserId = savedUid;
+      }
     }
     showView(mapped);
   }
@@ -938,25 +1321,33 @@ function showView(v) {
   state.previousView = state.view;
   state.view = v;
   _saveViewState(v);
-  views.forEach(id => document.getElementById(id)?.classList.add('hidden'));
-  (EL.boardFilterBar || document.getElementById('board-filter-bar'))?.classList.remove('visible');
-  (EL.addTaskFab || document.getElementById('add-task-fab')).classList.add('hidden');
+  views.forEach((id) => document.getElementById(id)?.classList.add('hidden'));
+  (
+    EL.boardFilterBar || document.getElementById('board-filter-bar')
+  )?.classList.remove('visible');
+  (EL.addTaskFab || document.getElementById('add-task-fab')).classList.add(
+    'hidden',
+  );
   document.getElementById('breadcrumb').classList.add('hidden');
   // Restore mobile "New Task" button when leaving calendar
   if (v !== 'calendar') {
     var mobAddBtn = document.getElementById('mob-nav-add');
     if (mobAddBtn) mobAddBtn.style.display = '';
   }
-  const isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
+  const isElevated =
+    state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
   // Track nav for Back/Next buttons (skip 'user-tasks' here — viewUserTasks records with uid)
   if (v !== 'user-tasks') _navRecord(v);
 
   if (v === 'worker-home') {
     document.getElementById('worker-home').classList.remove('hidden');
-    document.getElementById('worker-name-display').textContent = state.currentUser.name.split(' ')[0];
+    document.getElementById('worker-name-display').textContent =
+      state.currentUser.name.split(' ')[0];
     updateMobileNavActive('mob-nav-home');
     // Render groups strip
-    const myTeams = getTeams().filter(t => (t.memberIds || []).includes(state.currentUser.id));
+    const myTeams = getTeams().filter((t) =>
+      (t.memberIds || []).includes(state.currentUser.id),
+    );
     const strip = document.getElementById('worker-groups-strip');
     if (strip) {
       if (myTeams.length === 0) {
@@ -964,41 +1355,66 @@ function showView(v) {
       } else {
         strip.style.display = 'flex';
         // Keep the header label, replace rest
-        const header = '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);text-align:center;margin-bottom:4px;">My Teams</div>';
-        const cards = myTeams.map(team => {
-          const members = (team.memberIds || []).map(id => getUsers().find(u => u.id === id)).filter(Boolean);
-          const avatars = members.slice(0, 6).map(m =>
-            `<div title="${escHtml(m.name)}" style="width:26px;height:26px;border-radius:50%;background:${team.color || '#F59E0B'}33;border:1.5px solid ${team.color || '#F59E0B'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${team.color || '#F59E0B'};flex-shrink:0;">${escHtml((m.name || '?')[0].toUpperCase())}</div>`
-          ).join('');
-          const extra = members.length > 6 ? `<div style="font-size:10px;color:var(--text3);margin-left:2px;">+${members.length - 6}</div>` : '';
-          return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg2);border:1px solid ${team.color || '#F59E0B'}33;border-radius:12px;">
+        const header =
+          '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);text-align:center;margin-bottom:4px;">My Teams</div>';
+        const cards = myTeams
+          .map((team) => {
+            const members = (team.memberIds || [])
+              .map((id) => getUsers().find((u) => u.id === id))
+              .filter(Boolean);
+            const avatars = members
+              .slice(0, 6)
+              .map(
+                (m) =>
+                  `<div title="${escHtml(m.name)}" style="width:26px;height:26px;border-radius:50%;background:${team.color || '#F59E0B'}33;border:1.5px solid ${team.color || '#F59E0B'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${team.color || '#F59E0B'};flex-shrink:0;">${escHtml((m.name || '?')[0].toUpperCase())}</div>`,
+              )
+              .join('');
+            const extra =
+              members.length > 6
+                ? `<div style="font-size:10px;color:var(--text3);margin-left:2px;">+${members.length - 6}</div>`
+                : '';
+            return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg2);border:1px solid ${team.color || '#F59E0B'}33;border-radius:12px;">
             <div style="width:10px;height:10px;border-radius:50%;background:${team.color || '#F59E0B'};flex-shrink:0;"></div>
             <div style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;min-width:60px;max-width:120px;overflow:hidden;text-overflow:ellipsis;">${escHtml(team.name)}</div>
             <div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap;flex:1;">${avatars}${extra}</div>
           </div>`;
-        }).join('');
+          })
+          .join('');
         strip.innerHTML = header + cards;
       }
     }
   } else if (v === 'admin-home') {
     document.getElementById('admin-home').classList.remove('hidden');
-    document.getElementById('admin-name-display').textContent = state.currentUser.name.split(' ')[0];
+    document.getElementById('admin-name-display').textContent =
+      state.currentUser.name.split(' ')[0];
     updateMobileNavActive('mob-nav-home');
     // Hide Register User and Leave Calendar cards for non-admins
-    const regCard = document.querySelector('.admin-nav-card[onclick="openRegisterUser()"]');
-    const leaveCard = document.querySelector('.admin-nav-card[onclick="goToLeaveCalendar()"]');
+    const regCard = document.querySelector(
+      '.admin-nav-card[onclick="openRegisterUser()"]',
+    );
+    const leaveCard = document.querySelector(
+      '.admin-nav-card[onclick="goToLeaveCalendar()"]',
+    );
     const chpwCard = document.getElementById('admin-chpw-card');
     const settingsCard = document.getElementById('admin-settings-card');
     const mgrMultiCard = document.getElementById('manager-multi-card');
     const multiTeamCard = document.getElementById('multi-team-task-card');
     const importCard = document.getElementById('admin-import-card');
     const deleteAllCard = document.getElementById('admin-deleteall-card');
-    if (regCard) regCard.style.display = state.currentUser.role === 'admin' ? '' : 'none';
+    if (regCard)
+      regCard.style.display = state.currentUser.role === 'admin' ? '' : 'none';
     if (leaveCard) leaveCard.style.display = isElevated ? '' : 'none';
-    if (chpwCard) chpwCard.style.display = state.currentUser.role === 'admin' ? '' : 'none';
-    if (settingsCard) settingsCard.style.display = state.currentUser.role === 'admin' ? '' : 'none';
-    if (importCard) importCard.style.display = state.currentUser.role === 'admin' ? '' : 'none';
-    if (deleteAllCard) deleteAllCard.style.display = state.currentUser.role === 'admin' ? '' : 'none';
+    if (chpwCard)
+      chpwCard.style.display = state.currentUser.role === 'admin' ? '' : 'none';
+    if (settingsCard)
+      settingsCard.style.display =
+        state.currentUser.role === 'admin' ? '' : 'none';
+    if (importCard)
+      importCard.style.display =
+        state.currentUser.role === 'admin' ? '' : 'none';
+    if (deleteAllCard)
+      deleteAllCard.style.display =
+        state.currentUser.role === 'admin' ? '' : 'none';
     if (mgrMultiCard) mgrMultiCard.style.display = 'none'; // removed
     if (multiTeamCard) multiTeamCard.style.display = isElevated ? '' : 'none';
   } else if (v === 'my-tasks') {
@@ -1011,7 +1427,10 @@ function showView(v) {
     document.getElementById('user-list-view').classList.remove('hidden');
     // Hide calendar when showing user list
     document.getElementById('calendar-view').classList.add('hidden');
-    setBreadcrumb([{ label: 'Home', fn: 'goAdminHome' }, { label: 'User Tasks' }]);
+    setBreadcrumb([
+      { label: 'Home', fn: 'goAdminHome' },
+      { label: 'User Tasks' },
+    ]);
     renderUserList();
   } else if (v === 'user-tasks') {
     if (state.currentViewMode === 'timeline') {
@@ -1021,7 +1440,10 @@ function showView(v) {
     }
   } else if (v === 'leave-calendar') {
     document.getElementById('leave-calendar-view').classList.remove('hidden');
-    setBreadcrumb([{ label: 'Home', fn: 'goAdminHome' }, { label: 'Calendar' }]);
+    setBreadcrumb([
+      { label: 'Home', fn: 'goAdminHome' },
+      { label: 'Calendar' },
+    ]);
     renderLeaveCalendar();
   } else if (v === 'teams') {
     document.getElementById('teams-view').classList.remove('hidden');
@@ -1035,17 +1457,26 @@ function showView(v) {
     renderTeamsView();
   } else if (v === 'calendar') {
     document.getElementById('calendar-view').classList.remove('hidden');
-    const isPersonal = state.calendarMode === 'personal' || (state.currentUser.role === 'user' && state.calendarMode !== 'team');
+    const isPersonal =
+      state.calendarMode === 'personal' ||
+      (state.currentUser.role === 'user' && state.calendarMode !== 'team');
     const label = isPersonal ? 'My Calendar' : 'Calendar';
-    var homeFn = state.currentUser.role === 'user' ? 'goWorkerHome' : 'goAdminHome';
-    setBreadcrumb([{ label: 'Home', fn: isPersonal ? homeFn : homeFn }, { label }]);
+    var homeFn =
+      state.currentUser.role === 'user' ? 'goWorkerHome' : 'goAdminHome';
+    setBreadcrumb([
+      { label: 'Home', fn: isPersonal ? homeFn : homeFn },
+      { label },
+    ]);
 
     // Show breadcrumbs on desktop; hide on mobile (browser back handles navigation)
     var breadcrumb = document.getElementById('breadcrumb');
-    var isMobileView = window.innerWidth <= 768 || ('ontouchstart' in window);
+    var isMobileView = window.innerWidth <= 768 || 'ontouchstart' in window;
     if (breadcrumb) {
-      if (isMobileView) { breadcrumb.classList.add('hidden'); }
-      else { breadcrumb.classList.remove('hidden'); }
+      if (isMobileView) {
+        breadcrumb.classList.add('hidden');
+      } else {
+        breadcrumb.classList.remove('hidden');
+      }
     }
 
     // Activate Calendar tab in mobile nav
@@ -1056,16 +1487,24 @@ function showView(v) {
 
     // Add back button to calendar header (desktop only)
     var calHeader = document.querySelector('.calendar-header');
-    if (calHeader && !document.getElementById('cal-back-btn') && !isMobileView) {
+    if (
+      calHeader &&
+      !document.getElementById('cal-back-btn') &&
+      !isMobileView
+    ) {
       var backBtn = document.createElement('button');
       backBtn.id = 'cal-back-btn';
       backBtn.className = 'btn-secondary';
       backBtn.innerHTML = '← Back';
-      backBtn.style.cssText = 'padding:8px 12px;font-size:12px;margin-right:8px;';
+      backBtn.style.cssText =
+        'padding:8px 12px;font-size:12px;margin-right:8px;';
       backBtn.onclick = function () {
         if (state.previousView && state.previousView !== 'calendar') {
           showView(state.previousView);
-        } else if (state.currentUser.role === 'admin' || state.currentUser.role === 'manager') {
+        } else if (
+          state.currentUser.role === 'admin' ||
+          state.currentUser.role === 'manager'
+        ) {
           showView('admin-home');
         } else {
           showView('my-tasks');
@@ -1096,8 +1535,15 @@ function showView(v) {
     if (!state._calendarJumpDate) {
       var todayDateStr = new Date().toISOString().slice(0, 10);
       setTimeout(function () {
-        var todayCol = document.querySelector('#cal-dates-panel [data-date="' + todayDateStr + '"]');
-        if (todayCol) todayCol.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        var todayCol = document.querySelector(
+          '#cal-dates-panel [data-date="' + todayDateStr + '"]',
+        );
+        if (todayCol)
+          todayCol.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'center',
+          });
       }, 80);
     }
 
@@ -1116,9 +1562,15 @@ function showView(v) {
         // Scroll to and highlight the specific task block if available
         var focused = false;
         if (focusTaskId) {
-          var taskBlock = document.querySelector('.cal-block[data-taskid="' + focusTaskId + '"]');
+          var taskBlock = document.querySelector(
+            '.cal-block[data-taskid="' + focusTaskId + '"]',
+          );
           if (taskBlock) {
-            taskBlock.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            taskBlock.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+              inline: 'center',
+            });
             taskBlock.style.outline = '2px solid var(--amber)';
             taskBlock.style.outlineOffset = '2px';
             taskBlock.style.zIndex = '100';
@@ -1136,21 +1588,37 @@ function showView(v) {
           var cols = document.querySelectorAll('#cal-dates-panel [data-date]');
           for (var i = 0; i < cols.length; i++) {
             if (cols[i].dataset.date === taskDateStr) {
-              cols[i].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+              cols[i].scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest',
+                inline: 'center',
+              });
               cols[i].style.outline = '2px solid var(--amber)';
-              setTimeout(function (el) { el.style.outline = ''; }.bind(null, cols[i]), 3000);
+              setTimeout(
+                function (el) {
+                  el.style.outline = '';
+                }.bind(null, cols[i]),
+                3000,
+              );
               break;
             }
           }
         }
         // If viewing a worker's row, scroll to and highlight that row
         if (highlightUserId) {
-          var rows = document.querySelectorAll('#cal-names-table tr[data-user-id]');
+          var rows = document.querySelectorAll(
+            '#cal-names-table tr[data-user-id]',
+          );
           for (var r = 0; r < rows.length; r++) {
             if (rows[r].dataset.userId === highlightUserId) {
               rows[r].scrollIntoView({ behavior: 'smooth', block: 'center' });
               rows[r].style.outline = '2px solid var(--amber)';
-              setTimeout(function (el) { el.style.outline = ''; }.bind(null, rows[r]), 3000);
+              setTimeout(
+                function (el) {
+                  el.style.outline = '';
+                }.bind(null, rows[r]),
+                3000,
+              );
               break;
             }
           }
@@ -1164,25 +1632,42 @@ function showBoardView(userId) {
   document.getElementById('task-board').classList.remove('hidden');
   // Hide calendar when showing task board
   document.getElementById('calendar-view').classList.add('hidden');
-  (EL.addTaskFab || document.getElementById('add-task-fab')).classList.remove('hidden');
-  (EL.boardFilterBar || document.getElementById('board-filter-bar')).classList.add('visible');
+  (EL.addTaskFab || document.getElementById('add-task-fab')).classList.remove(
+    'hidden',
+  );
+  (
+    EL.boardFilterBar || document.getElementById('board-filter-bar')
+  ).classList.add('visible');
   _boardSearchVal = '';
   _boardFilter = 'all';
   const inp = document.getElementById('board-search');
   if (inp) inp.value = '';
   const clr = document.getElementById('board-search-clear');
   if (clr) clr.classList.add('hidden');
-  document.querySelectorAll('.board-filter-pill').forEach(p => p.classList.toggle('active', p.dataset.filter === 'all'));
-  const isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
+  document
+    .querySelectorAll('.board-filter-pill')
+    .forEach((p) => p.classList.toggle('active', p.dataset.filter === 'all'));
+  const isElevated =
+    state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
   if (isElevated) {
     if (state.view === 'user-tasks') {
-      const targetUser = getUsers().find(u => u.id === state.targetUserId);
-      setBreadcrumb([{ label: 'Home', fn: 'goAdminHome' }, { label: 'User Tasks', fn: 'goToUserList' }, { label: targetUser?.name || 'User' }]);
+      const targetUser = getUsers().find((u) => u.id === state.targetUserId);
+      setBreadcrumb([
+        { label: 'Home', fn: 'goAdminHome' },
+        { label: 'User Tasks', fn: 'goToUserList' },
+        { label: targetUser?.name || 'User' },
+      ]);
     } else {
-      setBreadcrumb([{ label: 'Home', fn: 'goAdminHome' }, { label: 'My Tasks' }]);
+      setBreadcrumb([
+        { label: 'Home', fn: 'goAdminHome' },
+        { label: 'My Tasks' },
+      ]);
     }
   } else {
-    setBreadcrumb([{ label: 'Home', fn: 'goWorkerHome' }, { label: 'My Tasks' }]);
+    setBreadcrumb([
+      { label: 'Home', fn: 'goWorkerHome' },
+      { label: 'My Tasks' },
+    ]);
   }
   // Highlight Tasks tab in mobile nav
   updateMobileNavActive('mob-nav-tasks');
@@ -1194,24 +1679,40 @@ function showTimelineView(userId) {
   document.getElementById('timeline-view').classList.remove('hidden');
   // Hide calendar when showing timeline view
   document.getElementById('calendar-view').classList.add('hidden');
-  (EL.addTaskFab || document.getElementById('add-task-fab')).classList.remove('hidden');
+  (EL.addTaskFab || document.getElementById('add-task-fab')).classList.remove(
+    'hidden',
+  );
   // Hide add-task FAB on mobile for timeline view
-  if (window.innerWidth <= 768 || ('ontouchstart' in window)) {
-    (EL.addTaskFab || document.getElementById('add-task-fab')).classList.add('hidden');
+  if (window.innerWidth <= 768 || 'ontouchstart' in window) {
+    (EL.addTaskFab || document.getElementById('add-task-fab')).classList.add(
+      'hidden',
+    );
   }
-  const isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
-  const targetUser = getUsers().find(u => u.id === userId);
-  document.getElementById('timeline-title').textContent = isElevated && state.view === 'user-tasks'
-    ? `Timeline: ${targetUser?.name}`
-    : 'My Timeline';
+  const isElevated =
+    state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
+  const targetUser = getUsers().find((u) => u.id === userId);
+  document.getElementById('timeline-title').textContent =
+    isElevated && state.view === 'user-tasks'
+      ? `Timeline: ${targetUser?.name}`
+      : 'My Timeline';
   if (isElevated) {
     if (state.view === 'user-tasks') {
-      setBreadcrumb([{ label: 'Home', fn: 'goAdminHome' }, { label: 'User Tasks', fn: 'goToUserList' }, { label: targetUser?.name || 'User' }]);
+      setBreadcrumb([
+        { label: 'Home', fn: 'goAdminHome' },
+        { label: 'User Tasks', fn: 'goToUserList' },
+        { label: targetUser?.name || 'User' },
+      ]);
     } else {
-      setBreadcrumb([{ label: 'Home', fn: 'goAdminHome' }, { label: 'My Timeline' }]);
+      setBreadcrumb([
+        { label: 'Home', fn: 'goAdminHome' },
+        { label: 'My Timeline' },
+      ]);
     }
   } else {
-    setBreadcrumb([{ label: 'Home', fn: 'goWorkerHome' }, { label: 'My Timeline' }]);
+    setBreadcrumb([
+      { label: 'Home', fn: 'goWorkerHome' },
+      { label: 'My Timeline' },
+    ]);
   }
   renderTimeline(userId);
   startDeadlineChecker();
@@ -1239,7 +1740,8 @@ function calToggleTeamView() {
   const isUser = state.currentUser.role === 'user';
   if (isUser) {
     // Users can toggle between personal and team (read-only)
-    state.calendarMode = state.calendarMode === 'personal' ? 'team' : 'personal';
+    state.calendarMode =
+      state.calendarMode === 'personal' ? 'team' : 'personal';
   } else {
     state.calendarMode = state.calendarMode === 'team' ? 'personal' : 'team';
   }
@@ -1263,44 +1765,74 @@ function updateCalHeaderUI() {
     }
   }
   // Search only visible in day view + team mode
-  if (searchBar) searchBar.classList.toggle('hidden', isPersonal || calState.zoom === 'year');
+  if (searchBar)
+    searchBar.classList.toggle(
+      'hidden',
+      isPersonal || calState.zoom === 'year',
+    );
   // Leave button only for managers in team view
-  if (addLeaveBtn) addLeaveBtn.style.display = (!isUser && !isPersonal && state.currentUser?.role === 'manager') ? '' : 'none';
+  if (addLeaveBtn)
+    addLeaveBtn.style.display =
+      !isUser && !isPersonal && state.currentUser?.role === 'manager'
+        ? ''
+        : 'none';
 }
-function goToUserList() { showView('user-list'); }
-function goAdminHome() { showView('admin-home'); }
-function goToMyTasks() { state.targetUserId = null; state.view = 'my-tasks'; showView('my-tasks'); }
-function goToLeaveCalendar() { state.calendarMode = 'team'; showView('calendar'); }
-function goToMyCalendar() { state.calendarMode = 'personal'; showView('calendar'); }
-function goWorkerHome() { showView('worker-home'); }
+function goToUserList() {
+  showView('user-list');
+}
+function goAdminHome() {
+  showView('admin-home');
+}
+function goToMyTasks() {
+  state.targetUserId = null;
+  state.view = 'my-tasks';
+  showView('my-tasks');
+}
+function goToLeaveCalendar() {
+  state.calendarMode = 'team';
+  showView('calendar');
+}
+function goToMyCalendar() {
+  state.calendarMode = 'personal';
+  showView('calendar');
+}
+function goWorkerHome() {
+  showView('worker-home');
+}
 
 function setBreadcrumb(items) {
   const bc = document.getElementById('breadcrumb');
   bc.classList.remove('hidden');
-  bc.innerHTML = items.map((item, i) => {
-    if (item.fn) return `<span class="breadcrumb-item" onclick="${item.fn}()">${item.label}</span>`;
-    return `<span class="breadcrumb-current">${item.label}</span>`;
-  }).join('<span class="breadcrumb-sep"> / </span>');
+  bc.innerHTML = items
+    .map((item, i) => {
+      if (item.fn)
+        return `<span class="breadcrumb-item" onclick="${item.fn}()">${item.label}</span>`;
+      return `<span class="breadcrumb-current">${item.label}</span>`;
+    })
+    .join('<span class="breadcrumb-sep"> / </span>');
 }
 
 function switchToBoard() {
   state.currentViewMode = 'board';
-  const userId = state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
+  const userId =
+    state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
   showBoardView(userId);
 }
 
 function switchToTimeline() {
   state.currentViewMode = 'timeline';
-  const userId = state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
+  const userId =
+    state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
   showTimelineView(userId);
 }
 
 function setTimelineScale(scale) {
   state.timelineScale = scale;
-  document.querySelectorAll('.timeline-scale-btn').forEach(btn => {
+  document.querySelectorAll('.timeline-scale-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.scale === scale);
   });
-  const userId = state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
+  const userId =
+    state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
   renderTimeline(userId);
 }
 
@@ -1314,8 +1846,12 @@ function setTimelineScale(scale) {
 // Get company-level settings (weekend working, leave quota)
 function getCompanySettings() {
   try {
-    return JSON.parse(localStorage.getItem('tf_co_settings_' + (_cid() || 'default')) || '{}');
-  } catch { return {}; }
+    return JSON.parse(
+      localStorage.getItem('tf_co_settings_' + (_cid() || 'default')) || '{}',
+    );
+  } catch {
+    return {};
+  }
 }
 function saveCompanySettings(obj) {
   const key = 'tf_co_settings_' + (_cid() || 'default');
@@ -1343,12 +1879,13 @@ const ANNUAL_LEAVE_DAYS = 30;
 
 // Is a date a working day (Mon-Fri + optional Sat/Sun)?
 function isWorkingDay(date) {
-  const d = new Date(date); d.setHours(12, 0, 0, 0);
+  const d = new Date(date);
+  d.setHours(12, 0, 0, 0);
   const dow = d.getDay(); // 0=Sun,1=Mon...6=Sat
   const s = getCompanySettings();
-  if (dow >= 1 && dow <= 5) return true;           // Mon-Fri always
-  if (dow === 6 && s.satWorking) return true;       // Sat if enabled
-  if (dow === 0 && s.sunWorking) return true;       // Sun if enabled
+  if (dow >= 1 && dow <= 5) return true; // Mon-Fri always
+  if (dow === 6 && s.satWorking) return true; // Sat if enabled
+  if (dow === 0 && s.sunWorking) return true; // Sun if enabled
   return false;
 }
 
@@ -1368,7 +1905,7 @@ function countWorkingDays(startStr, endStr) {
 // Get all working-day dates for a user in the current year
 function getWorkedDays(userId) {
   const year = new Date().getFullYear();
-  const leaves = getLeaves().filter(l => l.userId === userId);
+  const leaves = getLeaves().filter((l) => l.userId === userId);
   let worked = 0;
   const start = new Date(year, 0, 1);
   const end = new Date(year, 11, 31);
@@ -1378,7 +1915,10 @@ function getWorkedDays(userId) {
     if (isWorkingDay(cur)) {
       const dayStr = cur.toISOString().slice(0, 10);
       // AWOL subtracts from working days
-      const awol = leaves.find(l => l.type === 'awol' && l.startDate <= dayStr && l.endDate >= dayStr);
+      const awol = leaves.find(
+        (l) =>
+          l.type === 'awol' && l.startDate <= dayStr && l.endDate >= dayStr,
+      );
       if (!awol) worked++;
     }
     cur.setDate(cur.getDate() + 1);
@@ -1391,17 +1931,21 @@ function getWorkedDays(userId) {
 function countLieuDaysEarned(userId) {
   const workdays = getUserCustomWorkdays(userId).length;
   const s = getCompanySettings();
-  const bonus = (s.lieuBonus && s.lieuBonus[userId]) ? s.lieuBonus[userId] : 0;
+  const bonus = s.lieuBonus && s.lieuBonus[userId] ? s.lieuBonus[userId] : 0;
   return workdays + bonus;
 }
 // Lieu days USED = lieu leave records that are NOT auto-created weekend markers
 function countLieuDaysUsed(userId) {
-  const leaves = getLeaves().filter(l =>
-    l.userId === userId && l.type === 'lieu' &&
-    !(l.reason || '').includes('auto lieu day')
+  const leaves = getLeaves().filter(
+    (l) =>
+      l.userId === userId &&
+      l.type === 'lieu' &&
+      !(l.reason || '').includes('auto lieu day'),
   );
   let total = 0;
-  leaves.forEach(l => { total += countWorkingDays(l.startDate, l.endDate); });
+  leaves.forEach((l) => {
+    total += countWorkingDays(l.startDate, l.endDate);
+  });
   return total;
 }
 // Available lieu balance
@@ -1412,10 +1956,17 @@ function countLieuDays(userId) {
 // Count used LOA days for a user this year
 function countUsedLeaveDays(userId) {
   const year = new Date().getFullYear();
-  const leaves = getLeaves().filter(l => l.userId === userId && l.type === 'loa'
-    && l.startDate && l.startDate.startsWith(year.toString()));
+  const leaves = getLeaves().filter(
+    (l) =>
+      l.userId === userId &&
+      l.type === 'loa' &&
+      l.startDate &&
+      l.startDate.startsWith(year.toString()),
+  );
   let total = 0;
-  leaves.forEach(l => { total += countWorkingDays(l.startDate, l.endDate); });
+  leaves.forEach((l) => {
+    total += countWorkingDays(l.startDate, l.endDate);
+  });
   return total;
 }
 
@@ -1426,16 +1977,19 @@ function remainingLeaveDays(userId) {
 
 // Count working days this month for a user (excluding AWOL)
 function countMonthlyWorkingDays(userId, year, month) {
-  const leaves = getLeaves().filter(l => l.userId === userId);
+  const leaves = getLeaves().filter((l) => l.userId === userId);
   let worked = 0;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
   for (let d = 1; d <= daysInMonth; d++) {
     const cur = new Date(year, month, d);
     if (cur > today) break;
     if (!isWorkingDay(cur)) continue;
     const dayStr = cur.toISOString().slice(0, 10);
-    const awol = leaves.find(l => l.type === 'awol' && l.startDate <= dayStr && l.endDate >= dayStr);
+    const awol = leaves.find(
+      (l) => l.type === 'awol' && l.startDate <= dayStr && l.endDate >= dayStr,
+    );
     if (!awol) worked++;
   }
   return worked;
@@ -1450,7 +2004,7 @@ function filterLeaveUsers(query) {
   const options = Array.from(select.options);
   const lowerQuery = query.toLowerCase();
 
-  options.forEach(opt => {
+  options.forEach((opt) => {
     if (opt.value === '') {
       opt.style.display = ''; // Always show the placeholder
       return;
@@ -1462,7 +2016,10 @@ function filterLeaveUsers(query) {
 
 function openAddLeave() {
   var role = state.currentUser ? state.currentUser.role : '';
-  if (role !== 'manager' && role !== 'admin') { toast('Only managers can manage leave.', 'error'); return; }
+  if (role !== 'manager' && role !== 'admin') {
+    toast('Only managers can manage leave.', 'error');
+    return;
+  }
   state.editingLeaveId = null;
   document.getElementById('leave-modal-title').textContent = 'Add Leave';
   const _delBtn = document.getElementById('delete-leave-btn');
@@ -1471,8 +2028,8 @@ function openAddLeave() {
 
   const userSelect = document.getElementById('leave-user');
   userSelect.innerHTML = '<option value="">Select employee...</option>';
-  const users = getUsers().filter(u => u.role !== 'admin');
-  users.forEach(u => {
+  const users = getUsers().filter((u) => u.role !== 'admin');
+  users.forEach((u) => {
     const option = document.createElement('option');
     option.value = u.id;
     option.textContent = u.name + ' (@' + u.username + ')';
@@ -1490,7 +2047,6 @@ function openAddLeave() {
   openModal('leave-modal');
 }
 
-
 // Update leave type dropdown based on available balances
 function updateLeaveTypeOptions() {
   const userId = document.getElementById('leave-user')?.value;
@@ -1498,7 +2054,8 @@ function updateLeaveTypeOptions() {
   const loaSel = document.querySelector('#leave-type option[value="loa"]');
   if (!lieuSel || !loaSel) return;
   if (!userId) {
-    lieuSel.disabled = false; loaSel.disabled = false;
+    lieuSel.disabled = false;
+    loaSel.disabled = false;
     lieuSel.textContent = '🟢 Lieu Day — Compensatory time off';
     loaSel.textContent = '🔵 Leave of Absence — Authorized extended leave';
     return;
@@ -1534,20 +2091,33 @@ function validateLeaveRequest(userId, type, startDate, endDate) {
 
   if (type === 'lieu') {
     const available = countLieuDays(userId);
-    if (available <= 0) return { ok: false, msg: 'No lieu days available. Earn lieu days by working overtime or on assigned rest days.' };
-    if (requestedDays > 10) return { ok: false, msg: 'Lieu day leave cannot exceed 10 consecutive working days.' };
+    if (available <= 0)
+      return {
+        ok: false,
+        msg: 'No lieu days available. Earn lieu days by working overtime or on assigned rest days.',
+      };
+    if (requestedDays > 10)
+      return {
+        ok: false,
+        msg: 'Lieu day leave cannot exceed 10 consecutive working days.',
+      };
     if (requestedDays > available) {
       // Partial — trim end date to available days
       let remaining = available;
       let cur = new Date(startDate + 'T00:00:00');
       let lastValid = startDate;
       while (remaining > 0) {
-        if (isWorkingDay(cur)) { lastValid = cur.toISOString().slice(0, 10); remaining--; }
+        if (isWorkingDay(cur)) {
+          lastValid = cur.toISOString().slice(0, 10);
+          remaining--;
+        }
         cur.setDate(cur.getDate() + 1);
       }
       return {
-        ok: 'partial', trimmedEnd: lastValid, used: available,
-        msg: `Only ${available} lieu day(s) available. Leave will be set from ${startDate} to ${lastValid}.`
+        ok: 'partial',
+        trimmedEnd: lastValid,
+        used: available,
+        msg: `Only ${available} lieu day(s) available. Leave will be set from ${startDate} to ${lastValid}.`,
       };
     }
     return { ok: true, days: requestedDays };
@@ -1555,18 +2125,27 @@ function validateLeaveRequest(userId, type, startDate, endDate) {
 
   if (type === 'loa') {
     const remaining = remainingLeaveDays(userId);
-    if (remaining <= 0) return { ok: false, msg: `No leave days remaining for this year (${ANNUAL_LEAVE_DAYS}-day annual entitlement fully used).` };
+    if (remaining <= 0)
+      return {
+        ok: false,
+        msg: `No leave days remaining for this year (${ANNUAL_LEAVE_DAYS}-day annual entitlement fully used).`,
+      };
     if (requestedDays > remaining) {
       let rem = remaining;
       let cur = new Date(startDate + 'T00:00:00');
       let lastValid = startDate;
       while (rem > 0) {
-        if (isWorkingDay(cur)) { lastValid = cur.toISOString().slice(0, 10); rem--; }
+        if (isWorkingDay(cur)) {
+          lastValid = cur.toISOString().slice(0, 10);
+          rem--;
+        }
         cur.setDate(cur.getDate() + 1);
       }
       return {
-        ok: 'partial', trimmedEnd: lastValid, used: remaining,
-        msg: `Only ${remaining} leave day(s) remaining. Leave will be set from ${startDate} to ${lastValid}.`
+        ok: 'partial',
+        trimmedEnd: lastValid,
+        used: remaining,
+        msg: `Only ${remaining} leave day(s) remaining. Leave will be set from ${startDate} to ${lastValid}.`,
       };
     }
     return { ok: true, days: requestedDays };
@@ -1576,19 +2155,21 @@ function validateLeaveRequest(userId, type, startDate, endDate) {
 }
 
 function openEditLeave(leaveId) {
-  const leave = getLeaves().find(l => l.id === leaveId);
+  const leave = getLeaves().find((l) => l.id === leaveId);
   if (!leave) return;
 
   state.editingLeaveId = leaveId;
   document.getElementById('leave-modal-title').textContent = 'Edit Leave';
   const delBtn = document.getElementById('delete-leave-btn');
   delBtn.classList.remove('hidden');
-  delBtn.onclick = function () { deleteLeaveById(leaveId); };
+  delBtn.onclick = function () {
+    deleteLeaveById(leaveId);
+  };
 
   const userSelect = document.getElementById('leave-user');
   userSelect.innerHTML = '<option value="">Select employee...</option>';
-  const users = getUsers().filter(u => u.role !== 'admin');
-  users.forEach(u => {
+  const users = getUsers().filter((u) => u.role !== 'admin');
+  users.forEach((u) => {
     const option = document.createElement('option');
     option.value = u.id;
     option.textContent = u.name + ' (@' + u.username + ')';
@@ -1597,40 +2178,56 @@ function openEditLeave(leaveId) {
   });
 
   document.getElementById('leave-type').value = leave.type;
-  document.getElementById('leave-start').value = leave.startDate || (leave.start ? leave.start.slice(0, 10) : '');
-  document.getElementById('leave-end').value = leave.endDate || (leave.end ? leave.end.slice(0, 10) : '');
+  document.getElementById('leave-start').value =
+    leave.startDate || (leave.start ? leave.start.slice(0, 10) : '');
+  document.getElementById('leave-end').value =
+    leave.endDate || (leave.end ? leave.end.slice(0, 10) : '');
   document.getElementById('leave-reason').value = leave.reason || '';
 
   updateLeaveTypeOptions();
   openModal('leave-modal');
 }
 
-
 async function saveLeave() {
-  const _btn = document.querySelector('#leave-modal .btn-primary[onclick="saveLeave()"]');
+  const _btn = document.querySelector(
+    '#leave-modal .btn-primary[onclick="saveLeave()"]',
+  );
   if (!_lockOp('saveLeave', _btn, 'Saving…')) return;
   const userId = document.getElementById('leave-user').value;
   let type = document.getElementById('leave-type').value;
   const startDate = document.getElementById('leave-start').value;
   let endDate = document.getElementById('leave-end').value;
   const reason = document.getElementById('leave-reason').value.trim();
-  if (!userId || !startDate || !endDate) { toast('Please fill in all required fields.', 'error'); _unlockOp('saveLeave', _btn); return; }
-  if (startDate > endDate) { toast('End date must be on or after start date.', 'error'); _unlockOp('saveLeave', _btn); return; }
+  if (!userId || !startDate || !endDate) {
+    toast('Please fill in all required fields.', 'error');
+    _unlockOp('saveLeave', _btn);
+    return;
+  }
+  if (startDate > endDate) {
+    toast('End date must be on or after start date.', 'error');
+    _unlockOp('saveLeave', _btn);
+    return;
+  }
 
   // Block if any day in the range already has a leave (for new leaves only)
   if (!state.editingLeaveId) {
-    const existingLeaves = getLeaves().filter(l => l.userId === userId);
+    const existingLeaves = getLeaves().filter((l) => l.userId === userId);
     const cur = new Date(startDate + 'T12:00:00');
     const end = new Date(endDate + 'T12:00:00');
     while (cur <= end) {
       const dStr = cur.toISOString().slice(0, 10);
-      const clash = existingLeaves.find(l => {
+      const clash = existingLeaves.find((l) => {
         const ls = l.startDate || (l.start ? l.start.slice(0, 10) : '');
         const le = l.endDate || (l.end ? l.end.slice(0, 10) : '');
         return ls <= dStr && le >= dStr;
       });
       if (clash) {
-        toast('Leave already exists on ' + dStr + '. Remove it first before re-adding.', 'error');
+        toast(
+          'Leave already exists on ' +
+          dStr +
+          '. Remove it first before re-adding.',
+          'error',
+        );
         _unlockOp('saveLeave', _btn);
         return;
       }
@@ -1638,55 +2235,111 @@ async function saveLeave() {
     }
   }
 
-  const user = getUsers().find(u => u.id === userId);
+  const user = getUsers().find((u) => u.id === userId);
 
   // Validate leave balance (only for new leaves)
   if (!state.editingLeaveId) {
     const v = validateLeaveRequest(userId, type, startDate, endDate);
-    if (v.ok === false) { toast(v.msg, 'error'); _unlockOp('saveLeave', _btn); return; }
+    if (v.ok === false) {
+      toast(v.msg, 'error');
+      _unlockOp('saveLeave', _btn);
+      return;
+    }
     if (v.ok === 'partial') {
       endDate = v.trimmedEnd;
       toast(v.msg, 'warning');
     }
   }
 
-  const fmtDate = d => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  const typeLabel = type === 'awol' ? 'AWOL' : type === 'loa' ? 'Leave of Absence' : 'Lieu Day';
+  const fmtDate = (d) =>
+    new Date(d + 'T12:00:00').toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  const typeLabel =
+    type === 'awol' ? 'AWOL' : type === 'loa' ? 'Leave of Absence' : 'Lieu Day';
   const days = countWorkingDays(startDate, endDate);
 
   try {
     if (state.editingLeaveId) {
-      const updated = await API.put(`/leaves/${state.editingLeaveId}`, { userId, type, startDate, endDate, reason });
-      const idx = cache.leaves.findIndex(l => l.id === state.editingLeaveId);
+      const updated = await API.put(`/leaves/${state.editingLeaveId}`, {
+        userId,
+        type,
+        startDate,
+        endDate,
+        reason,
+      });
+      const idx = cache.leaves.findIndex((l) => l.id === state.editingLeaveId);
       if (idx !== -1) cache.leaves[idx] = updated;
       toast('Leave updated!', 'success');
     } else {
-      const newLeave = await API.post('/leaves', { userId, type, startDate, endDate, reason });
+      const newLeave = await API.post('/leaves', {
+        userId,
+        type,
+        startDate,
+        endDate,
+        reason,
+      });
       cache.leaves.push(newLeave);
 
       const icon = type === 'awol' ? '🔴' : type === 'loa' ? '🔵' : '🟢';
-      const notifBody = `${typeLabel} — ${fmtDate(startDate)}${endDate !== startDate ? ' to ' + fmtDate(endDate) : ''} (${days} working day${days !== 1 ? 's' : ''})` + (reason ? '. Note: ' + reason : '');
+      const notifBody =
+        `${typeLabel} — ${fmtDate(startDate)}${endDate !== startDate ? ' to ' + fmtDate(endDate) : ''} (${days} working day${days !== 1 ? 's' : ''})` +
+        (reason ? '. Note: ' + reason : '');
 
       // In-app notification
-      pushNotification(userId, `${icon} ${typeLabel} Recorded`, notifBody, newLeave.id, { type: 'leave', leaveType: type });
+      pushNotification(
+        userId,
+        `${icon} ${typeLabel} Recorded`,
+        notifBody,
+        newLeave.id,
+        { type: 'leave', leaveType: type },
+      );
 
       // Email notification (fire & forget)
       const emailUser = user || {};
       if (emailUser.emailNotif !== false && emailUser.email) {
-        sendLeaveEmail(emailUser, { type, startDate, endDate, reason, days, typeLabel, fmtDate, icon });
+        sendLeaveEmail(emailUser, {
+          type,
+          startDate,
+          endDate,
+          reason,
+          days,
+          typeLabel,
+          fmtDate,
+          icon,
+        });
       }
 
       // Notify all managers/admins too (for AWOL)
       if (type === 'awol') {
-        getUsers().filter(u => (u.role === 'manager' || u.role === 'admin') && u.id !== state.currentUser.id).forEach(mgr => {
-          pushNotification(mgr.id, '🔴 AWOL Recorded — ' + (user?.name || 'User'),
-            (user?.name || 'Employee') + ' is recorded AWOL from ' + fmtDate(startDate) + (endDate !== startDate ? ' to ' + fmtDate(endDate) : ''),
-            newLeave.id, { type: 'leave', leaveType: 'awol' });
-        });
+        getUsers()
+          .filter(
+            (u) =>
+              (u.role === 'manager' || u.role === 'admin') &&
+              u.id !== state.currentUser.id,
+          )
+          .forEach((mgr) => {
+            pushNotification(
+              mgr.id,
+              '🔴 AWOL Recorded — ' + (user?.name || 'User'),
+              (user?.name || 'Employee') +
+              ' is recorded AWOL from ' +
+              fmtDate(startDate) +
+              (endDate !== startDate ? ' to ' + fmtDate(endDate) : ''),
+              newLeave.id,
+              { type: 'leave', leaveType: 'awol' },
+            );
+          });
       }
       toast('Leave added!', 'success');
     }
-  } catch (err) { toast(err.message || 'Failed to save leave.', 'error'); _unlockOp('saveLeave', _btn); return; }
+  } catch (err) {
+    toast(err.message || 'Failed to save leave.', 'error');
+    _unlockOp('saveLeave', _btn);
+    return;
+  }
   _unlockOp('saveLeave', _btn);
   closeModal('leave-modal');
   if (state.view === 'calendar') renderCalendarDebounced();
@@ -1694,181 +2347,108 @@ async function saveLeave() {
 }
 
 async function deleteLeaveById(leaveId) {
-  if (!leaveId) { toast('No leave ID provided.', 'error'); return; }
+  if (!leaveId) {
+    toast('No leave ID provided.', 'error');
+    return;
+  }
   if (!confirm('Delete this leave record?')) return;
   try {
     await API.del(`/leaves/${leaveId}`);
-    cache.leaves = cache.leaves.filter(l => l.id !== leaveId);
+    cache.leaves = cache.leaves.filter((l) => l.id !== leaveId);
     state.editingLeaveId = null;
     toast('Leave removed.', 'info');
     closeModal('leave-modal');
     if (state.view === 'calendar') renderCalendarDebounced();
     else renderLeaveCalendar();
-  } catch (err) { toast(err.message || 'Failed to delete leave.', 'error'); }
+  } catch (err) {
+    toast(err.message || 'Failed to delete leave.', 'error');
+  }
 }
 
 /* Remove a single day from a multi-day leave without a confirmation dialog.
    Trims the start/end, or splits the record if it's a middle day. */
 async function removeLeaveDay(leaveId, dayStr) {
-  const leave = getLeaves().find(l => l.id === leaveId);
-  if (!leave) { toast('Leave record not found.', 'error'); return; }
+  const leave = getLeaves().find((l) => l.id === leaveId);
+  if (!leave) {
+    toast('Leave record not found.', 'error');
+    return;
+  }
   const sd = leave.startDate || (leave.start ? leave.start.slice(0, 10) : '');
   const ed = leave.endDate || (leave.end ? leave.end.slice(0, 10) : '');
 
   if (!confirm('Remove ' + dayStr + ' from this leave?')) return;
 
-  const prevDay = d => { const dt = new Date(d + 'T12:00:00'); dt.setDate(dt.getDate() - 1); return dt.toISOString().slice(0, 10); };
-  const nextDay = d => { const dt = new Date(d + 'T12:00:00'); dt.setDate(dt.getDate() + 1); return dt.toISOString().slice(0, 10); };
+  const prevDay = (d) => {
+    const dt = new Date(d + 'T12:00:00');
+    dt.setDate(dt.getDate() - 1);
+    return dt.toISOString().slice(0, 10);
+  };
+  const nextDay = (d) => {
+    const dt = new Date(d + 'T12:00:00');
+    dt.setDate(dt.getDate() + 1);
+    return dt.toISOString().slice(0, 10);
+  };
 
   try {
     if (sd === dayStr && ed === dayStr) {
       // Single-day leave — delete entirely
       await API.del(`/leaves/${leaveId}`);
-      cache.leaves = cache.leaves.filter(l => l.id !== leaveId);
+      cache.leaves = cache.leaves.filter((l) => l.id !== leaveId);
     } else if (sd === dayStr) {
       // Remove first day — shift start forward
       const newStart = nextDay(dayStr);
-      const updated = await API.put(`/leaves/${leaveId}`, { startDate: newStart, endDate: ed });
-      const idx = cache.leaves.findIndex(l => l.id === leaveId);
-      if (idx !== -1) cache.leaves[idx] = updated || { ...cache.leaves[idx], startDate: newStart };
+      const updated = await API.put(`/leaves/${leaveId}`, {
+        startDate: newStart,
+        endDate: ed,
+      });
+      const idx = cache.leaves.findIndex((l) => l.id === leaveId);
+      if (idx !== -1)
+        cache.leaves[idx] = updated || {
+          ...cache.leaves[idx],
+          startDate: newStart,
+        };
     } else if (ed === dayStr) {
       // Remove last day — shift end backward
       const newEnd = prevDay(dayStr);
-      const updated = await API.put(`/leaves/${leaveId}`, { startDate: sd, endDate: newEnd });
-      const idx = cache.leaves.findIndex(l => l.id === leaveId);
-      if (idx !== -1) cache.leaves[idx] = updated || { ...cache.leaves[idx], endDate: newEnd };
+      const updated = await API.put(`/leaves/${leaveId}`, {
+        startDate: sd,
+        endDate: newEnd,
+      });
+      const idx = cache.leaves.findIndex((l) => l.id === leaveId);
+      if (idx !== -1)
+        cache.leaves[idx] = updated || {
+          ...cache.leaves[idx],
+          endDate: newEnd,
+        };
     } else {
       // Middle day — split: shorten original, create new for remainder
       const endPart1 = prevDay(dayStr);
       const startPart2 = nextDay(dayStr);
-      const updated = await API.put(`/leaves/${leaveId}`, { startDate: sd, endDate: endPart1 });
-      const idx = cache.leaves.findIndex(l => l.id === leaveId);
-      if (idx !== -1) cache.leaves[idx] = updated || { ...cache.leaves[idx], endDate: endPart1 };
+      const updated = await API.put(`/leaves/${leaveId}`, {
+        startDate: sd,
+        endDate: endPart1,
+      });
+      const idx = cache.leaves.findIndex((l) => l.id === leaveId);
+      if (idx !== -1)
+        cache.leaves[idx] = updated || {
+          ...cache.leaves[idx],
+          endDate: endPart1,
+        };
       const newLeave = await API.post('/leaves', {
-        userId: leave.userId, type: leave.type,
-        startDate: startPart2, endDate: ed,
-        reason: leave.reason || ''
+        userId: leave.userId,
+        type: leave.type,
+        startDate: startPart2,
+        endDate: ed,
+        reason: leave.reason || '',
       });
       if (newLeave) cache.leaves.push(newLeave);
     }
     toast('Day removed from leave.', 'info');
     if (state.view === 'calendar') renderCalendarDebounced();
     else renderLeaveCalendar();
-  } catch (err) { toast(err.message || 'Failed to remove day.', 'error'); }
-}
-
-function renderLeaveCalendar() {
-  const container = document.getElementById('leave-calendar-container');
-  const grid = document.getElementById('leave-calendar-grid');
-  const header = document.getElementById('leave-calendar-header');
-  const body = document.getElementById('leave-calendar-body');
-
-  const leaves = getLeaves();
-  const users = getUsers().filter(u => u.role !== 'admin');
-
-  // Calculate date range (show next 3 months)
-  const now = new Date();
-  const startDate = new Date(now);
-  startDate.setDate(1); // Start of current month
-  const endDate = new Date(now);
-  endDate.setMonth(endDate.getMonth() + 3);
-
-  // Generate header cells (weeks)
-  header.innerHTML = '';
-  body.innerHTML = '';
-
-  let current = new Date(startDate);
-  const weekWidth = 120;
-  let weekCount = 0;
-
-  while (current < endDate) {
-    const cell = document.createElement('div');
-    cell.className = 'leave-calendar-header-cell';
-    cell.style.width = weekWidth + 'px';
-    const weekEnd = new Date(current);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-    cell.textContent = `${current.getMonth() + 1}/${current.getDate()} - ${weekEnd.getMonth() + 1}/${weekEnd.getDate()}`;
-    header.appendChild(cell);
-
-    current.setDate(current.getDate() + 7);
-    weekCount++;
+  } catch (err) {
+    toast(err.message || 'Failed to remove day.', 'error');
   }
-
-  // Add grid lines
-  const gridLines = document.createElement('div');
-  gridLines.className = 'leave-calendar-grid-lines';
-  for (let i = 0; i < weekCount; i++) {
-    const line = document.createElement('div');
-    line.className = 'leave-calendar-grid-line';
-    line.style.width = weekWidth + 'px';
-    gridLines.appendChild(line);
-  }
-  body.appendChild(gridLines);
-
-  // Add today line
-  if (now >= startDate && now <= endDate) {
-    const totalMs = endDate - startDate;
-    const elapsed = now - startDate;
-    const pct = (elapsed / totalMs) * 100;
-    const todayLine = document.createElement('div');
-    todayLine.className = 'leave-calendar-today-line';
-    todayLine.style.left = `calc(200px + ${pct}%)`;
-    body.appendChild(todayLine);
-  }
-
-  // Render user rows with leave blocks
-  if (users.length === 0) {
-    const empty = document.createElement('div');
-    empty.style.cssText = 'text-align:center;padding:60px;color:var(--text3);font-size:13px;';
-    empty.textContent = 'No users to display';
-    body.appendChild(empty);
-    return;
-  }
-
-  users.forEach(user => {
-    const row = document.createElement('div');
-    row.className = 'leave-calendar-row';
-
-    const label = document.createElement('div');
-    label.className = 'leave-calendar-row-label';
-    label.innerHTML = `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(user.name)}</span>`;
-    row.appendChild(label);
-
-    const content = document.createElement('div');
-    content.className = 'leave-calendar-row-content';
-
-    // Get user's leaves
-    const userLeaves = leaves.filter(l => l.userId === user.id);
-
-    userLeaves.forEach(leave => {
-      const leaveStart = new Date((leave.startDate || leave.start) + 'T00:00:00');
-      const leaveEnd = new Date((leave.endDate || leave.end) + 'T23:59:59');
-
-      // Calculate position
-      const totalMs = endDate - startDate;
-      const startOffset = ((leaveStart - startDate) / totalMs) * 100;
-      const duration = ((leaveEnd - leaveStart) / totalMs) * 100;
-
-      const block = document.createElement('div');
-      block.className = `leave-block ${leave.type}`;
-      block.style.left = `${startOffset}%`;
-      block.style.width = `${Math.max(duration, 1)}%`;
-
-      const typeLabels = { lieu: 'Lieu', loa: 'LOA', awol: 'AWOL' };
-      block.innerHTML = `<span class="leave-label">${typeLabels[leave.type]}</span>
-        <span class="leave-duration">${formatDateShort(leaveStart)} - ${formatDateShort(leaveEnd)}</span>`;
-
-      block.onclick = (e) => {
-        e.stopPropagation();
-        openEditLeave(leave.id);
-      };
-
-      content.appendChild(block);
-    });
-
-    row.appendChild(content);
-    body.appendChild(row);
-  });
 }
 
 function formatDateShort(date) {
@@ -1879,35 +2459,48 @@ function formatDateShort(date) {
    LEAVE/TASK CONFLICT CHECKING
    ============================================================ */
 function checkLeaveConflict(userId, start, end) {
-  const leaves = getLeaves().filter(l => l.userId === userId);
+  const leaves = getLeaves().filter((l) => l.userId === userId);
   const taskStart = new Date(start);
   const taskEnd = new Date(end);
 
-  return leaves.filter(leave => {
+  return leaves.filter((leave) => {
     // Support both old ISO and new date-string format
-    var leaveStart = leave.startDate ? new Date(leave.startDate + 'T00:00:00') : new Date(leave.start);
-    var leaveEnd = leave.endDate ? new Date(leave.endDate + 'T23:59:59') : new Date(leave.end);
-    return (taskStart < leaveEnd && taskEnd > leaveStart);
+    var leaveStart = leave.startDate
+      ? new Date(leave.startDate + 'T00:00:00')
+      : new Date(leave.start);
+    var leaveEnd = leave.endDate
+      ? new Date(leave.endDate + 'T23:59:59')
+      : new Date(leave.end);
+    return taskStart < leaveEnd && taskEnd > leaveStart;
   });
 }
 
 function notifyManagerOfLeaveConflict(task, conflictingLeaves) {
-  const managers = getUsers().filter(u => u.role === 'manager' || u.role === 'admin');
-  const user = getUsers().find(u => u.id === task.userId);
+  const managers = getUsers().filter(
+    (u) => u.role === 'manager' || u.role === 'admin',
+  );
+  const user = getUsers().find((u) => u.id === task.userId);
 
-  const leaveTypes = conflictingLeaves.map(l => {
-    const types = { lieu: 'Lieu Day', loa: 'Leave of Absence', awol: 'AWOL' };
-    return types[l.type];
-  }).join(', ');
+  const leaveTypes = conflictingLeaves
+    .map((l) => {
+      const types = { lieu: 'Lieu Day', loa: 'Leave of Absence', awol: 'AWOL' };
+      return types[l.type];
+    })
+    .join(', ');
 
-  managers.forEach(manager => {
+  managers.forEach((manager) => {
     if (manager.id === state.currentUser.id) return; // Don't notify self
 
-    pushNotification(manager.id,
+    pushNotification(
+      manager.id,
       '🚫 Task Conflicts with Leave',
       `Task "${task.title}" for ${user?.name} overlaps with ${leaveTypes}. Task cannot be created during this period.`,
       task.id,
-      { type: 'leave-conflict', leaveIds: conflictingLeaves.map(l => l.id), taskId: task.id }
+      {
+        type: 'leave-conflict',
+        leaveIds: conflictingLeaves.map((l) => l.id),
+        taskId: task.id,
+      },
     );
   });
 }
@@ -1921,7 +2514,9 @@ function renderTimeline(userId) {
   const header = document.getElementById('timeline-header');
   const body = document.getElementById('timeline-body');
 
-  let tasks = getTasks().filter(t => t.userId === userId && !t.cancelled && !t.done);
+  let tasks = getTasks().filter(
+    (t) => t.userId === userId && !t.cancelled && !t.done,
+  );
 
   // Sort by priority then start date
   tasks.sort((a, b) => {
@@ -1938,7 +2533,10 @@ function renderTimeline(userId) {
     endDate = new Date(now);
     endDate.setDate(endDate.getDate() + 7);
   } else {
-    const dates = tasks.flatMap(t => [new Date(t.start), new Date(t.deadline)]);
+    const dates = tasks.flatMap((t) => [
+      new Date(t.start),
+      new Date(t.deadline),
+    ]);
     startDate = new Date(Math.min(...dates));
     endDate = new Date(Math.max(...dates));
     // Add buffer
@@ -1966,7 +2564,10 @@ function renderTimeline(userId) {
       d.setDate(d.getDate() + i);
       const isToday = d.toDateString() === now.toDateString();
       if (isToday) cell.classList.add('today');
-      cell.textContent = d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
+      cell.textContent = d.toLocaleDateString('en-US', {
+        weekday: 'short',
+        day: 'numeric',
+      });
       header.appendChild(cell);
     }
   } else if (scale === 'week') {
@@ -1978,7 +2579,7 @@ function renderTimeline(userId) {
       cell.className = 'timeline-header-cell';
       cell.style.width = cellWidth + 'px';
       const d = new Date(startDate);
-      d.setDate(d.getDate() + (i * 7));
+      d.setDate(d.getDate() + i * 7);
       const weekEnd = new Date(d);
       weekEnd.setDate(weekEnd.getDate() + 6);
       cell.textContent = `${d.getMonth() + 1}/${d.getDate()} - ${weekEnd.getMonth() + 1}/${weekEnd.getDate()}`;
@@ -1993,11 +2594,14 @@ function renderTimeline(userId) {
       d.setMonth(d.getMonth() + 1);
     }
     cellCount = months.length;
-    months.forEach(m => {
+    months.forEach((m) => {
       const cell = document.createElement('div');
       cell.className = 'timeline-header-cell';
       cell.style.width = cellWidth + 'px';
-      cell.textContent = m.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      cell.textContent = m.toLocaleDateString('en-US', {
+        month: 'short',
+        year: 'numeric',
+      });
       header.appendChild(cell);
     });
   }
@@ -2008,10 +2612,11 @@ function renderTimeline(userId) {
   for (let i = 0; i < cellCount; i++) {
     const line = document.createElement('div');
     line.className = 'timeline-grid-line';
-    line.style.width = (scale === 'day' ? 60 : scale === 'week' ? 120 : 150) + 'px';
+    line.style.width =
+      (scale === 'day' ? 60 : scale === 'week' ? 120 : 150) + 'px';
     const d = new Date(startDate);
     if (scale === 'day') d.setDate(d.getDate() + i);
-    else if (scale === 'week') d.setDate(d.getDate() + (i * 7));
+    else if (scale === 'week') d.setDate(d.getDate() + i * 7);
     else d.setMonth(d.getMonth() + i);
     if (d.getDay() === 0 || d.getDay() === 6) line.classList.add('weekend');
     gridLines.appendChild(line);
@@ -2032,19 +2637,25 @@ function renderTimeline(userId) {
   // Render task rows
   if (tasks.length === 0) {
     const empty = document.createElement('div');
-    empty.style.cssText = 'text-align:center;padding:60px;color:var(--text3);font-size:13px;';
-    empty.innerHTML = '📭 No active tasks to display<br><span style="font-size:11px;opacity:0.7;">Add tasks to see them on the timeline</span>';
+    empty.style.cssText =
+      'text-align:center;padding:60px;color:var(--text3);font-size:13px;';
+    empty.innerHTML =
+      '📭 No active tasks to display<br><span style="font-size:11px;opacity:0.7;">Add tasks to see them on the timeline</span>';
     body.appendChild(empty);
   } else {
     // ── Hierarchy-aware rendering ─────────────────────────────
     // Build a set of child task IDs so we can skip them in the main loop
     // and render them nested beneath their parent row instead.
-    const childIds = new Set(tasks.filter(t => !!t.parentId).map(t => t.id));
+    const childIds = new Set(
+      tasks.filter((t) => !!t.parentId).map((t) => t.id),
+    );
 
     function _buildTaskRow(task, isChild, totalMs) {
       const row = document.createElement('div');
       row.className = 'timeline-row';
-      if (isChild) row.style.cssText = 'background:rgba(245,158,11,0.04);border-left:3px solid var(--amber);margin-left:24px;';
+      if (isChild)
+        row.style.cssText =
+          'background:rgba(245,158,11,0.04);border-left:3px solid var(--amber);margin-left:24px;';
 
       const label = document.createElement('div');
       label.className = 'timeline-row-label';
@@ -2078,11 +2689,14 @@ function renderTimeline(userId) {
 
       const overlaps = checkTaskOverlap(task, tasks);
       if (overlaps.length > 0) {
-        const hasCritical = overlaps.some(o => o.priority <= task.priority);
+        const hasCritical = overlaps.some((o) => o.priority <= task.priority);
         bar.classList.add(hasCritical ? 'overlap-critical' : 'overlap-warning');
       }
 
-      bar.onclick = (e) => { e.stopPropagation(); openEditTask(task.id); };
+      bar.onclick = (e) => {
+        e.stopPropagation();
+        openEditTask(task.id);
+      };
       content.appendChild(bar);
       row.appendChild(content);
       return row;
@@ -2090,7 +2704,7 @@ function renderTimeline(userId) {
 
     const totalMs = endDate - startDate;
 
-    tasks.forEach(task => {
+    tasks.forEach((task) => {
       // Skip children — they will be rendered nested under their parent
       if (childIds.has(task.id)) return;
 
@@ -2098,20 +2712,27 @@ function renderTimeline(userId) {
       body.appendChild(_buildTaskRow(task, false, totalMs));
 
       // If this task has children, render them immediately after, indented
-      const children = tasks.filter(t => t.parentId === task.id);
-      children.forEach(child => {
+      const children = tasks.filter((t) => t.parentId === task.id);
+      children.forEach((child) => {
         body.appendChild(_buildTaskRow(child, true, totalMs));
       });
     });
   }
 
   // Update view toggle buttons
-  document.getElementById('view-board-btn').classList.toggle('active', state.currentViewMode === 'board');
-  document.getElementById('view-timeline-btn').classList.toggle('active', state.currentViewMode === 'timeline');
+  document
+    .getElementById('view-board-btn')
+    .classList.toggle('active', state.currentViewMode === 'board');
+  document
+    .getElementById('view-timeline-btn')
+    .classList.toggle('active', state.currentViewMode === 'timeline');
 }
 
 function formatTimeShort(date) {
-  return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 /* ============================================================
@@ -2125,14 +2746,18 @@ function formatTimeShort(date) {
 function nextWorkStart(from, userId) {
   const wh = getWorkHours();
   const d = new Date(from);
-  for (let i = 0; i < 60; i++) { // max 60 days look-ahead
+  for (let i = 0; i < 60; i++) {
+    // max 60 days look-ahead
     const dow = d.getDay();
     const isWknd = dow === 0 || dow === 6;
     const dayStr = d.toISOString().slice(0, 10);
     const userWds = getUserCustomWorkdays(userId);
     const isWorking = !isWknd || userWds.includes(dayStr);
     if (isWorking) {
-      if (d.getHours() < wh.start || (d.getHours() === wh.start && d.getMinutes() === 0)) {
+      if (
+        d.getHours() < wh.start ||
+        (d.getHours() === wh.start && d.getMinutes() === 0)
+      ) {
         d.setHours(wh.start, 0, 0, 0);
         return new Date(d);
       }
@@ -2165,7 +2790,8 @@ function calculateScheduledEnd(startISO, durationHours, userId) {
       cursor.setHours(wh.start, 0, 0, 0);
       continue;
     }
-    const hoursLeftToday = wh.end - (cursor.getHours() + cursor.getMinutes() / 60);
+    const hoursLeftToday =
+      wh.end - (cursor.getHours() + cursor.getMinutes() / 60);
     if (hoursLeftToday <= 0) {
       cursor.setDate(cursor.getDate() + 1);
       cursor.setHours(wh.start, 0, 0, 0);
@@ -2187,7 +2813,7 @@ function calculateScheduledEnd(startISO, durationHours, userId) {
 function checkTaskOverlap(task, allTasks) {
   const taskStart = new Date(task.start);
   const taskEnd = new Date(task.deadline);
-  return allTasks.filter(t => {
+  return allTasks.filter((t) => {
     if (t.id === task.id) return false;
     return taskStart < new Date(t.deadline) && taskEnd > new Date(t.start);
   });
@@ -2204,18 +2830,20 @@ function resolveOverlapsNew(newTask, existingTasks, userId) {
   const durationHours = durationMs / 3600000;
 
   // Determine which tasks actually block this one
-  const blockers = existingTasks.filter(t => {
-    const op = parseInt(t.priority);
-    const np = priority;
-    // High/urgent (P1/P2) blocks mid/low (P3-P5)
-    if (op <= 2 && np >= 3) return true;
-    // Two high/urgent tasks block each other (first one wins)
-    if (op <= 2 && np <= 2) return true;
-    // Mid/low (P3-P5) also blocks each other — no same-time scheduling
-    if (op >= 3 && np >= 3) return true;
-    // Mid/low does NOT block high/urgent
-    return false;
-  }).sort((a, b) => new Date(a.start) - new Date(b.start));
+  const blockers = existingTasks
+    .filter((t) => {
+      const op = parseInt(t.priority);
+      const np = priority;
+      // High/urgent (P1/P2) blocks mid/low (P3-P5)
+      if (op <= 2 && np >= 3) return true;
+      // Two high/urgent tasks block each other (first one wins)
+      if (op <= 2 && np <= 2) return true;
+      // Mid/low (P3-P5) also blocks each other — no same-time scheduling
+      if (op >= 3 && np >= 3) return true;
+      // Mid/low does NOT block high/urgent
+      return false;
+    })
+    .sort((a, b) => new Date(a.start) - new Date(b.start));
 
   let candidateStart = new Date(newTask.start);
   candidateStart = nextWorkStart(candidateStart, userId || newTask.userId);
@@ -2224,34 +2852,62 @@ function resolveOverlapsNew(newTask, existingTasks, userId) {
   let overlappingWith = [];
 
   for (let iter = 0; iter < 200; iter++) {
-    const candidateEnd = calculateScheduledEnd(candidateStart.toISOString(), durationHours, userId || newTask.userId);
-    const blocking = blockers.filter(t => {
-      return candidateStart < new Date(t.deadline) && candidateEnd > new Date(t.start);
+    const candidateEnd = calculateScheduledEnd(
+      candidateStart.toISOString(),
+      durationHours,
+      userId || newTask.userId,
+    );
+    const blocking = blockers.filter((t) => {
+      return (
+        candidateStart < new Date(t.deadline) &&
+        candidateEnd > new Date(t.start)
+      );
     });
     if (blocking.length === 0) break;
     const latestEnd = blocking.reduce((m, t) => {
-      const e = new Date(t.deadline); return e > m ? e : m;
+      const e = new Date(t.deadline);
+      return e > m ? e : m;
     }, new Date(0));
     overlappingWith = blocking;
     moved = true;
-    candidateStart = nextWorkStart(new Date(latestEnd.getTime() + 60000), userId || newTask.userId);
+    candidateStart = nextWorkStart(
+      new Date(latestEnd.getTime() + 60000),
+      userId || newTask.userId,
+    );
   }
 
-  const candidateEnd = calculateScheduledEnd(candidateStart.toISOString(), durationHours, userId || newTask.userId);
+  const candidateEnd = calculateScheduledEnd(
+    candidateStart.toISOString(),
+    durationHours,
+    userId || newTask.userId,
+  );
 
   if (!moved) {
     // Only P1/P2 can visually overlap P3-P5 (high priority tasks show on top)
     // P3-P5 tasks are always moved to avoid overlap (handled by blockers above)
-    const warns = checkTaskOverlap({ ...newTask, start: candidateStart.toISOString(), deadline: candidateEnd.toISOString() }, existingTasks)
-      .filter(t => parseInt(t.priority) > priority && priority <= 2); // only warn if new task is high and overlaps low
-    return { resolved: true, moved: false, overlaps: warns, newStart: candidateStart.toISOString(), newDeadline: candidateEnd.toISOString() };
+    const warns = checkTaskOverlap(
+      {
+        ...newTask,
+        start: candidateStart.toISOString(),
+        deadline: candidateEnd.toISOString(),
+      },
+      existingTasks,
+    ).filter((t) => parseInt(t.priority) > priority && priority <= 2); // only warn if new task is high and overlaps low
+    return {
+      resolved: true,
+      moved: false,
+      overlaps: warns,
+      newStart: candidateStart.toISOString(),
+      newDeadline: candidateEnd.toISOString(),
+    };
   }
 
   return {
-    resolved: true, moved: true,
+    resolved: true,
+    moved: true,
     overlaps: overlappingWith,
     newStart: candidateStart.toISOString(),
-    newDeadline: candidateEnd.toISOString()
+    newDeadline: candidateEnd.toISOString(),
   };
 }
 
@@ -2259,7 +2915,9 @@ function resolveOverlapsNew(newTask, existingTasks, userId) {
 function onTaskFieldChange() {
   const startVal = document.getElementById('f-start')?.value;
   const durVal = getDurationHours();
-  const priority = parseInt(document.getElementById('f-priority')?.value || '3');
+  const priority = parseInt(
+    document.getElementById('f-priority')?.value || '3',
+  );
   const previewEl = document.getElementById('f-deadline-preview');
   const alertEl = document.getElementById('overlap-alert');
   const alertText = document.getElementById('overlap-alert-text');
@@ -2272,14 +2930,32 @@ function onTaskFieldChange() {
   }
 
   const targetUserId = state.editingTaskId
-    ? (getTasks().find(t => t.id === state.editingTaskId)?.userId || state.currentUser.id)
-    : (state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id);
+    ? getTasks().find((t) => t.id === state.editingTaskId)?.userId ||
+    state.currentUser.id
+    : state.view === 'user-tasks'
+      ? state.targetUserId
+      : state.currentUser.id;
 
   // Preview: simple wall-clock end (start + duration). calculateScheduledEnd is for work-hours scheduling only.
-  const wallClockEnd = new Date(new Date(startVal).getTime() + durVal * 3600000);
-  if (previewEl) previewEl.textContent = '⏱ Ends: ' + wallClockEnd.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const wallClockEnd = new Date(
+    new Date(startVal).getTime() + durVal * 3600000,
+  );
+  if (previewEl)
+    previewEl.textContent =
+      '⏱ Ends: ' +
+      wallClockEnd.toLocaleString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
 
-  const scheduledEnd = calculateScheduledEnd(new Date(startVal).toISOString(), durVal, targetUserId);
+  const scheduledEnd = calculateScheduledEnd(
+    new Date(startVal).toISOString(),
+    durVal,
+    targetUserId,
+  );
 
   // Weekend restriction check
   const startDate = new Date(startVal);
@@ -2288,25 +2964,39 @@ function onTaskFieldChange() {
   if (isWeekendStart && priority >= 3) {
     if (alertEl) {
       alertEl.className = 'overlap-alert critical';
-      if (alertText) alertText.textContent = '⚠️ Only P1 (Critical) and P2 (High) tasks can be scheduled on weekends. Task will be rescheduled to next Monday.';
+      if (alertText)
+        alertText.textContent =
+          '⚠️ Only P1 (Critical) and P2 (High) tasks can be scheduled on weekends. Task will be rescheduled to next Monday.';
       alertEl.classList.remove('hidden');
     }
     return;
   }
 
   // Overlap check
-  const existingTasks = getTasks().filter(t =>
-    t.userId === targetUserId && !t.cancelled && !t.done &&
-    (state.editingTaskId ? t.id !== state.editingTaskId : true)
+  const existingTasks = getTasks().filter(
+    (t) =>
+      t.userId === targetUserId &&
+      !t.cancelled &&
+      !t.done &&
+      (state.editingTaskId ? t.id !== state.editingTaskId : true),
   );
-  const proposed = { start: new Date(startVal).toISOString(), deadline: scheduledEnd.toISOString(), priority, id: state.editingTaskId || '__new__' };
+  const proposed = {
+    start: new Date(startVal).toISOString(),
+    deadline: scheduledEnd.toISOString(),
+    priority,
+    id: state.editingTaskId || '__new__',
+  };
   const overlaps = checkTaskOverlap(proposed, existingTasks);
 
   if (overlaps.length > 0) {
-    const blockers = overlaps.filter(o => parseInt(o.priority) <= priority && (priority >= 3 || parseInt(o.priority) <= priority));
-    const warns = overlaps.filter(o => parseInt(o.priority) > priority);
+    const blockers = overlaps.filter(
+      (o) =>
+        parseInt(o.priority) <= priority &&
+        (priority >= 3 || parseInt(o.priority) <= priority),
+    );
+    const warns = overlaps.filter((o) => parseInt(o.priority) > priority);
     // High/urgent (P1/P2) can overlap mid/low but same priority cannot
-    const realBlockers = blockers.filter(o => {
+    const realBlockers = blockers.filter((o) => {
       const op = parseInt(o.priority);
       const np = priority;
       // Block if: new task is mid/low (>=3) AND existing is high/urgent (<=2)
@@ -2317,11 +3007,11 @@ function onTaskFieldChange() {
     });
     if (realBlockers.length > 0) {
       alertEl.className = 'overlap-alert critical';
-      alertText.textContent = `⚠️ Blocked by higher-priority task(s): ${realBlockers.map(o => `"${o.title}" (P${o.priority})`).join(', ')}. Task will be auto-rescheduled after them.`;
+      alertText.textContent = `⚠️ Blocked by higher-priority task(s): ${realBlockers.map((o) => `"${o.title}" (P${o.priority})`).join(', ')}. Task will be auto-rescheduled after them.`;
       alertEl.classList.remove('hidden');
     } else if (warns.length > 0) {
       alertEl.className = 'overlap-alert';
-      alertText.textContent = `ℹ️ Overlaps with lower-priority task(s): ${warns.map(o => `"${o.title}" (P${o.priority})`).join(', ')}. They can share time slot (lower priority will show below).`;
+      alertText.textContent = `ℹ️ Overlaps with lower-priority task(s): ${warns.map((o) => `"${o.title}" (P${o.priority})`).join(', ')}. They can share time slot (lower priority will show below).`;
       alertEl.classList.remove('hidden');
     } else {
       alertEl.classList.add('hidden');
@@ -2331,29 +3021,43 @@ function onTaskFieldChange() {
   }
 
   // Leave conflict check
-  const leaveConflicts = checkLeaveConflict(targetUserId, new Date(startVal).toISOString(), scheduledEnd.toISOString());
+  const leaveConflicts = checkLeaveConflict(
+    targetUserId,
+    new Date(startVal).toISOString(),
+    scheduledEnd.toISOString(),
+  );
   if (leaveConflicts.length > 0) {
     const types = { lieu: 'Lieu Day', loa: 'Leave of Absence', awol: 'AWOL' };
     leaveAlertEl.classList.remove('hidden');
-    leaveAlertText.textContent = `Leave conflict: ${leaveConflicts.map(l => types[l.type]).join(', ')}`;
+    leaveAlertText.textContent = `Leave conflict: ${leaveConflicts.map((l) => types[l.type]).join(', ')}`;
   } else {
     leaveAlertEl.classList.add('hidden');
   }
 }
 
 function notifyManagerOfOverlap(task, overlaps, wasMoved) {
-  const managers = getUsers().filter(u => u.role === 'manager' || u.role === 'admin');
-  const user = getUsers().find(u => u.id === task.userId);
+  const managers = getUsers().filter(
+    (u) => u.role === 'manager' || u.role === 'admin',
+  );
+  const user = getUsers().find((u) => u.id === task.userId);
 
-  const overlapNames = overlaps.map(o => `"${o.title}"`).join(', ');
-  const severity = overlaps.some(o => o.priority <= task.priority) ? 'critical' : 'warning';
+  const overlapNames = overlaps.map((o) => `"${o.title}"`).join(', ');
+  const severity = overlaps.some((o) => o.priority <= task.priority)
+    ? 'critical'
+    : 'warning';
 
-  managers.forEach(manager => {
-    pushNotification(manager.id,
+  managers.forEach((manager) => {
+    pushNotification(
+      manager.id,
       `⚠️ Task Overlap ${severity === 'critical' ? 'Resolved' : 'Detected'}`,
       `${user?.name || 'A user'}'s task "${task.title}" overlaps with ${overlapNames}.${wasMoved ? ' Task was auto-rescheduled.' : ''}`,
       task.id,
-      { type: 'overlap', severity, taskId: task.id, overlapIds: overlaps.map(o => o.id) }
+      {
+        type: 'overlap',
+        severity,
+        taskId: task.id,
+        overlapIds: overlaps.map((o) => o.id),
+      },
     );
   });
 }
@@ -2364,16 +3068,20 @@ function notifyManagerOfOverlap(task, overlaps, wasMoved) {
 function renderTasks(userId) {
   const board = document.getElementById('task-board');
   board.innerHTML = '';
-  let tasks = getTasks().filter(t => t.userId === userId);
-  const isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
+  let tasks = getTasks().filter((t) => t.userId === userId);
+  const isElevated =
+    state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
 
   // Sort: active by priority → cancelled → done
   tasks.sort((a, b) => {
-    const statusOrder = (t) => t.done ? 2 : t.cancelled ? 1 : 0;
-    if (statusOrder(a) !== statusOrder(b)) return statusOrder(a) - statusOrder(b);
+    const statusOrder = (t) => (t.done ? 2 : t.cancelled ? 1 : 0);
+    if (statusOrder(a) !== statusOrder(b))
+      return statusOrder(a) - statusOrder(b);
     if (!a.done && !a.cancelled && !b.done && !b.cancelled) {
       if (a.priority !== b.priority) return a.priority - b.priority;
-      return new Date(a.start || a.createdAt) - new Date(b.start || b.createdAt);
+      return (
+        new Date(a.start || a.createdAt) - new Date(b.start || b.createdAt)
+      );
     }
     return 0;
   });
@@ -2396,7 +3104,7 @@ function renderTasks(userId) {
   const allTasks = getTasks();
   const renderedGroups = new Set();
 
-  tasks.forEach(task => {
+  tasks.forEach((task) => {
     // ── Team task deduplication ──
     // If this task belongs to a team group, check if we already rendered that group
     const meta = task.isTeamTask ? _getGroupMeta(task.description) : null;
@@ -2413,38 +3121,56 @@ function renderTasks(userId) {
     const isOverdue = isActive && hoursLeft <= 0;
     const isWarning = isActive && hoursLeft <= 72 && hoursLeft > 24;
 
-    const checkedCount = _visibleDesc(task.description).filter(d => d.checked).length;
+    const checkedCount = _visibleDesc(task.description).filter(
+      (d) => d.checked,
+    ).length;
     const totalItems = _visibleDesc(task.description).length;
-    const pct = totalItems > 0 ? Math.round((checkedCount / totalItems) * 100) : 100;
+    const pct =
+      totalItems > 0 ? Math.round((checkedCount / totalItems) * 100) : 100;
     const allChecked = totalItems === 0 || checkedCount === totalItems;
 
     // Section dividers
     if (isActive && lastPriority !== task.priority) {
-      const pLabels = { 1: 'Critical', 2: 'High', 3: 'Medium', 4: 'Low', 5: 'Minimal' };
-      board.insertAdjacentHTML('beforeend', `
+      const pLabels = {
+        1: 'Critical',
+        2: 'High',
+        3: 'Medium',
+        4: 'Low',
+        5: 'Minimal',
+      };
+      board.insertAdjacentHTML(
+        'beforeend',
+        `
         <div class="board-section">
           <span class="section-label">Priority ${task.priority} — ${pLabels[task.priority]}</span>
           <span class="section-line"></span>
         </div>
-      `);
+      `,
+      );
       lastPriority = task.priority;
     }
     if (task.cancelled && !shownCancelledHeader) {
-      board.insertAdjacentHTML('beforeend', `
+      board.insertAdjacentHTML(
+        'beforeend',
+        `
         <div class="board-section">
           <span class="section-label" style="color:var(--danger)">🚫 Cancelled Tasks</span>
           <span class="section-line" style="background:rgba(239,68,68,0.2)"></span>
         </div>
-      `);
+      `,
+      );
       shownCancelledHeader = true;
     }
     if (task.done && !shownDoneHeader) {
-      board.insertAdjacentHTML('beforeend', `
+      board.insertAdjacentHTML(
+        'beforeend',
+        `
         <div class="board-section">
           <span class="section-label" style="color:var(--success)">✅ Completed Tasks</span>
           <span class="section-line" style="background:rgba(34,197,94,0.2)"></span>
         </div>
-      `);
+      `,
+      );
       shownDoneHeader = true;
     }
 
@@ -2453,7 +3179,13 @@ function renderTasks(userId) {
     else if (isWarning) flickerClass = 'flicker-warning';
 
     let deadlineStr = formatDeadline(deadline);
-    let deadlineClass = isOverdue ? 'urgent' : isDue ? 'urgent' : isWarning ? 'warning' : '';
+    let deadlineClass = isOverdue
+      ? 'urgent'
+      : isDue
+        ? 'urgent'
+        : isWarning
+          ? 'warning'
+          : '';
 
     // Determine footer content
     let footerContent = '';
@@ -2475,7 +3207,7 @@ function renderTasks(userId) {
     // ── Build team member list for grouped team tasks ──
     let memberListHtml = '';
     if (groupId) {
-      const siblings = allTasks.filter(t => {
+      const siblings = allTasks.filter((t) => {
         if (!t.isTeamTask) return false;
         const m = _getGroupMeta(t.description);
         return m && m.groupId === groupId;
@@ -2486,18 +3218,24 @@ function renderTasks(userId) {
         <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
           <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">👥 Assigned to (${allMembers.length})</div>
           <div style="display:flex;flex-direction:column;gap:4px;">
-            ${allMembers.map(m => {
-        const u = users.find(u => u.id === m.userId);
-        const mDone = m.done;
-        const mCancelled = m.cancelled;
-        const statusIcon = mDone ? '✅' : mCancelled ? '🚫' : '🔄';
-        const statusColor = mDone ? 'var(--success)' : mCancelled ? 'var(--danger)' : 'var(--text3)';
-        return `<div style="display:flex;align-items:center;gap:8px;font-size:11px;padding:3px 0;">
+            ${allMembers
+          .map((m) => {
+            const u = users.find((u) => u.id === m.userId);
+            const mDone = m.done;
+            const mCancelled = m.cancelled;
+            const statusIcon = mDone ? '✅' : mCancelled ? '🚫' : '🔄';
+            const statusColor = mDone
+              ? 'var(--success)'
+              : mCancelled
+                ? 'var(--danger)'
+                : 'var(--text3)';
+            return `<div style="display:flex;align-items:center;gap:8px;font-size:11px;padding:3px 0;">
                 <span style="color:${statusColor};font-size:12px;">${statusIcon}</span>
                 <span style="font-weight:600;color:var(--text2);">${escHtml(u ? u.name : 'Unknown')}</span>
                 <span style="color:var(--text3);font-size:10px;">${mDone ? 'Done' : mCancelled ? 'Cancelled' : 'In progress'}</span>
               </div>`;
-      }).join('')}
+          })
+          .join('')}
           </div>
         </div>`;
     }
@@ -2521,25 +3259,35 @@ function renderTasks(userId) {
           ${task.cancelledAt ? `<span class="meta-item"><span class="icon">🚫</span>Cancelled ${formatTime(new Date(task.cancelledAt))}</span>` : ''}
           ${task.doneAt ? `<span class="meta-item"><span class="icon">✅</span>Done ${formatTime(new Date(task.doneAt))}</span>` : ''}
         </div>
-        ${totalItems > 0 ? `
+        ${totalItems > 0
+        ? `
         <div class="checklist-preview">
           <div class="checklist-bar"><div class="checklist-fill" style="width:${pct}%"></div></div>
           <span>${checkedCount}/${totalItems}</span>
-        </div>` : ''}
+        </div>`
+        : ''
+      }
       </div>
       <div class="card-expand-section" id="expand-${task.id}">
-        ${totalItems > 0 ? `<div>
+        ${totalItems > 0
+        ? `<div>
           <div class="expand-label">Checklist${_getGroupMeta(task.description) ? ' <span style="font-size:10px;color:var(--amber);font-weight:600;">· shared</span>' : ''}</div>
           <div class="checklist-items">
-            ${_visibleDesc(task.description).map((d, idx) => `
+            ${_visibleDesc(task.description)
+          .map(
+            (d, idx) => `
               <div class="checklist-item ${d.checked ? 'checked' : ''}" id="cli-${task.id}-${idx}">
                 <input type="checkbox" id="chk-${task.id}-${idx}" ${d.checked ? 'checked' : ''} ${checklistDisabled ? 'disabled' : ''}
                   onchange="toggleCheck('${task.id}', ${idx}, this.checked)">
                 <label for="chk-${task.id}-${idx}">${escHtml(d.text)}</label>
               </div>
-            `).join('')}
+            `,
+          )
+          .join('')}
           </div>
-        </div>` : `<div style="font-size:12px;color:var(--text3);">${task.cancelled ? 'Task was cancelled.' : 'No checklist items — task can be marked done directly.'}</div>`}
+        </div>`
+        : `<div style="font-size:12px;color:var(--text3);">${task.cancelled ? 'Task was cancelled.' : 'No checklist items — task can be marked done directly.'}</div>`
+      }
         ${memberListHtml}
       </div>
       <div class="card-footer">
@@ -2548,9 +3296,18 @@ function renderTasks(userId) {
       </div>
     `;
 
-    card.querySelector('.card-body').addEventListener('click', () => toggleExpand(task.id));
+    card
+      .querySelector('.card-body')
+      .addEventListener('click', () => toggleExpand(task.id));
     card.addEventListener('click', (e) => {
-      if (e.target.closest('.done-btn') || e.target.closest('.btn-secondary') || e.target.closest('.btn-danger') || e.target.closest('input[type="checkbox"]') || e.target.closest('label')) return;
+      if (
+        e.target.closest('.done-btn') ||
+        e.target.closest('.btn-secondary') ||
+        e.target.closest('.btn-danger') ||
+        e.target.closest('input[type="checkbox"]') ||
+        e.target.closest('label')
+      )
+        return;
       if (e.target.closest('.card-body')) return;
       toggleExpand(task.id);
     });
@@ -2560,16 +3317,30 @@ function renderTasks(userId) {
     });
 
     let _lpTimer = null;
-    card.addEventListener('touchstart', (e) => {
-      _lpTimer = setTimeout(() => {
-        _lpTimer = null;
-        const touch = e.touches[0];
-        const fakeEvent = { clientX: touch.clientX, clientY: touch.clientY, preventDefault: () => { } };
-        showContextMenu(fakeEvent, task.id);
-      }, 600);
-    }, { passive: true });
-    card.addEventListener('touchend', () => { clearTimeout(_lpTimer); _lpTimer = null; });
-    card.addEventListener('touchmove', () => { clearTimeout(_lpTimer); _lpTimer = null; });
+    card.addEventListener(
+      'touchstart',
+      (e) => {
+        _lpTimer = setTimeout(() => {
+          _lpTimer = null;
+          const touch = e.touches[0];
+          const fakeEvent = {
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+            preventDefault: () => { },
+          };
+          showContextMenu(fakeEvent, task.id);
+        }, 600);
+      },
+      { passive: true },
+    );
+    card.addEventListener('touchend', () => {
+      clearTimeout(_lpTimer);
+      _lpTimer = null;
+    });
+    card.addEventListener('touchmove', () => {
+      clearTimeout(_lpTimer);
+      _lpTimer = null;
+    });
 
     board.appendChild(card);
   });
@@ -2583,7 +3354,9 @@ let _boardFilter = 'all';
 
 function onBoardSearch(val) {
   _boardSearchVal = (val || '').trim().toLowerCase();
-  const clearBtn = EL.boardSearch ? EL.boardSearch.parentElement.querySelector('#board-search-clear') : $('board-search-clear');
+  const clearBtn = EL.boardSearch
+    ? EL.boardSearch.parentElement.querySelector('#board-search-clear')
+    : $('board-search-clear');
   if (clearBtn) clearBtn.classList.toggle('hidden', !_boardSearchVal);
   applyBoardFilter();
 }
@@ -2598,7 +3371,7 @@ function clearBoardSearch() {
 
 function setBoardFilter(filter) {
   _boardFilter = filter;
-  document.querySelectorAll('.board-filter-pill').forEach(pill => {
+  document.querySelectorAll('.board-filter-pill').forEach((pill) => {
     pill.classList.toggle('active', pill.dataset.filter === filter);
   });
   applyBoardFilter();
@@ -2609,23 +3382,36 @@ function applyBoardFilter() {
   const sections = document.querySelectorAll('.board-section');
   const now = new Date();
   let anyVisible = false;
-  cards.forEach(card => {
-    const title = (card.querySelector('.card-title')?.textContent || '').toLowerCase();
-    const meta = (card.querySelector('.card-meta')?.textContent || '').toLowerCase();
-    const matchSearch = !_boardSearchVal || title.includes(_boardSearchVal) || meta.includes(_boardSearchVal);
+  cards.forEach((card) => {
+    const title = (
+      card.querySelector('.card-title')?.textContent || ''
+    ).toLowerCase();
+    const meta = (
+      card.querySelector('.card-meta')?.textContent || ''
+    ).toLowerCase();
+    const matchSearch =
+      !_boardSearchVal ||
+      title.includes(_boardSearchVal) ||
+      meta.includes(_boardSearchVal);
     let matchFilter = true;
-    if (_boardFilter === 'active') matchFilter = !card.classList.contains('done') && !card.classList.contains('cancelled');
+    if (_boardFilter === 'active')
+      matchFilter =
+        !card.classList.contains('done') &&
+        !card.classList.contains('cancelled');
     else if (_boardFilter === 'overdue') {
       const deadlineEl = card.querySelector('.meta-deadline');
-      matchFilter = deadlineEl && (deadlineEl.classList.contains('urgent') || deadlineEl.textContent.includes('OVERDUE'));
-    }
-    else if (_boardFilter === 'done') matchFilter = card.classList.contains('done');
+      matchFilter =
+        deadlineEl &&
+        (deadlineEl.classList.contains('urgent') ||
+          deadlineEl.textContent.includes('OVERDUE'));
+    } else if (_boardFilter === 'done')
+      matchFilter = card.classList.contains('done');
     const show = matchSearch && matchFilter;
     card.style.display = show ? '' : 'none';
     if (show) anyVisible = true;
   });
   // Show/hide section headers based on visible cards
-  sections.forEach(sec => {
+  sections.forEach((sec) => {
     sec.style.display = '';
   });
   // Show a "no results" hint if nothing visible
@@ -2634,7 +3420,8 @@ function applyBoardFilter() {
     if (!noResults) {
       noResults = document.createElement('div');
       noResults.id = 'board-no-results';
-      noResults.style.cssText = 'grid-column:1/-1;text-align:center;padding:40px;color:var(--text3);font-size:13px;';
+      noResults.style.cssText =
+        'grid-column:1/-1;text-align:center;padding:40px;color:var(--text3);font-size:13px;';
       noResults.textContent = 'No tasks match your filter.';
       document.getElementById('task-board').appendChild(noResults);
     }
@@ -2654,15 +3441,18 @@ function toggleExpand(taskId) {
   el.classList.toggle('open');
   const card = document.querySelector(`.task-card[data-id="${taskId}"]`);
   if (el.classList.contains('open')) {
-    card?.querySelector('.card-right-hint')?.textContent && (card.querySelector('.card-right-hint').textContent = 'click to collapse');
+    card?.querySelector('.card-right-hint')?.textContent &&
+      (card.querySelector('.card-right-hint').textContent =
+        'click to collapse');
   } else {
-    card?.querySelector('.card-right-hint')?.textContent && (card.querySelector('.card-right-hint').textContent = 'click to expand');
+    card?.querySelector('.card-right-hint')?.textContent &&
+      (card.querySelector('.card-right-hint').textContent = 'click to expand');
   }
 }
 
 async function toggleCheck(taskId, idx, checked) {
   const tasks = getTasks();
-  const task = tasks.find(t => t.id === taskId);
+  const task = tasks.find((t) => t.id === taskId);
   if (!task) return;
   // idx here is the index in the *visible* description (excludes __meta items)
   const visible = _visibleDesc(task.description);
@@ -2675,24 +3465,34 @@ async function toggleCheck(taskId, idx, checked) {
   // Update DOM for this task
   const item = document.getElementById(`cli-${taskId}-${idx}`);
   if (item) item.classList.toggle('checked', checked);
-  const allChecked = visible.every(d => d.checked);
-  const doneBtn = document.querySelector(`.task-card[data-id="${taskId}"] .done-btn`);
+  const allChecked = visible.every((d) => d.checked);
+  const doneBtn = document.querySelector(
+    `.task-card[data-id="${taskId}"] .done-btn`,
+  );
   if (doneBtn && !task.done) {
     doneBtn.disabled = !allChecked;
     const total = visible.length;
-    const checkedCount = visible.filter(d => d.checked).length;
-    doneBtn.textContent = allChecked ? '✓ Mark Done' : `⬜ ${checkedCount}/${total} Done`;
+    const checkedCount = visible.filter((d) => d.checked).length;
+    doneBtn.textContent = allChecked
+      ? '✓ Mark Done'
+      : `⬜ ${checkedCount}/${total} Done`;
   }
   const total = visible.length;
-  const checkedCount = visible.filter(d => d.checked).length;
+  const checkedCount = visible.filter((d) => d.checked).length;
   const pct = total > 0 ? Math.round((checkedCount / total) * 100) : 100;
-  const fill = document.querySelector(`.task-card[data-id="${taskId}"] .checklist-fill`);
+  const fill = document.querySelector(
+    `.task-card[data-id="${taskId}"] .checklist-fill`,
+  );
   if (fill) fill.style.width = pct + '%';
-  const preview = document.querySelector(`.task-card[data-id="${taskId}"] .checklist-preview span`);
+  const preview = document.querySelector(
+    `.task-card[data-id="${taskId}"] .checklist-preview span`,
+  );
   if (preview) preview.textContent = `${checkedCount}/${total}`;
 
   // Persist this task
-  API.put(`/tasks/${taskId}`, { description: task.description }).catch(() => { });
+  API.put(`/tasks/${taskId}`, { description: task.description }).catch(
+    () => { },
+  );
   // Propagate change to all other tasks in the same group
   await _syncGroupCheck(task, task.description);
 }
@@ -2700,43 +3500,76 @@ async function toggleCheck(taskId, idx, checked) {
 async function markDone(e, taskId) {
   e.stopPropagation();
   const tasks = getTasks();
-  const task = tasks.find(t => t.id === taskId);
+  const task = tasks.find((t) => t.id === taskId);
   if (!task) return;
-  const allChecked = _visibleDesc(task.description).length === 0 || _visibleDesc(task.description).every(d => d.checked);
-  if (!allChecked) { toast('Complete all checklist items first!', 'error'); return; }
+  const allChecked =
+    _visibleDesc(task.description).length === 0 ||
+    _visibleDesc(task.description).every((d) => d.checked);
+  if (!allChecked) {
+    toast('Complete all checklist items first!', 'error');
+    return;
+  }
   const doneAt = new Date().toISOString();
   task.done = true;
   task.doneAt = doneAt;
   try {
     await API.put(`/tasks/${taskId}`, { done: true, doneAt });
-    addLog({ taskId: task.id, taskTitle: task.title, action: 'done', actorName: state.currentUser.name, userId: task.userId });
+    addLog({
+      taskId: task.id,
+      taskTitle: task.title,
+      action: 'done',
+      actorName: state.currentUser.name,
+      userId: task.userId,
+    });
     // Sync to all sibling team task copies
     const siblings = _getTeamSiblings(task);
     for (const s of siblings) {
-      s.done = true; s.doneAt = doneAt;
+      s.done = true;
+      s.doneAt = doneAt;
       API.put(`/tasks/${s.id}`, { done: true, doneAt }).catch(() => { });
     }
     const count = siblings.length + 1;
-    toast(count > 1 ? `Task marked as done! ✓ (${count} members updated)` : 'Task marked as done! ✓', 'success');
+    toast(
+      count > 1
+        ? `Task marked as done! ✓ (${count} members updated)`
+        : 'Task marked as done! ✓',
+      'success',
+    );
     // Notify managers and admins that this task was completed
     if (state.currentUser.role === 'user') {
-      var managers = getUsers().filter(u => u.role === 'admin' || u.role === 'manager');
-      managers.forEach(m => {
-        pushNotification(m.id, `✅ Task Completed`, `"${task.title}" has been marked as done by ${state.currentUser.name}.`, task.id, { type: 'task', action: 'completed' });
+      var managers = getUsers().filter(
+        (u) => u.role === 'admin' || u.role === 'manager',
+      );
+      managers.forEach((m) => {
+        pushNotification(
+          m.id,
+          `✅ Task Completed`,
+          `"${task.title}" has been marked as done by ${state.currentUser.name}.`,
+          task.id,
+          { type: 'task', action: 'completed' },
+        );
       });
     }
-    if (state.view === 'calendar') { renderCalendarDebounced(); return; }
-    const userId = state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
+    if (state.view === 'calendar') {
+      renderCalendarDebounced();
+      return;
+    }
+    const userId =
+      state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
     if (state.currentViewMode === 'timeline') renderTimeline(userId);
     else renderTasks(userId);
-  } catch (err) { task.done = false; task.doneAt = null; toast('Failed to update task.', 'error'); }
+  } catch (err) {
+    task.done = false;
+    task.doneAt = null;
+    toast('Failed to update task.', 'error');
+  }
 }
 
 async function confirmDelete() {
   if (!state.deleteTaskId) return;
   if (!_lockOp('confirmDelete')) return;
   const tasks = getTasks();
-  const task = tasks.find(t => t.id === state.deleteTaskId);
+  const task = tasks.find((t) => t.id === state.deleteTaskId);
   const id = state.deleteTaskId;
   state.deleteTaskId = null;
   closeModal('confirm-modal');
@@ -2744,23 +3577,42 @@ async function confirmDelete() {
   const siblings = task ? _getTeamSiblings(task) : [];
   try {
     await API.del(`/tasks/${id}`);
-    if (task) addLog({ taskId: task.id, taskTitle: task.title, action: 'deleted', actorName: state.currentUser.name, userId: task.userId });
+    if (task)
+      addLog({
+        taskId: task.id,
+        taskTitle: task.title,
+        action: 'deleted',
+        actorName: state.currentUser.name,
+        userId: task.userId,
+      });
     if (task) {
-      const deletedUser = getUsers().find(u => u.id === task.userId);
-      if (deletedUser) sendTaskEmail(deletedUser, task, 'cancelled').catch(() => { });
+      const deletedUser = getUsers().find((u) => u.id === task.userId);
+      if (deletedUser)
+        sendTaskEmail(deletedUser, task, 'cancelled').catch(() => { });
     }
-    cache.tasks = cache.tasks.filter(t => t.id !== id);
+    cache.tasks = cache.tasks.filter((t) => t.id !== id);
     // Delete all sibling copies
     for (const s of siblings) {
-      cache.tasks = cache.tasks.filter(t => t.id !== s.id);
+      cache.tasks = cache.tasks.filter((t) => t.id !== s.id);
       API.del(`/tasks/${s.id}`).catch(() => { });
     }
     const count = siblings.length + 1;
-    toast(count > 1 ? `Task deleted (${count} members updated).` : 'Task deleted.', 'info');
-  } catch (err) { toast('Failed to delete task.', 'error'); _unlockOp('confirmDelete'); return; }
+    toast(
+      count > 1 ? `Task deleted (${count} members updated).` : 'Task deleted.',
+      'info',
+    );
+  } catch (err) {
+    toast('Failed to delete task.', 'error');
+    _unlockOp('confirmDelete');
+    return;
+  }
   _unlockOp('confirmDelete');
-  if (state.view === 'calendar') { renderCalendarDebounced(); return; }
-  const userId = state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
+  if (state.view === 'calendar') {
+    renderCalendarDebounced();
+    return;
+  }
+  const userId =
+    state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
   if (state.currentViewMode === 'timeline') renderTimeline(userId);
   else renderTasks(userId);
 }
@@ -2770,31 +3622,68 @@ async function confirmCancel() {
   if (!_lockOp('confirmCancel')) return;
   const reason = document.getElementById('cancel-reason-input').value.trim();
   const tasks = getTasks();
-  const task = tasks.find(t => t.id === state.cancelTaskId);
+  const task = tasks.find((t) => t.id === state.cancelTaskId);
   state.cancelTaskId = null;
   closeModal('cancel-modal');
   if (!task) return;
   const siblings = _getTeamSiblings(task);
   try {
-    const updated = await API.put(`/tasks/${task.id}`, { cancelled: true, cancelReason: reason || '' });
-    if (updated) { Object.assign(task, updated); } else { task.cancelled = true; task.cancelReason = reason || ''; }
-    addLog({ taskId: task.id, taskTitle: task.title, action: 'cancelled', actorName: state.currentUser.name, userId: task.userId });
-    if (task.userId !== state.currentUser.id) {
-      pushNotification(task.userId, '🚫 Task Cancelled', `"${task.title}" was cancelled by ${state.currentUser.name}${reason ? ': ' + reason : '.'}`, task.id);
+    const updated = await API.put(`/tasks/${task.id}`, {
+      cancelled: true,
+      cancelReason: reason || '',
+    });
+    if (updated) {
+      Object.assign(task, updated);
+    } else {
+      task.cancelled = true;
+      task.cancelReason = reason || '';
     }
-    const cancelledUser = getUsers().find(u => u.id === task.userId);
-    if (cancelledUser) sendTaskEmail(cancelledUser, task, 'cancelled').catch(() => { });
+    addLog({
+      taskId: task.id,
+      taskTitle: task.title,
+      action: 'cancelled',
+      actorName: state.currentUser.name,
+      userId: task.userId,
+    });
+    if (task.userId !== state.currentUser.id) {
+      pushNotification(
+        task.userId,
+        '🚫 Task Cancelled',
+        `"${task.title}" was cancelled by ${state.currentUser.name}${reason ? ': ' + reason : '.'}`,
+        task.id,
+      );
+    }
+    const cancelledUser = getUsers().find((u) => u.id === task.userId);
+    if (cancelledUser)
+      sendTaskEmail(cancelledUser, task, 'cancelled').catch(() => { });
     // Cancel all sibling copies
     for (const s of siblings) {
-      s.cancelled = true; s.cancelReason = reason || '';
-      API.put(`/tasks/${s.id}`, { cancelled: true, cancelReason: reason || '' }).catch(() => { });
+      s.cancelled = true;
+      s.cancelReason = reason || '';
+      API.put(`/tasks/${s.id}`, {
+        cancelled: true,
+        cancelReason: reason || '',
+      }).catch(() => { });
     }
     const count = siblings.length + 1;
-    toast(count > 1 ? `Task cancelled (${count} members updated).` : 'Task cancelled.', 'info');
-  } catch (err) { toast('Failed to cancel task.', 'error'); _unlockOp('confirmCancel'); return; }
+    toast(
+      count > 1
+        ? `Task cancelled (${count} members updated).`
+        : 'Task cancelled.',
+      'info',
+    );
+  } catch (err) {
+    toast('Failed to cancel task.', 'error');
+    _unlockOp('confirmCancel');
+    return;
+  }
   _unlockOp('confirmCancel');
-  if (state.view === 'calendar') { renderCalendarDebounced(); return; }
-  const userId = state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
+  if (state.view === 'calendar') {
+    renderCalendarDebounced();
+    return;
+  }
+  const userId =
+    state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
   if (state.currentViewMode === 'timeline') renderTimeline(userId);
   else renderTasks(userId);
 }
@@ -2803,32 +3692,76 @@ async function reopenTask(e, taskId) {
   if (e) e.stopPropagation();
   if (!_lockOp('reopen_' + taskId, null, 'Reopening task…')) return;
   const tasks = getTasks();
-  const task = tasks.find(t => t.id === taskId);
-  if (!task) { _unlockOp('reopen_' + taskId); return; }
+  const task = tasks.find((t) => t.id === taskId);
+  if (!task) {
+    _unlockOp('reopen_' + taskId);
+    return;
+  }
   const siblings = _getTeamSiblings(task);
   try {
-    const updated = await API.put(`/tasks/${taskId}`, { cancelled: false, cancelReason: '', done: false, doneAt: null });
-    if (updated) { Object.assign(task, updated); } else { task.cancelled = false; task.cancelReason = ''; task.done = false; task.doneAt = null; }
-    addLog({ taskId: task.id, taskTitle: task.title, action: 'reopened', actorName: state.currentUser.name, userId: task.userId });
-    if (task.userId !== state.currentUser.id) {
-      pushNotification(task.userId, '🔄 Task Reopened', `"${task.title}" has been reopened by ${state.currentUser.name}.`, task.id);
+    const updated = await API.put(`/tasks/${taskId}`, {
+      cancelled: false,
+      cancelReason: '',
+      done: false,
+      doneAt: null,
+    });
+    if (updated) {
+      Object.assign(task, updated);
+    } else {
+      task.cancelled = false;
+      task.cancelReason = '';
+      task.done = false;
+      task.doneAt = null;
     }
-    const reopenedUser = getUsers().find(u => u.id === task.userId);
-    if (reopenedUser) sendTaskEmail(reopenedUser, task, 'reopened').catch(() => { });
+    addLog({
+      taskId: task.id,
+      taskTitle: task.title,
+      action: 'reopened',
+      actorName: state.currentUser.name,
+      userId: task.userId,
+    });
+    if (task.userId !== state.currentUser.id) {
+      pushNotification(
+        task.userId,
+        '🔄 Task Reopened',
+        `"${task.title}" has been reopened by ${state.currentUser.name}.`,
+        task.id,
+      );
+    }
+    const reopenedUser = getUsers().find((u) => u.id === task.userId);
+    if (reopenedUser)
+      sendTaskEmail(reopenedUser, task, 'reopened').catch(() => { });
     for (const s of siblings) {
-      s.cancelled = false; s.cancelReason = ''; s.done = false; s.doneAt = null;
-      API.put(`/tasks/${s.id}`, { cancelled: false, cancelReason: '', done: false, doneAt: null }).catch(() => { });
+      s.cancelled = false;
+      s.cancelReason = '';
+      s.done = false;
+      s.doneAt = null;
+      API.put(`/tasks/${s.id}`, {
+        cancelled: false,
+        cancelReason: '',
+        done: false,
+        doneAt: null,
+      }).catch(() => { });
     }
     const count = siblings.length + 1;
-    toast(count > 1 ? `Task reopened! ✓ (${count} members updated)` : 'Task reopened! ✓', 'success');
+    toast(
+      count > 1
+        ? `Task reopened! ✓ (${count} members updated)`
+        : 'Task reopened! ✓',
+      'success',
+    );
   } catch (err) {
     toast('Failed to reopen task.', 'error');
     _unlockOp('reopen_' + taskId);
     return;
   }
   _unlockOp('reopen_' + taskId);
-  if (state.view === 'calendar') { renderCalendarDebounced(); return; }
-  const userId = state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
+  if (state.view === 'calendar') {
+    renderCalendarDebounced();
+    return;
+  }
+  const userId =
+    state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
   if (state.currentViewMode === 'timeline') renderTimeline(userId);
   else renderTasks(userId);
 }
@@ -2838,8 +3771,9 @@ async function reopenTask(e, taskId) {
    ============================================================ */
 function showContextMenu(e, taskId) {
   state.contextTaskId = taskId;
-  const task = getTasks().find(t => t.id === taskId);
-  const isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
+  const task = getTasks().find((t) => t.id === taskId);
+  const isElevated =
+    state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
   const menu = document.getElementById('context-menu');
 
   // Show/hide items based on role and task state
@@ -2853,33 +3787,46 @@ function showContextMenu(e, taskId) {
   const isOwner = task.userId === state.currentUser.id;
   const isCreator = !task.createdBy || task.createdBy === state.currentUser.id;
   const userCanEdit = isOwner && isCreator;
-  editBtn.style.display = (!task.cancelled && !task.done && (isElevated || userCanEdit)) ? '' : 'none';
+  editBtn.style.display =
+    !task.cancelled && !task.done && (isElevated || userCanEdit) ? '' : 'none';
 
   // View in Calendar: hide when already in calendar view
-  if (viewCalBtn) viewCalBtn.style.display = (state.view === 'calendar') ? 'none' : '';
+  if (viewCalBtn)
+    viewCalBtn.style.display = state.view === 'calendar' ? 'none' : '';
 
   // Cancel: only elevated, only on active tasks
-  cancelBtn.style.display = (isElevated && !task.cancelled && !task.done) ? '' : 'none';
+  cancelBtn.style.display =
+    isElevated && !task.cancelled && !task.done ? '' : 'none';
 
   // Reopen: only elevated, on cancelled OR completed tasks
-  reopenBtn.style.display = (isElevated && (task.cancelled || task.done)) ? '' : 'none';
+  reopenBtn.style.display =
+    isElevated && (task.cancelled || task.done) ? '' : 'none';
 
   // Delete: elevated always; regular user only when task is done
-  deleteBtn.style.display = (isElevated || (isOwner && task.done)) ? '' : 'none';
+  deleteBtn.style.display = isElevated || (isOwner && task.done) ? '' : 'none';
 
   menu.classList.remove('hidden');
-  let x = e.clientX, y = e.clientY;
+  let x = e.clientX,
+    y = e.clientY;
   menu.style.left = x + 'px';
   menu.style.top = y + 'px';
   requestAnimationFrame(() => {
     const rect = menu.getBoundingClientRect();
-    if (rect.right > window.innerWidth) menu.style.left = (x - rect.width) + 'px';
-    if (rect.bottom > window.innerHeight) menu.style.top = (y - rect.height) + 'px';
+    if (rect.right > window.innerWidth) menu.style.left = x - rect.width + 'px';
+    if (rect.bottom > window.innerHeight)
+      menu.style.top = y - rect.height + 'px';
   });
 }
-function hideContextMenu() { document.getElementById('context-menu').classList.add('hidden'); }
+function hideContextMenu() {
+  document.getElementById('context-menu').classList.add('hidden');
+}
 document.addEventListener('click', hideContextMenu);
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { hideContextMenu(); closeAllModals(); } });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    hideContextMenu();
+    closeAllModals();
+  }
+});
 
 function ctxEdit() {
   hideContextMenu();
@@ -2887,14 +3834,16 @@ function ctxEdit() {
 }
 function ctxViewInCalendar() {
   hideContextMenu();
-  const task = getTasks().find(t => t.id === state.contextTaskId);
+  const task = getTasks().find((t) => t.id === state.contextTaskId);
   if (!task) return;
   const taskStart = new Date(task.start || task.createdAt);
   state._calendarJumpDate = taskStart;
   state._calendarFocusTaskId = task.id;
 
-  const isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
-  const isViewingWorker = isElevated && state.view === 'user-tasks' && state.targetUserId;
+  const isElevated =
+    state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
+  const isViewingWorker =
+    isElevated && state.view === 'user-tasks' && state.targetUserId;
 
   if (isViewingWorker) {
     // Manager viewing a worker's tasks → go to team calendar and highlight that worker's row
@@ -2911,25 +3860,40 @@ function ctxViewInCalendar() {
 }
 function ctxCancel() {
   hideContextMenu();
-  const task = getTasks().find(t => t.id === state.contextTaskId);
+  const task = getTasks().find((t) => t.id === state.contextTaskId);
   if (!task) return;
-  const isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
-  if (!isElevated) { toast('Only managers can cancel tasks.', 'error'); return; }
-  if (task.cancelled) { toast('Task is already cancelled.', 'info'); return; }
-  if (task.done) { toast('Cannot cancel a completed task.', 'error'); return; }
+  const isElevated =
+    state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
+  if (!isElevated) {
+    toast('Only managers can cancel tasks.', 'error');
+    return;
+  }
+  if (task.cancelled) {
+    toast('Task is already cancelled.', 'info');
+    return;
+  }
+  if (task.done) {
+    toast('Cannot cancel a completed task.', 'error');
+    return;
+  }
   state.cancelTaskId = task.id;
-  document.getElementById('cancel-task-name').textContent = '"' + task.title + '"';
+  document.getElementById('cancel-task-name').textContent =
+    '"' + task.title + '"';
   document.getElementById('cancel-reason-input').value = '';
   openModal('cancel-modal');
 }
 function ctxDelete() {
   hideContextMenu();
-  const task = getTasks().find(t => t.id === state.contextTaskId);
+  const task = getTasks().find((t) => t.id === state.contextTaskId);
   if (!task) return;
-  const isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
+  const isElevated =
+    state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
   if (!isElevated) {
     // Regular users: only allow delete on completed tasks
-    if (!task.done) { toast('You can only delete completed tasks.', 'error'); return; }
+    if (!task.done) {
+      toast('You can only delete completed tasks.', 'error');
+      return;
+    }
     deleteCompletedTask(null, task.id);
     return;
   }
@@ -2939,8 +3903,12 @@ function ctxDelete() {
 }
 function ctxReopen() {
   hideContextMenu();
-  const isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
-  if (!isElevated) { toast('Only managers can reopen tasks.', 'error'); return; }
+  const isElevated =
+    state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
+  if (!isElevated) {
+    toast('Only managers can reopen tasks.', 'error');
+    return;
+  }
   reopenTask(null, state.contextTaskId);
 }
 
@@ -2955,8 +3923,10 @@ function setTaskScheduleMode(mode) {
   const endBtn = document.getElementById('f-mode-enddate');
   const durGrp = document.getElementById('f-duration-group');
   const endGrp = document.getElementById('f-enddate-group');
-  const activeStyle = 'flex:1;padding:7px;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid var(--amber);background:var(--amber);color:var(--bg);cursor:pointer;transition:all 0.15s;';
-  const inactiveStyle = 'flex:1;padding:7px;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;transition:all 0.15s;';
+  const activeStyle =
+    'flex:1;padding:7px;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid var(--amber);background:var(--amber);color:var(--bg);cursor:pointer;transition:all 0.15s;';
+  const inactiveStyle =
+    'flex:1;padding:7px;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;transition:all 0.15s;';
   if (mode === 'duration') {
     durBtn.style.cssText = activeStyle;
     endBtn.style.cssText = inactiveStyle;
@@ -3010,15 +3980,20 @@ function openAddTask() {
 }
 
 function openEditTask(taskId) {
-  const task = getTasks().find(t => t.id === taskId);
+  const task = getTasks().find((t) => t.id === taskId);
   if (!task) return;
   state.editingTaskId = taskId;
-  state.descItems = _visibleDesc(task.description).map(d => ({ text: d.text, checked: d.checked }));
+  state.descItems = _visibleDesc(task.description).map((d) => ({
+    text: d.text,
+    checked: d.checked,
+  }));
   document.getElementById('task-modal-title').textContent = 'Edit Task';
   document.getElementById('f-title').value = task.title;
   document.getElementById('f-requestor').value = task.requestor;
   document.getElementById('f-priority').value = task.priority;
-  const startDate = task.start ? new Date(task.start) : new Date(task.createdAt);
+  const startDate = task.start
+    ? new Date(task.start)
+    : new Date(task.createdAt);
   document.getElementById('f-start').value = toLocalISO(startDate);
   const deadline = new Date(task.deadline);
   const durationHours = Math.round(((deadline - startDate) / 36e5) * 4) / 4;
@@ -3038,9 +4013,13 @@ function toLocalISO(date) {
 }
 // Local date string — avoids UTC offset shifting the date
 function toDateStr(date) {
-  return date.getFullYear() + '-' +
-    String(date.getMonth() + 1).padStart(2, '0') + '-' +
-    String(date.getDate()).padStart(2, '0');
+  return (
+    date.getFullYear() +
+    '-' +
+    String(date.getMonth() + 1).padStart(2, '0') +
+    '-' +
+    String(date.getDate()).padStart(2, '0')
+  );
 }
 
 function addDescItem() {
@@ -3060,16 +4039,22 @@ function removeDescItem(idx) {
 
 function renderDescItems() {
   const container = document.getElementById('f-desc-items');
-  container.innerHTML = state.descItems.map((item, i) => `
+  container.innerHTML = state.descItems
+    .map(
+      (item, i) => `
     <div class="desc-item">
       <span>${escHtml(item.text)}</span>
       <button onclick="removeDescItem(${i})">✕</button>
     </div>
-  `).join('');
+  `,
+    )
+    .join('');
 }
 
 async function saveTask() {
-  const _btn = document.querySelector('#task-modal .btn-primary[onclick="saveTask()"]');
+  const _btn = document.querySelector(
+    '#task-modal .btn-primary[onclick="saveTask()"]',
+  );
   if (!_lockOp('saveTask', _btn, 'Saving…')) return;
   try {
     const title = document.getElementById('f-title').value.trim();
@@ -3079,12 +4064,16 @@ async function saveTask() {
     const durVal = getDurationHours();
 
     if (!title || !requestor || !startVal || !durVal || durVal <= 0) {
-      toast('Please fill in all required fields.', 'error'); _unlockOp('saveTask', _btn); return;
+      toast('Please fill in all required fields.', 'error');
+      _unlockOp('saveTask', _btn);
+      return;
     }
 
-    const targetUserId = state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
+    const targetUserId =
+      state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
     const userId = state.editingTaskId
-      ? (getTasks().find(t => t.id === state.editingTaskId)?.userId || targetUserId)
+      ? getTasks().find((t) => t.id === state.editingTaskId)?.userId ||
+      targetUserId
       : targetUserId;
 
     // Weekend restriction: only P1/P2 allowed on weekends
@@ -3098,98 +4087,241 @@ async function saveTask() {
       }
       const wh = getWorkHours();
       scheduledStart.setHours(wh.start, 0, 0, 0);
-      toast('Task rescheduled to next weekday (weekends are for P1/P2 only).', 'warning');
+      toast(
+        'Task rescheduled to next weekday (weekends are for P1/P2 only).',
+        'warning',
+      );
     }
 
     // Calculate deadline respecting work hours / user weekends
-    const scheduledEnd = calculateScheduledEnd(scheduledStart.toISOString(), durVal, userId);
+    const scheduledEnd = calculateScheduledEnd(
+      scheduledStart.toISOString(),
+      durVal,
+      userId,
+    );
 
-    const leaveConflicts = checkLeaveConflict(userId, scheduledStart.toISOString(), scheduledEnd.toISOString());
+    const leaveConflicts = checkLeaveConflict(
+      userId,
+      scheduledStart.toISOString(),
+      scheduledEnd.toISOString(),
+    );
     if (leaveConflicts.length > 0) {
       const types = { lieu: 'Lieu Day', loa: 'Leave of Absence', awol: 'AWOL' };
-      toast(`Cannot create task: overlaps with ${leaveConflicts.map(l => types[l.type]).join(', ')}`, 'error');
-      notifyManagerOfLeaveConflict({ title, requestor, priority, start: scheduledStart.toISOString(), deadline: scheduledEnd.toISOString(), userId }, leaveConflicts);
-      _unlockOp('saveTask', _btn); return;
+      toast(
+        `Cannot create task: overlaps with ${leaveConflicts.map((l) => types[l.type]).join(', ')}`,
+        'error',
+      );
+      notifyManagerOfLeaveConflict(
+        {
+          title,
+          requestor,
+          priority,
+          start: scheduledStart.toISOString(),
+          deadline: scheduledEnd.toISOString(),
+          userId,
+        },
+        leaveConflicts,
+      );
+      _unlockOp('saveTask', _btn);
+      return;
     }
 
     const tasks = getTasks();
-    const description = state.descItems.map(d => ({ text: d.text, checked: false }));
+    const description = state.descItems.map((d) => ({
+      text: d.text,
+      checked: false,
+    }));
 
     if (state.editingTaskId) {
-      const task = tasks.find(t => t.id === state.editingTaskId);
-      if (!task) { _unlockOp('saveTask', _btn); return; }
-      const otherTasks = tasks.filter(t => t.id !== state.editingTaskId && t.userId === task.userId && !t.cancelled && !t.done);
-      const overlapCheck = resolveOverlapsNew({ ...task, title, requestor, priority, start: scheduledStart.toISOString(), deadline: scheduledEnd.toISOString() }, otherTasks, task.userId);
+      const task = tasks.find((t) => t.id === state.editingTaskId);
+      if (!task) {
+        _unlockOp('saveTask', _btn);
+        return;
+      }
+      const otherTasks = tasks.filter(
+        (t) =>
+          t.id !== state.editingTaskId &&
+          t.userId === task.userId &&
+          !t.cancelled &&
+          !t.done,
+      );
+      const overlapCheck = resolveOverlapsNew(
+        {
+          ...task,
+          title,
+          requestor,
+          priority,
+          start: scheduledStart.toISOString(),
+          deadline: scheduledEnd.toISOString(),
+        },
+        otherTasks,
+        task.userId,
+      );
       const finalStart = overlapCheck.newStart || scheduledStart.toISOString();
-      const finalDeadline = overlapCheck.newDeadline || scheduledEnd.toISOString();
+      const finalDeadline =
+        overlapCheck.newDeadline || scheduledEnd.toISOString();
       const oldDesc = task.description || [];
       const oldMeta = _getGroupMeta(oldDesc);
-      const finalDesc = _buildDesc(state.descItems.map(d => {
-        const ex = _visibleDesc(oldDesc).find(od => od.text === d.text);
-        return { text: d.text, checked: ex ? ex.checked : d.checked };
-      }), oldMeta);
-      if (overlapCheck.moved) { toast('Task auto-rescheduled due to overlap.', 'warning'); notifyManagerOfOverlap(task, overlapCheck.overlaps, true); }
-      const updated = await API.put(`/tasks/${state.editingTaskId}`, { title, requestor, priority, start: finalStart, deadline: finalDeadline, description: finalDesc });
+      const finalDesc = _buildDesc(
+        state.descItems.map((d) => {
+          const ex = _visibleDesc(oldDesc).find((od) => od.text === d.text);
+          return { text: d.text, checked: ex ? ex.checked : d.checked };
+        }),
+        oldMeta,
+      );
+      if (overlapCheck.moved) {
+        toast('Task auto-rescheduled due to overlap.', 'warning');
+        notifyManagerOfOverlap(task, overlapCheck.overlaps, true);
+      }
+      const updated = await API.put(`/tasks/${state.editingTaskId}`, {
+        title,
+        requestor,
+        priority,
+        start: finalStart,
+        deadline: finalDeadline,
+        description: finalDesc,
+      });
       // Merge returned fields into cached task; fall back to sent values if Supabase returns null
       if (updated) {
         Object.assign(task, updated);
       } else {
-        Object.assign(task, { title, requestor, priority, start: finalStart, deadline: finalDeadline, description: finalDesc });
+        Object.assign(task, {
+          title,
+          requestor,
+          priority,
+          start: finalStart,
+          deadline: finalDeadline,
+          description: finalDesc,
+        });
       }
-      addLog({ taskId: task.id, taskTitle: task.title, action: 'edited', actorName: state.currentUser.name, userId: task.userId });
-      const editedUser = getUsers().find(u => u.id === task.userId);
-      if (editedUser) sendTaskEmail(editedUser, task, 'updated').catch(() => { });
+      addLog({
+        taskId: task.id,
+        taskTitle: task.title,
+        action: 'edited',
+        actorName: state.currentUser.name,
+        userId: task.userId,
+      });
+      const editedUser = getUsers().find((u) => u.id === task.userId);
+      if (editedUser)
+        sendTaskEmail(editedUser, task, 'updated').catch(() => { });
       // Propagate edits to all sibling team task copies (keep each sibling's own meta)
       const siblings = _getTeamSiblings(task);
       for (const s of siblings) {
         const sMeta = _getGroupMeta(s.description);
         const sDesc = _buildDesc(_visibleDesc(finalDesc), sMeta);
         Object.assign(s, { title, requestor, priority, description: sDesc });
-        API.put(`/tasks/${s.id}`, { title, requestor, priority, description: sDesc }).catch(() => { });
+        API.put(`/tasks/${s.id}`, {
+          title,
+          requestor,
+          priority,
+          description: sDesc,
+        }).catch(() => { });
       }
-      toast(siblings.length > 0 ? `Task updated! ✓ (${siblings.length + 1} members synced)` : 'Task updated!', 'success');
+      toast(
+        siblings.length > 0
+          ? `Task updated! ✓ (${siblings.length + 1} members synced)`
+          : 'Task updated!',
+        'success',
+      );
     } else {
-      const existingTasks = tasks.filter(t => t.userId === userId && !t.cancelled && !t.done);
-      const taskData = { title, requestor, priority, start: scheduledStart.toISOString(), deadline: scheduledEnd.toISOString(), description, createdBy: state.currentUser.id };
+      const existingTasks = tasks.filter(
+        (t) => t.userId === userId && !t.cancelled && !t.done,
+      );
+      const taskData = {
+        title,
+        requestor,
+        priority,
+        start: scheduledStart.toISOString(),
+        deadline: scheduledEnd.toISOString(),
+        description,
+        createdBy: state.currentUser.id,
+      };
       const overlapCheck = resolveOverlapsNew(taskData, existingTasks, userId);
       if (overlapCheck.moved) {
         taskData.start = overlapCheck.newStart;
         taskData.deadline = overlapCheck.newDeadline;
-        toast('Task auto-rescheduled — placed after higher-priority tasks.', 'warning');
+        toast(
+          'Task auto-rescheduled — placed after higher-priority tasks.',
+          'warning',
+        );
       }
       const newTask = await API.post('/tasks', { ...taskData, userId });
       if (!newTask) {
         // Offline — task queued; create optimistic local entry
-        const optimisticTask = { id: 'offline_' + uid(), ...taskData, userId, done: false, cancelled: false, createdAt: new Date().toISOString() };
+        const optimisticTask = {
+          id: 'offline_' + uid(),
+          ...taskData,
+          userId,
+          done: false,
+          cancelled: false,
+          createdAt: new Date().toISOString(),
+        };
         if (!cache.tasks) cache.tasks = [];
         cache.tasks.push(optimisticTask);
-        toast('📵 Offline — task saved locally and will sync when reconnected.', 'warning');
+        toast(
+          '📵 Offline — task saved locally and will sync when reconnected.',
+          'warning',
+        );
         _unlockOp('saveTask', _btn);
         closeModal('task-modal');
-        const renderUserId = state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
+        const renderUserId =
+          state.view === 'user-tasks'
+            ? state.targetUserId
+            : state.currentUser.id;
         renderTasks(renderUserId);
         return;
       }
       if (!cache.tasks) cache.tasks = [];
       cache.tasks.push(newTask);
-      if ((state.currentUser.role === 'admin' || state.currentUser.role === 'manager') && userId !== state.currentUser.id) {
-        var actorRole = state.currentUser.role === 'admin' ? 'Admin' : 'Manager';
-        var assignedName = getUsers().find(u => u.id === userId)?.name || 'User';
+      if (
+        (state.currentUser.role === 'admin' ||
+          state.currentUser.role === 'manager') &&
+        userId !== state.currentUser.id
+      ) {
+        var actorRole =
+          state.currentUser.role === 'admin' ? 'Admin' : 'Manager';
+        var assignedName =
+          getUsers().find((u) => u.id === userId)?.name || 'User';
         // Notify the assignee
-        pushNotification(userId, `📌 New Task Assigned`, `"${title}" has been added by ${actorRole}.`, newTask.id, { type: 'task', action: 'assigned' });
+        pushNotification(
+          userId,
+          `📌 New Task Assigned`,
+          `"${title}" has been added by ${actorRole}.`,
+          newTask.id,
+          { type: 'task', action: 'assigned' },
+        );
         // Notify the setter (confirmation)
-        pushNotification(state.currentUser.id, `✅ Task Assigned to ${assignedName}`, `"${title}" has been assigned successfully.`, newTask.id, { type: 'task', action: 'assigned-confirm', sendEmail: false });
+        pushNotification(
+          state.currentUser.id,
+          `✅ Task Assigned to ${assignedName}`,
+          `"${title}" has been assigned successfully.`,
+          newTask.id,
+          { type: 'task', action: 'assigned-confirm', sendEmail: false },
+        );
       }
-      const assignedUser = getUsers().find(u => u.id === userId);
-      if (assignedUser) sendTaskEmail(assignedUser, newTask, 'assigned').catch(() => { });
-      if (overlapCheck.overlaps.length > 0) notifyManagerOfOverlap(newTask, overlapCheck.overlaps, overlapCheck.moved);
-      addLog({ taskId: newTask.id, taskTitle: newTask.title, action: 'added', actorName: state.currentUser.name, userId: newTask.userId });
+      const assignedUser = getUsers().find((u) => u.id === userId);
+      if (assignedUser)
+        sendTaskEmail(assignedUser, newTask, 'assigned').catch(() => { });
+      if (overlapCheck.overlaps.length > 0)
+        notifyManagerOfOverlap(
+          newTask,
+          overlapCheck.overlaps,
+          overlapCheck.moved,
+        );
+      addLog({
+        taskId: newTask.id,
+        taskTitle: newTask.title,
+        action: 'added',
+        actorName: state.currentUser.name,
+        userId: newTask.userId,
+      });
       toast('Task added! ✓', 'success');
     }
   } catch (err) {
     // Error handling
     toast(err.message || 'Failed to save task.', 'error');
-    _unlockOp('saveTask', _btn); return;
+    _unlockOp('saveTask', _btn);
+    return;
   }
   _unlockOp('saveTask', _btn);
   closeModal('task-modal');
@@ -3200,7 +4332,8 @@ async function saveTask() {
     renderCalendar();
     return;
   }
-  const renderUserId = state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
+  const renderUserId =
+    state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
   if (state.currentViewMode === 'timeline') renderTimeline(renderUserId);
   else renderTasks(renderUserId);
 }
@@ -3216,11 +4349,13 @@ async function deleteUser(userId) {
   if (!confirm('Delete this user and all their tasks?')) return;
   try {
     await API.del(`/users/${userId}`);
-    cache.users = cache.users.filter(u => u.id !== userId);
-    cache.tasks = cache.tasks.filter(t => t.userId !== userId);
+    cache.users = cache.users.filter((u) => u.id !== userId);
+    cache.tasks = cache.tasks.filter((t) => t.userId !== userId);
     toast('User deleted.', 'info');
     renderUserList();
-  } catch (err) { toast(err.message || 'Failed to delete user.', 'error'); }
+  } catch (err) {
+    toast(err.message || 'Failed to delete user.', 'error');
+  }
 }
 
 /* ============================================================
@@ -3231,29 +4366,54 @@ function openRegisterUser() {
   const teamSel = document.getElementById('reg-team');
   if (teamSel) {
     const teams = getTeams();
-    teamSel.innerHTML = '<option value="">No team</option>' + teams.map(t => `<option value="${escHtml(t.id)}">${escHtml(t.name)}</option>`).join('');
+    teamSel.innerHTML =
+      '<option value="">No team</option>' +
+      teams
+        .map(
+          (t) => `<option value="${escHtml(t.id)}">${escHtml(t.name)}</option>`,
+        )
+        .join('');
   }
   openModal('register-modal');
   setTimeout(() => document.getElementById('reg-name').focus(), 100);
 }
 
 async function registerUser() {
-  const _btn = document.querySelector('#register-modal .btn-primary[onclick="registerUser()"]');
+  const _btn = document.querySelector(
+    '#register-modal .btn-primary[onclick="registerUser()"]',
+  );
   if (!_lockOp('registerUser', _btn, 'Saving…')) return;
-  const name = document.getElementById("reg-name").value.trim();
-  const username = document.getElementById("reg-username").value.trim().toLowerCase().replace(/\s/g, "");
-  const password = document.getElementById("reg-password").value.trim();
-  const role = document.getElementById("reg-role").value;
-  const teamId = document.getElementById("reg-team")?.value || '';
-  const email = document.getElementById("reg-email")?.value.trim() || '';
-  const emailNotif = document.getElementById("reg-email-notif")?.checked !== false;
-  if (!name || !username || !password) { toast("All fields are required.", "error"); return; }
+  const name = document.getElementById('reg-name').value.trim();
+  const username = document
+    .getElementById('reg-username')
+    .value.trim()
+    .toLowerCase()
+    .replace(/\s/g, '');
+  const password = document.getElementById('reg-password').value.trim();
+  const role = document.getElementById('reg-role').value;
+  const teamId = document.getElementById('reg-team')?.value || '';
+  const email = document.getElementById('reg-email')?.value.trim() || '';
+  const emailNotif =
+    document.getElementById('reg-email-notif')?.checked !== false;
+  if (!name || !username || !password) {
+    toast('All fields are required.', 'error');
+    return;
+  }
   try {
-    const newUser = await API.post('/users', { name, username, password, role, email, emailNotif });
+    const newUser = await API.post('/users', {
+      name,
+      username,
+      password,
+      role,
+      email,
+      emailNotif,
+    });
     cache.users.push(newUser);
     // Auto-add to selected team
     if (teamId) {
-      const team = cache.teams ? cache.teams.find(t => t.id === teamId) : null;
+      const team = cache.teams
+        ? cache.teams.find((t) => t.id === teamId)
+        : null;
       if (team) {
         if (!team.memberIds) team.memberIds = [];
         if (!team.memberIds.includes(newUser.id)) {
@@ -3262,27 +4422,43 @@ async function registerUser() {
         }
       }
     }
-    document.getElementById("reg-name").value = "";
-    document.getElementById("reg-username").value = "";
-    document.getElementById("reg-password").value = "";
-    document.getElementById("reg-role").value = "user";
-    if (document.getElementById("reg-team")) document.getElementById("reg-team").value = "";
-    closeModal("register-modal");
-    const roleLabel = role === "admin" ? "Admin" : role === "manager" ? "Manager" : "User";
-    toast(`${roleLabel} "${name}" registered! ✓`, "success");
-    if (state.view === "user-list") renderUserList();
-    if (state.view === "teams") renderTeamsView();
-  } catch (err) { toast(err.message || 'Failed to register user.', 'error'); } finally { _unlockOp('registerUser', _btn); }
+    document.getElementById('reg-name').value = '';
+    document.getElementById('reg-username').value = '';
+    document.getElementById('reg-password').value = '';
+    document.getElementById('reg-role').value = 'user';
+    if (document.getElementById('reg-team'))
+      document.getElementById('reg-team').value = '';
+    closeModal('register-modal');
+    const roleLabel =
+      role === 'admin' ? 'Admin' : role === 'manager' ? 'Manager' : 'User';
+    toast(`${roleLabel} "${name}" registered! ✓`, 'success');
+    if (state.view === 'user-list') renderUserList();
+    if (state.view === 'teams') renderTeamsView();
+  } catch (err) {
+    toast(err.message || 'Failed to register user.', 'error');
+  } finally {
+    _unlockOp('registerUser', _btn);
+  }
 }
 
 /* ============================================================
    WHATSAPP PARSER (Claude API)
    ============================================================ */
-function openWhatsApp() { state.waParsed = null; document.getElementById('wa-result').classList.add('hidden'); document.getElementById('wa-use-btn').classList.add('hidden'); document.getElementById('wa-loading').classList.add('hidden'); document.getElementById('wa-text').value = ''; openModal('wa-modal'); }
+function openWhatsApp() {
+  state.waParsed = null;
+  document.getElementById('wa-result').classList.add('hidden');
+  document.getElementById('wa-use-btn').classList.add('hidden');
+  document.getElementById('wa-loading').classList.add('hidden');
+  document.getElementById('wa-text').value = '';
+  openModal('wa-modal');
+}
 
 async function parseWhatsApp() {
   const text = document.getElementById('wa-text').value.trim();
-  if (!text) { toast('Paste a message first.', 'error'); return; }
+  if (!text) {
+    toast('Paste a message first.', 'error');
+    return;
+  }
   document.getElementById('wa-loading').classList.remove('hidden');
   document.getElementById('wa-result').classList.add('hidden');
   document.getElementById('wa-parse-btn').disabled = true;
@@ -3306,8 +4482,8 @@ Return ONLY valid JSON, no explanation.`;
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
-        messages: [{ role: 'user', content: prompt }]
-      })
+        messages: [{ role: 'user', content: prompt }],
+      }),
     });
     const data = await res.json();
     const raw = data.content?.[0]?.text || '';
@@ -3315,7 +4491,13 @@ Return ONLY valid JSON, no explanation.`;
     const parsed = JSON.parse(cleaned);
     state.waParsed = parsed;
 
-    const pLabels = { 1: 'Critical', 2: 'High', 3: 'Medium', 4: 'Low', 5: 'Minimal' };
+    const pLabels = {
+      1: 'Critical',
+      2: 'High',
+      3: 'Medium',
+      4: 'Low',
+      5: 'Minimal',
+    };
     document.getElementById('wa-parsed-display').innerHTML = `
       <strong>Task:</strong> ${escHtml(parsed.title)}<br>
       <strong>Requestor:</strong> ${escHtml(parsed.requestor)}<br>
@@ -3328,7 +4510,10 @@ Return ONLY valid JSON, no explanation.`;
     document.getElementById('wa-result').classList.remove('hidden');
     document.getElementById('wa-use-btn').classList.remove('hidden');
   } catch (err) {
-    toast("Couldn't read the message. Try adding more detail like a deadline or task name.", 'error');
+    toast(
+      "Couldn't read the message. Try adding more detail like a deadline or task name.",
+      'error',
+    );
   } finally {
     document.getElementById('wa-loading').classList.add('hidden');
     document.getElementById('wa-parse-btn').disabled = false;
@@ -3340,8 +4525,12 @@ function useWaParsed() {
   const p = state.waParsed;
   closeModal('wa-modal');
   state.editingTaskId = null;
-  state.descItems = (p.description || []).map(d => ({ text: d, checked: false }));
-  document.getElementById('task-modal-title').textContent = 'Task from WhatsApp';
+  state.descItems = (p.description || []).map((d) => ({
+    text: d,
+    checked: false,
+  }));
+  document.getElementById('task-modal-title').textContent =
+    'Task from WhatsApp';
   document.getElementById('f-title').value = p.title || '';
   document.getElementById('f-requestor').value = p.requestor || '';
   document.getElementById('f-priority').value = p.priority || 3;
@@ -3357,28 +4546,55 @@ function useWaParsed() {
    LOGS
    ============================================================ */
 function addLog({ taskId, taskTitle, action, actorName, userId }) {
-  const entry = { id: uid(), taskId, taskTitle, action, actorName, userId, timestamp: new Date().toISOString() };
+  const entry = {
+    id: uid(),
+    taskId,
+    taskTitle,
+    action,
+    actorName,
+    userId,
+    timestamp: new Date().toISOString(),
+  };
   if (!cache.logs) cache.logs = [];
   cache.logs.unshift(entry);
   if (cache.logs.length > 500) cache.logs.splice(500);
   // Fire-and-forget to API
-  API.post('/logs', { taskId, taskTitle, action, actorName, userId }).catch(() => { });
+  API.post('/logs', { taskId, taskTitle, action, actorName, userId }).catch(
+    () => { },
+  );
 }
 
 function openLogs() {
   const logs = getLogs();
   const list = document.getElementById('logs-list');
   const isAdmin = state.currentUser.role === 'admin';
-  const filtered = isAdmin ? logs : logs.filter(l => l.userId === state.currentUser.id);
+  const filtered = isAdmin
+    ? logs
+    : logs.filter((l) => l.userId === state.currentUser.id);
 
   if (filtered.length === 0) {
     list.innerHTML = '<div class="logs-empty">📭 No activity yet</div>';
   } else {
-    const icons = { added: '➕', done: '✅', edited: '✏️', deleted: '🗑️', cancelled: '🚫', reopened: '🔄' };
-    const colors = { added: 'var(--amber)', done: 'var(--success)', edited: 'var(--p4)', deleted: 'var(--danger)', cancelled: 'var(--danger)', reopened: '#A78BFA' };
-    list.innerHTML = filtered.map(l => {
-      const user = getUsers().find(u => u.id === l.userId);
-      return `
+    const icons = {
+      added: '➕',
+      done: '✅',
+      edited: '✏️',
+      deleted: '🗑️',
+      cancelled: '🚫',
+      reopened: '🔄',
+    };
+    const colors = {
+      added: 'var(--amber)',
+      done: 'var(--success)',
+      edited: 'var(--p4)',
+      deleted: 'var(--danger)',
+      cancelled: 'var(--danger)',
+      reopened: '#A78BFA',
+    };
+    list.innerHTML = filtered
+      .map((l) => {
+        const user = getUsers().find((u) => u.id === l.userId);
+        return `
         <div class="log-entry">
           <div class="log-icon">${icons[l.action] || '📝'}</div>
           <div class="log-content">
@@ -3388,7 +4604,8 @@ function openLogs() {
           <div class="log-time">${formatTime(new Date(l.timestamp))}</div>
         </div>
       `;
-    }).join('');
+      })
+      .join('');
   }
   openModal('logs-modal');
 }
@@ -3397,35 +4614,60 @@ function openLogs() {
    NOTIFICATIONS
    ============================================================ */
 function pushNotification(userId, title, body, taskId, metadata = null) {
-  const notif = { id: uid(), userId, title, body, taskId, read: false, timestamp: new Date().toISOString(), metadata };
+  const notif = {
+    id: uid(),
+    userId,
+    title,
+    body,
+    taskId,
+    read: false,
+    timestamp: new Date().toISOString(),
+    metadata,
+  };
   if (!cache.notifications) cache.notifications = [];
   cache.notifications.unshift(notif);
   updateNotifBadge();
   // Persist to Supabase
-  API.post('/notifications', { userId, title, body, taskId, metadata }).catch(() => { });
+  API.post('/notifications', { userId, title, body, taskId, metadata }).catch(
+    () => { },
+  );
   // Browser notification
   if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-    navigator.serviceWorker.controller.postMessage({ type: 'SHOW_NOTIFICATION', title, body, tag: 'task-' + (taskId || 'notif') });
+    navigator.serviceWorker.controller.postMessage({
+      type: 'SHOW_NOTIFICATION',
+      title,
+      body,
+      tag: 'task-' + (taskId || 'notif'),
+    });
   } else if (Notification.permission === 'granted') {
     new Notification(title, { body, tag: 'tf-' + (taskId || uid()) });
   }
   // Email notification for task assignments
-  if (metadata?.sendEmail !== false && (metadata?.type === 'task' || !metadata?.type)) {
-    const user = getUsers().find(u => u.id === userId);
+  if (
+    metadata?.sendEmail !== false &&
+    (metadata?.type === 'task' || !metadata?.type)
+  ) {
+    const user = getUsers().find((u) => u.id === userId);
     if (user?.emailNotif !== false && user?.email) {
-      const task = taskId ? getTasks().find(t => t.id === taskId) : null;
-      if (task) sendTaskEmail(user, task, metadata?.action || 'assigned').catch(() => { });
+      const task = taskId ? getTasks().find((t) => t.id === taskId) : null;
+      if (task)
+        sendTaskEmail(user, task, metadata?.action || 'assigned').catch(
+          () => { },
+        );
     }
   }
 }
 
 function updateNotifBadge() {
-  const notifs = getNotifs().filter(n => n.userId === state.currentUser?.id && !n.read);
+  const notifs = getNotifs().filter(
+    (n) => n.userId === state.currentUser?.id && !n.read,
+  );
   const btn = document.getElementById('notif-btn');
   if (notifs.length > 0) {
     btn.classList.add('notification-dot');
     btn.setAttribute('data-count', notifs.length);
-    btn.title = notifs.length + ' unread notification' + (notifs.length !== 1 ? 's' : '');
+    btn.title =
+      notifs.length + ' unread notification' + (notifs.length !== 1 ? 's' : '');
   } else {
     btn.classList.remove('notification-dot');
     btn.removeAttribute('data-count');
@@ -3443,20 +4685,21 @@ function updateNotifBadge() {
 
 async function sendLeaveEmail(user, leaveInfo) {
   if (!user.email) return;
-  const { type, startDate, endDate, days, typeLabel, fmtDate, icon, reason } = leaveInfo;
-  const companyName = cache.companies?.find?.(c => c.id === _cid())?.name || 'Your Company';
+  const { type, startDate, endDate, days, typeLabel, fmtDate, icon, reason } =
+    leaveInfo;
+  const companyName =
+    cache.companies?.find?.((c) => c.id === _cid())?.name || 'Your Company';
   const subject = `[TaskFlow] ${typeLabel} Recorded — ${user.name}`;
   const body = composeLeaveEmail(user, leaveInfo, companyName);
   await sendEmailViaAPI(user.email, subject, body);
 }
 
 async function sendTaskEmail(user, task, action) {
-  console.log('[EMAIL] sendTaskEmail called:', { userName: user?.name, email: user?.email, emailNotif: user?.emailNotif, taskTitle: task?.title, action });
   if (!user || user.emailNotif === false || !user.email) {
-    console.log('[EMAIL] Skipped — missing user, emailNotif is false, or no email');
     return;
   }
-  const companyName = cache.companies?.find?.(c => c.id === _cid())?.name || 'Your Company';
+  const companyName =
+    cache.companies?.find?.((c) => c.id === _cid())?.name || 'Your Company';
   const subject = `[TaskFlow] Task ${action} — ${task.title}`;
   const body = composeTaskEmail(user, task, action, companyName);
   await sendEmailViaAPI(user.email, subject, body);
@@ -3464,43 +4707,39 @@ async function sendTaskEmail(user, task, action) {
 
 // Email via Supabase Edge Function (deploy separately) or fallback
 async function sendEmailViaAPI(to, subject, htmlBody) {
-  console.log('[EMAIL] sendEmailViaAPI called:', { to, subject, bodyLength: htmlBody?.length });
   try {
     const result = await SB.insert('tf_email_queue', {
       company_id: _cid() || null,
       to_email: to,
       subject: subject,
       html_body: htmlBody,
-      sent: false
+      sent: false,
     });
-    console.log('[EMAIL] ✅ Queued successfully:', result);
   } catch (e) {
     console.error('[EMAIL] ❌ Failed to queue:', e.message, e);
   }
 }
 
 // Debug: call testEmailQueue() from browser console to test email insert
-window.testEmailQueue = async function () {
-  console.log('[TEST] Testing email queue insert...');
-  try {
-    const result = await SB.insert('tf_email_queue', {
-      company_id: _cid() || null,
-      to_email: 'test@test.com',
-      subject: '[TEST] Email Queue Test',
-      html_body: '<p>This is a test email from TaskFlow.</p>',
-      sent: false
-    });
-    console.log('[TEST] ✅ SUCCESS! Row inserted:', result);
-    alert('✅ Email queue works! Check tf_email_queue in Supabase.');
-  } catch (e) {
-    console.error('[TEST] ❌ FAILED:', e.message, e);
-    alert('❌ Email queue failed: ' + e.message);
-  }
-};
 
 function composeLeaveEmail(user, info, companyName) {
-  const { type, startDate, endDate, days, typeLabel, reason, icon } = info;
-  const fmt = d => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const startDate = info.startDate || info.start_date || info.start || '';
+  const endDate = info.endDate || info.end_date || info.end || '';
+  const days = Number(info.days) || 1;
+  const typeLabel = info.typeLabel || info.type || 'Leave';
+  const reason = info.reason || info.notes || '';
+  const icon = info.icon || '📅';
+  const type = info.type || 'lieu';
+
+  const fmt = (d) =>
+    d
+      ? new Date(d + 'T12:00:00').toLocaleDateString('en-GB', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+      : '—';
   const colors = { lieu: '#10B981', loa: '#3B82F6', awol: '#EF4444' };
   const color = colors[type] || '#F59E0B';
   return `
@@ -3527,11 +4766,43 @@ function composeLeaveEmail(user, info, companyName) {
 }
 
 function composeTaskEmail(user, task, action, companyName) {
-  const pLabels = ['', '🔴 Critical', '🟠 High', '🟡 Medium', '🔵 Low', '⚪ Minimal'];
+  const title = task.title || task.name || '—';
+  const requestor = task.requestor || task.requested_by || '—';
+  const priority = Number(task.priority) || 3;
+  const start = task.start || task.start_time || task.scheduled_start || null;
+  const deadline = task.deadline || task.end_time || task.scheduled_end || null;
+  const description = Array.isArray(task.description)
+    ? task.description
+    : task.checklist || task.items || [];
+
+  const pLabels = [
+    '',
+    '🔴 Critical',
+    '🟠 High',
+    '🟡 Medium',
+    '🔵 Low',
+    '⚪ Minimal',
+  ];
   const pColors = ['', '#FF4040', '#FF8C00', '#F5C518', '#38BDF8', '#64748B'];
-  const p = task.priority || 3;
-  const fmt = d => d ? new Date(d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
-  const actionLabels = { assigned: 'assigned to you', updated: 'updated', cancelled: 'cancelled', done: 'marked as complete', reopened: 'reopened' };
+  const p = priority;
+  const fmt = (d) =>
+    d
+      ? new Date(d).toLocaleDateString('en-GB', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+      : '—';
+  const actionLabels = {
+    assigned: 'assigned to you',
+    updated: 'updated',
+    cancelled: 'cancelled',
+    done: 'marked as complete',
+    reopened: 'reopened',
+  };
   const actionLabel = actionLabels[action] || action;
   return `
   <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f8f9fa;padding:20px;">
@@ -3544,14 +4815,14 @@ function composeTaskEmail(user, task, action, companyName) {
       <h2 style="margin:0 0 8px;font-size:20px;color:#111;">Task ${actionLabel.charAt(0).toUpperCase() + actionLabel.slice(1)}</h2>
       <p style="color:#6B7280;font-size:14px;margin:0 0 24px;">Dear <strong>${user.name}</strong>, a task has been <strong>${actionLabel}</strong>.</p>
       <div style="background:#f8f9fa;border:1px solid #e5e7eb;border-left:4px solid ${pColors[p]};border-radius:4px;padding:16px 20px;margin-bottom:24px;">
-        <div style="font-size:18px;font-weight:700;color:#111;margin-bottom:8px;">${task.title}</div>
-        <div style="font-size:13px;color:#6B7280;">Requested by: <strong>${task.requestor || '—'}</strong></div>
+        <div style="font-size:18px;font-weight:700;color:#111;margin-bottom:8px;">${title}</div>
+        <div style="font-size:13px;color:#6B7280;">Requested by: <strong>${requestor}</strong></div>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px;">
         <tr style="border-bottom:1px solid #f0f0f0;"><td style="padding:10px 0;color:#6B7280;width:40%;">Priority</td><td style="padding:10px 0;font-weight:700;color:${pColors[p]};">${pLabels[p]}</td></tr>
-        <tr style="border-bottom:1px solid #f0f0f0;"><td style="padding:10px 0;color:#6B7280;">Start</td><td style="padding:10px 0;font-weight:600;color:#111;">${fmt(task.start)}</td></tr>
-        <tr style="border-bottom:1px solid #f0f0f0;"><td style="padding:10px 0;color:#6B7280;">Deadline</td><td style="padding:10px 0;font-weight:600;color:#111;">${fmt(task.deadline)}</td></tr>
-        ${(task.description || []).length ? `<tr><td style="padding:10px 0;color:#6B7280;vertical-align:top;">Checklist</td><td style="padding:10px 0;">${(task.description || []).map(d => `<div style="margin-bottom:4px;font-size:13px;">${d.checked ? '✅' : '☐'} ${d.text}</div>`).join('')}</td></tr>` : ''}
+        <tr style="border-bottom:1px solid #f0f0f0;"><td style="padding:10px 0;color:#6B7280;">Start</td><td style="padding:10px 0;font-weight:600;color:#111;">${fmt(start)}</td></tr>
+        <tr style="border-bottom:1px solid #f0f0f0;"><td style="padding:10px 0;color:#6B7280;">Deadline</td><td style="padding:10px 0;font-weight:600;color:#111;">${fmt(deadline)}</td></tr>
+        ${description.length ? `<tr><td style="padding:10px 0;color:#6B7280;vertical-align:top;">Checklist</td><td style="padding:10px 0;">${description.map((d) => `<div style="margin-bottom:4px;font-size:13px;">${d.checked ? '✅' : '☐'} ${d.text}</div>`).join('')}</td></tr>` : ''}
       </table>
       <p style="font-size:12px;color:#9CA3AF;border-top:1px solid #f0f0f0;padding-top:16px;margin:0;">This is an automated notification from TaskFlow.</p>
     </div>
@@ -3576,14 +4847,21 @@ function startRealtimeNotifs() {
       const fresh = await API.get('/notifications');
       if (!fresh) return;
       cache.notifications = fresh;
-      const unread = fresh.filter(n => n.userId === state.currentUser.id && !n.read).length;
+      const unread = fresh.filter(
+        (n) => n.userId === state.currentUser.id && !n.read,
+      ).length;
       if (unread > _lastNotifCount && _lastNotifCount >= 0) {
-        const newest = fresh.filter(n => n.userId === state.currentUser.id && !n.read)[0];
+        const newest = fresh.filter(
+          (n) => n.userId === state.currentUser.id && !n.read,
+        )[0];
         if (newest) {
           _showBrowserNotif(newest.title, newest.body, 'tf-' + newest.id);
         }
         const btn = document.getElementById('notif-btn');
-        if (btn) { btn.style.animation = 'none'; setTimeout(() => btn.style.animation = '', 10); }
+        if (btn) {
+          btn.style.animation = 'none';
+          setTimeout(() => (btn.style.animation = ''), 10);
+        }
       }
       _lastNotifCount = unread;
       updateNotifBadge();
@@ -3604,22 +4882,24 @@ function stopRealtimeNotifs() {
   clearInterval(_notifPollInterval);
 }
 
-
 // Alias: mobile nav calls toggleNotifications(), desktop uses openNotifications()
-function toggleNotifications() { openNotifications(); }
+function toggleNotifications() {
+  openNotifications();
+}
 
 function openNotifications() {
-  const notifs = getNotifs().filter(n => n.userId === state.currentUser.id);
+  const notifs = getNotifs().filter((n) => n.userId === state.currentUser.id);
   const list = document.getElementById('notif-list');
   if (notifs.length === 0) {
     list.innerHTML = '<div class="notif-empty">🔔 No notifications</div>';
   } else {
-    list.innerHTML = notifs.map(n => {
-      const isOverlap = n.metadata?.type === 'overlap';
-      const isLeave = n.metadata?.type === 'leave';
-      const isLeaveConflict = n.metadata?.type === 'leave-conflict';
-      const severity = n.metadata?.severity || 'warning';
-      return `
+    list.innerHTML = notifs
+      .map((n) => {
+        const isOverlap = n.metadata?.type === 'overlap';
+        const isLeave = n.metadata?.type === 'leave';
+        const isLeaveConflict = n.metadata?.type === 'leave-conflict';
+        const severity = n.metadata?.severity || 'warning';
+        return `
         <div class="notif-item ${n.read ? '' : 'unread'} ${isOverlap ? 'overlap-' + severity : ''} ${isLeave ? 'leave-blocked' : ''}" onclick="handleNotifClick('${n.id}')">
           <div class="notif-title">
             ${isOverlap ? '⚠️' : isLeave ? '📅' : isLeaveConflict ? '🚫' : ''} ${escHtml(n.title)}
@@ -3631,13 +4911,14 @@ function openNotifications() {
           <div class="notif-time">${formatTime(new Date(n.timestamp))}</div>
         </div>
       `;
-    }).join('');
+      })
+      .join('');
   }
   openModal('notif-modal');
 }
 
 function handleNotifClick(notifId) {
-  const notif = getNotifs().find(n => n.id === notifId);
+  const notif = getNotifs().find((n) => n.id === notifId);
   if (!notif) return;
   notif.read = true;
   updateNotifBadge();
@@ -3660,13 +4941,17 @@ function handleNotifClick(notifId) {
 }
 
 function markNotifsRead() {
-  (cache.notifications || []).forEach(n => { if (n.userId === state.currentUser.id) n.read = true; });
+  (cache.notifications || []).forEach((n) => {
+    if (n.userId === state.currentUser.id) n.read = true;
+  });
   updateNotifBadge();
   API.put('/notifications/read-all').catch(() => { });
 }
 
 function clearNotifs() {
-  cache.notifications = (cache.notifications || []).filter(n => n.userId !== state.currentUser.id);
+  cache.notifications = (cache.notifications || []).filter(
+    (n) => n.userId !== state.currentUser.id,
+  );
   closeModal('notif-modal');
   updateNotifBadge();
 }
@@ -3675,7 +4960,10 @@ async function requestNotifPermission() {
   if (!('Notification' in window)) return;
   if (Notification.permission === 'default') {
     // Prompt user with a toast first, then request
-    toast('📱 Enable notifications to get task alerts outside the app.', 'info');
+    toast(
+      '📱 Enable notifications to get task alerts outside the app.',
+      'info',
+    );
     setTimeout(async () => {
       const result = await Notification.requestPermission();
       if (result === 'granted') {
@@ -3692,13 +4980,22 @@ function _showBrowserNotif(title, body, tag) {
   // Or always show via service worker (which shows even when focused)
   if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
     navigator.serviceWorker.controller.postMessage({
-      type: 'SHOW_NOTIFICATION', title: title, body: body, tag: tag || 'taskflow-notif'
+      type: 'SHOW_NOTIFICATION',
+      title: title,
+      body: body,
+      tag: tag || 'taskflow-notif',
     });
   } else {
     // Fallback: direct Notification API (only shows if tab is not focused in some browsers)
     try {
-      new Notification(title, { body: body, icon: '/favicon.ico', tag: tag || 'tf-notif' });
-    } catch (e) { /* Mobile browsers may block Notification constructor */ }
+      new Notification(title, {
+        body: body,
+        icon: '/favicon.ico',
+        tag: tag || 'tf-notif',
+      });
+    } catch (e) {
+      /* Mobile browsers may block Notification constructor */
+    }
   }
 }
 
@@ -3712,7 +5009,9 @@ async function registerSW() {
     // Wait for SW to activate and claim this page so controller is available
     if (!navigator.serviceWorker.controller) {
       await new Promise(function (resolve) {
-        navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true });
+        navigator.serviceWorker.addEventListener('controllerchange', resolve, {
+          once: true,
+        });
         // Timeout after 3s in case SW doesn't claim
         setTimeout(resolve, 3000);
       });
@@ -3730,17 +5029,33 @@ async function deleteCompletedTask(e, taskId) {
   if (e) e.stopPropagation();
   if (!confirm('Delete this completed task? This cannot be undone.')) return;
   const tasks = getTasks();
-  const task = tasks.find(t => t.id === taskId);
-  if (!task || !task.done) { toast('Task is not completed.', 'error'); return; }
+  const task = tasks.find((t) => t.id === taskId);
+  if (!task || !task.done) {
+    toast('Task is not completed.', 'error');
+    return;
+  }
   try {
     await API.del(`/tasks/${taskId}`);
-    cache.tasks = cache.tasks.filter(t => t.id !== taskId);
-    addLog({ taskId, taskTitle: task.title, action: 'deleted', actorName: state.currentUser.name, userId: task.userId });
+    cache.tasks = cache.tasks.filter((t) => t.id !== taskId);
+    addLog({
+      taskId,
+      taskTitle: task.title,
+      action: 'deleted',
+      actorName: state.currentUser.name,
+      userId: task.userId,
+    });
     toast('Completed task deleted.', 'success');
-    if (state.view === 'calendar') { renderCalendarDebounced(); return; }
-    const uid = state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
-    if (state.currentViewMode === 'timeline') renderTimeline(uid); else renderTasks(uid);
-  } catch (err) { toast(err.message || 'Failed to delete task.', 'error'); }
+    if (state.view === 'calendar') {
+      renderCalendarDebounced();
+      return;
+    }
+    const uid =
+      state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
+    if (state.currentViewMode === 'timeline') renderTimeline(uid);
+    else renderTasks(uid);
+  } catch (err) {
+    toast(err.message || 'Failed to delete task.', 'error');
+  }
 }
 
 async function autoDeleteEndOfMonthTasks() {
@@ -3748,18 +5063,27 @@ async function autoDeleteEndOfMonthTasks() {
   // Only run on the last day of the month at any time, or if it's past the last day
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   if (now.getDate() !== lastDay) return;
-  const doneTasks = getTasks().filter(t => t.done && t.userId === state.currentUser?.id);
+  const doneTasks = getTasks().filter(
+    (t) => t.done && t.userId === state.currentUser?.id,
+  );
   if (doneTasks.length === 0) return;
   for (const task of doneTasks) {
     try {
       await API.del(`/tasks/${task.id}`);
-      cache.tasks = cache.tasks.filter(t => t.id !== task.id);
+      cache.tasks = cache.tasks.filter((t) => t.id !== task.id);
     } catch (e) { }
   }
   if (doneTasks.length > 0) {
-    toast(`🗑 Auto-deleted ${doneTasks.length} completed task${doneTasks.length > 1 ? 's' : ''} at end of month.`, 'info');
-    const uid = state.view === 'user-tasks' ? state.targetUserId : state.currentUser?.id;
-    if (uid) { if (state.currentViewMode === 'timeline') renderTimeline(uid); else renderTasks(uid); }
+    toast(
+      `🗑 Auto-deleted ${doneTasks.length} completed task${doneTasks.length > 1 ? 's' : ''} at end of month.`,
+      'info',
+    );
+    const uid =
+      state.view === 'user-tasks' ? state.targetUserId : state.currentUser?.id;
+    if (uid) {
+      if (state.currentViewMode === 'timeline') renderTimeline(uid);
+      else renderTasks(uid);
+    }
   }
 }
 
@@ -3767,22 +5091,28 @@ let deadlineInterval = null;
 function startDeadlineChecker() {
   clearInterval(deadlineInterval);
   deadlineInterval = setInterval(() => {
-    const userId = state.view === 'user-tasks' ? state.targetUserId : state.currentUser?.id;
+    const userId =
+      state.view === 'user-tasks' ? state.targetUserId : state.currentUser?.id;
     if (!userId) return;
-    const tasks = getTasks().filter(t => t.userId === userId && !t.done);
+    const tasks = getTasks().filter((t) => t.userId === userId && !t.done);
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'CHECK_DEADLINES', tasks, userName: state.currentUser?.name });
+      navigator.serviceWorker.controller.postMessage({
+        type: 'CHECK_DEADLINES',
+        tasks,
+        userName: state.currentUser?.name,
+      });
     }
     // Re-render to update flicker classes
     const now = new Date();
-    tasks.forEach(task => {
+    tasks.forEach((task) => {
       const card = document.querySelector(`.task-card[data-id="${task.id}"]`);
       if (!card) return;
       const deadline = new Date(task.deadline);
       const hoursLeft = (deadline - now) / 1000 / 60 / 60;
       card.classList.remove('flicker-critical', 'flicker-warning');
       if (hoursLeft <= 24 && !task.done) card.classList.add('flicker-critical');
-      else if (hoursLeft <= 72 && !task.done) card.classList.add('flicker-warning');
+      else if (hoursLeft <= 72 && !task.done)
+        card.classList.add('flicker-warning');
     });
     // Auto-delete completed tasks at end of month
     autoDeleteEndOfMonthTasks();
@@ -3804,7 +5134,27 @@ function closeModal(id) {
   if (_openModalCount === 0) document.body.classList.remove('modal-open');
 }
 function closeAllModals() {
-  ['task-modal', 'leave-modal', 'wa-modal', 'logs-modal', 'notif-modal', 'register-modal', 'confirm-modal', 'cancel-modal', 'chpw-modal', 'multi-task-modal', 'worksettings-modal', 'team-modal', 'team-task-modal', 'team-tasks-modal', 'sa-company-modal', 'sa-users-modal', 'lieu-day-modal', 'import-users-modal', 'delete-all-modal'].forEach(id => document.getElementById(id).classList.add('hidden'));
+  [
+    'task-modal',
+    'leave-modal',
+    'wa-modal',
+    'logs-modal',
+    'notif-modal',
+    'register-modal',
+    'confirm-modal',
+    'cancel-modal',
+    'chpw-modal',
+    'multi-task-modal',
+    'worksettings-modal',
+    'team-modal',
+    'team-task-modal',
+    'team-tasks-modal',
+    'sa-company-modal',
+    'sa-users-modal',
+    'lieu-day-modal',
+    'import-users-modal',
+    'delete-all-modal',
+  ].forEach((id) => document.getElementById(id).classList.add('hidden'));
   _openModalCount = 0;
   document.body.classList.remove('modal-open');
 }
@@ -3815,7 +5165,12 @@ function closeAllModals() {
    ============================================================ */
 function toast(msg, type = 'info') {
   // Delegate to app-style push notification
-  const titles = { success: 'Success', error: 'Error', info: 'TaskFlow', warning: 'Warning' };
+  const titles = {
+    success: 'Success',
+    error: 'Error',
+    info: 'TaskFlow',
+    warning: 'Warning',
+  };
   showPushNotification(titles[type] || 'TaskFlow', msg, type);
 }
 
@@ -3840,7 +5195,10 @@ function showPushNotification(title, body, type = 'info') {
   el.setAttribute('aria-live', 'polite');
 
   const now = new Date();
-  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const timeStr = now.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
   el.innerHTML = `
     <div class="push-notif-body">
@@ -3859,7 +5217,13 @@ function showPushNotification(title, body, type = 'info') {
 
   // Swipe to dismiss (touch)
   let startX = 0;
-  el.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; }, { passive: true });
+  el.addEventListener(
+    'touchstart',
+    (e) => {
+      startX = e.touches[0].clientX;
+    },
+    { passive: true },
+  );
   el.addEventListener('touchend', (e) => {
     const dx = e.changedTouches[0].clientX - startX;
     if (Math.abs(dx) > 60) dismissPushNotif(el);
@@ -3872,7 +5236,9 @@ function showPushNotification(title, body, type = 'info') {
   const bar = el.querySelector('.push-notif-progress-bar');
   if (bar) {
     bar.style.transition = `width ${PUSH_DURATION}ms linear`;
-    requestAnimationFrame(() => { bar.style.width = '0%'; });
+    requestAnimationFrame(() => {
+      bar.style.width = '0%';
+    });
   }
 
   // Auto dismiss
@@ -3884,20 +5250,30 @@ function dismissPushNotif(el) {
   if (!el || !el.parentNode) return;
   if (el._dismissTimer) clearTimeout(el._dismissTimer);
   el.classList.add('dismissing');
-  setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 320);
+  setTimeout(() => {
+    if (el.parentNode) el.parentNode.removeChild(el);
+  }, 320);
 }
 
 function escHtmlSimple(str) {
-  return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 /* ============================================================
    MOBILE NAV HELPERS
    ============================================================ */
-function mobileNavHome() { // ── Hide features based on role ──────────────────────────
+function mobileNavHome() {
+  // ── Hide features based on role ──────────────────────────
   var mgCard = document.getElementById('manager-add-card');
   if (mgCard) {
-    if (state.currentUser.role === 'admin' || state.currentUser.role === 'manager') {
+    if (
+      state.currentUser.role === 'admin' ||
+      state.currentUser.role === 'manager'
+    ) {
       mgCard.style.display = '';
     } else {
       mgCard.style.display = 'none';
@@ -3908,11 +5284,15 @@ function mobileNavHome() { // ── Hide features based on role ─────
   var mobTeamsBtn = document.getElementById('mob-nav-teams');
   if (mobTeamsBtn) {
     mobTeamsBtn.style.display = '';
-    if (typeof updateMobileNavTabCount === 'function') updateMobileNavTabCount();
+    if (typeof updateMobileNavTabCount === 'function')
+      updateMobileNavTabCount();
   }
   updateMobileNavActive('mob-nav-home');
   if (!state.currentUser) return;
-  if (state.currentUser.role === 'admin' || state.currentUser.role === 'manager') {
+  if (
+    state.currentUser.role === 'admin' ||
+    state.currentUser.role === 'manager'
+  ) {
     showView('admin-home');
   } else {
     showView('worker-home');
@@ -3940,20 +5320,25 @@ function mobileNavCal() {
   state._calendarJumpDate = null;
   state._calendarHighlightUserId = null;
   state._calendarFocusTaskId = null;
-  const isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
+  const isElevated =
+    state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
   state.calendarMode = isElevated ? 'team' : 'personal';
 
   // If cache is not yet populated, wait for it then render
   if (!cache.tasks || !cache.users) {
     showView('calendar');
-    loadAll().then(function () { renderCalendar(); });
+    loadAll().then(function () {
+      renderCalendar();
+    });
   } else {
     showView('calendar');
   }
 }
 
 function updateMobileNavActive(activeId) {
-  document.querySelectorAll('.mob-nav-item').forEach(btn => btn.classList.remove('active'));
+  document
+    .querySelectorAll('.mob-nav-item')
+    .forEach((btn) => btn.classList.remove('active'));
   const el = document.getElementById(activeId);
   if (el) el.classList.add('active');
   // Hide "New Task" button on calendar view; show on all other views including tasks
@@ -3974,13 +5359,15 @@ function updateMobileNavActive(activeId) {
 
   // Remove / Hide Back Button on Mobile Calendar
   var backBtn = document.getElementById('nav-back-btn');
-  if (backBtn) backBtn.style.display = (activeId === 'mob-nav-cal') ? 'none' : '';
+  if (backBtn) backBtn.style.display = activeId === 'mob-nav-cal' ? 'none' : '';
 }
 
 function updateMobileNavNotifBadge() {
   const badge = document.getElementById('mob-notif-badge');
   if (!badge || !state.currentUser) return;
-  const unread = getNotifs().filter(n => n.userId === state.currentUser.id && !n.read).length;
+  const unread = getNotifs().filter(
+    (n) => n.userId === state.currentUser.id && !n.read,
+  ).length;
   if (unread > 0) {
     badge.textContent = unread > 9 ? '9+' : unread;
     badge.classList.remove('hidden');
@@ -3993,7 +5380,11 @@ function updateMobileNavNotifBadge() {
    HELPERS
    ============================================================ */
 function escHtml(str) {
-  return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function formatDeadline(date) {
@@ -4001,12 +5392,24 @@ function formatDeadline(date) {
   const diff = date - now;
   const hours = Math.round(diff / 1000 / 60 / 60);
   const days = Math.round(diff / 1000 / 60 / 60 / 24);
-  if (diff < 0) return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  if (diff < 0)
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   if (hours < 1) return 'Due in <1 hour';
   if (hours < 24) return `Due in ${hours}h`;
   if (days === 1) return 'Due tomorrow';
   if (days < 7) return `Due in ${days} days`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined, hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function formatTime(date) {
@@ -4015,7 +5418,12 @@ function formatTime(date) {
   if (diff < 60000) return 'just now';
   if (diff < 3600000) return Math.round(diff / 60000) + 'm ago';
   if (diff < 86400000) return Math.round(diff / 3600000) + 'h ago';
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 /* ============================================================
@@ -4104,7 +5512,8 @@ function renderTeamsView() {
   const grid = document.getElementById('teams-grid');
   const teams = getTeams();
   const users = getUsers();
-  const isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
+  const isElevated =
+    state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
 
   if (teams.length === 0) {
     grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:80px 20px;color:var(--text3);">
@@ -4115,23 +5524,35 @@ function renderTeamsView() {
     return;
   }
 
-  grid.innerHTML = teams.map(team => {
-    const members = (team.memberIds || []).map(id => users.find(u => u.id === id)).filter(Boolean);
-    const color = team.color || '#F59E0B';
-    const memberChips = members.length === 0
-      ? '<div style="font-size:11px;color:var(--text3);padding:8px 0;">No members assigned</div>'
-      : members.map(m => `
+  grid.innerHTML = teams
+    .map((team) => {
+      const members = (team.memberIds || [])
+        .map((id) => users.find((u) => u.id === id))
+        .filter(Boolean);
+      const color = team.color || '#F59E0B';
+      const memberChips =
+        members.length === 0
+          ? '<div style="font-size:11px;color:var(--text3);padding:8px 0;">No members assigned</div>'
+          : members
+            .map(
+              (m) => `
         <div class="team-member-chip">
           <div class="team-member-avatar" style="background:${color}18;border-color:${color}55;color:${color};">${escHtml((m.name || '?')[0].toUpperCase())}</div>
           <div class="team-member-name">${escHtml(m.name)}</div>
           <div class="team-member-role">${m.role}</div>
-        </div>`).join('');
+        </div>`,
+            )
+            .join('');
 
-    const editBtn = isElevated ? `<button class="btn-secondary" style="font-size:11px;padding:6px 12px;" onclick="openEditTeam('${team.id}')">✏️ Edit</button>` : '';
-    const assignBtn = isElevated ? `<button class="btn-primary" style="width:auto;font-size:11px;padding:6px 14px;" onclick="openTeamTaskModal('${team.id}')">📋 Assign Multi Team Task</button>` : '';
-    const viewTasksBtn = `<button class="btn-secondary" style="font-size:11px;padding:6px 12px;" onclick="showTeamTasks('${team.id}')">📌 View Tasks</button>`;
+      const editBtn = isElevated
+        ? `<button class="btn-secondary" style="font-size:11px;padding:6px 12px;" onclick="openEditTeam('${team.id}')">✏️ Edit</button>`
+        : '';
+      const assignBtn = isElevated
+        ? `<button class="btn-primary" style="width:auto;font-size:11px;padding:6px 14px;" onclick="openTeamTaskModal('${team.id}')">📋 Assign Multi Team Task</button>`
+        : '';
+      const viewTasksBtn = `<button class="btn-secondary" style="font-size:11px;padding:6px 12px;" onclick="showTeamTasks('${team.id}')">📌 View Tasks</button>`;
 
-    return `<div class="team-card">
+      return `<div class="team-card">
       <div class="team-card-header">
         <div style="display:flex;align-items:center;gap:8px;">
           <div class="team-color-dot" style="width:12px;height:12px;border-radius:50%;background:${color};flex-shrink:0;"></div>
@@ -4142,36 +5563,49 @@ function renderTeamsView() {
       <div class="team-members-list">${memberChips}</div>
       <div class="team-card-actions">${viewTasksBtn}${editBtn}${assignBtn}</div>
     </div>`;
-  }).join('');
+    })
+    .join('');
 }
 
 // ---- Show tasks per team ----
-/**
- * Opens a modal listing all active tasks that belong to the given team.
- * Tasks are grouped into: Active (not done/cancelled), Done, and Cancelled.
- * Any elevated user can view; task editing is opened via the existing editTask flow.
- * @param {string} teamId - ID of the team whose tasks should be displayed.
- */
 function showTeamTasks(teamId) {
-  const team = getTeams().find(t => t.id === teamId);
+  const team = getTeams().find((t) => t.id === teamId);
   if (!team) return;
 
   const allTasks = getTasks();
-  const teamTasks = allTasks.filter(t => t.teamId === teamId || t.isTeamTask && t.teamId === teamId);
+  const teamTasks = allTasks.filter(
+    (t) => t.teamId === teamId || (t.isTeamTask && t.teamId === teamId),
+  );
 
-  const active = teamTasks.filter(t => !t.done && !t.cancelled);
-  const done = teamTasks.filter(t => t.done);
-  const cancelled = teamTasks.filter(t => t.cancelled);
+  const active = teamTasks.filter((t) => !t.done && !t.cancelled);
+  const done = teamTasks.filter((t) => t.done);
+  const cancelled = teamTasks.filter((t) => t.cancelled);
 
   const color = team.color || '#F59E0B';
   const users = getUsers();
 
   function _taskRow(task) {
-    const u = users.find(u => u.id === task.userId);
+    const u = users.find((u) => u.id === task.userId);
     const assignee = u ? u.name : 'Unknown';
-    const start = task.start ? new Date(task.start).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—';
-    const deadline = task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—';
-    const pColors = { 1: '#EF4444', 2: '#F97316', 3: '#F59E0B', 4: '#3B82F6', 5: '#6B7280' };
+    const start = task.start
+      ? new Date(task.start).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+      })
+      : '—';
+    const deadline = task.deadline
+      ? new Date(task.deadline).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+      })
+      : '—';
+    const pColors = {
+      1: '#EF4444',
+      2: '#F97316',
+      3: '#F59E0B',
+      4: '#3B82F6',
+      5: '#6B7280',
+    };
     const pLabel = ['', 'P1', 'P2', 'P3', 'P4', 'P5'][task.priority] || '';
     const pColor = pColors[task.priority] || '#6B7280';
     const statusBadge = task.done
@@ -4179,10 +5613,13 @@ function showTeamTasks(teamId) {
       : task.cancelled
         ? '<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:rgba(239,68,68,0.12);color:#EF4444;">✗ Cancelled</span>'
         : '<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:rgba(245,158,11,0.15);color:var(--amber);">Active</span>';
-    const isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
-    const editBtn = (isElevated && !task.done && !task.cancelled)
-      ? `<button onclick="closeModal('team-tasks-modal');openEditTask('${task.id}')" style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;">✏️ Edit</button>`
-      : '';
+    const isElevated =
+      state.currentUser.role === 'admin' ||
+      state.currentUser.role === 'manager';
+    const editBtn =
+      isElevated && !task.done && !task.cancelled
+        ? `<button onclick="closeModal('team-tasks-modal');openEditTask('${task.id}')" style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;">✏️ Edit</button>`
+        : '';
     return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);">
       <div style="width:28px;height:28px;border-radius:50%;background:${pColor}22;border:1.5px solid ${pColor};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:${pColor};flex-shrink:0;">${pLabel}</div>
       <div style="flex:1;min-width:0;">
@@ -4194,7 +5631,8 @@ function showTeamTasks(teamId) {
   }
 
   function _section(label, tasks, emptyMsg) {
-    if (tasks.length === 0) return `<div style="font-size:12px;color:var(--text3);padding:8px 4px;">${emptyMsg}</div>`;
+    if (tasks.length === 0)
+      return `<div style="font-size:12px;color:var(--text3);padding:8px 4px;">${emptyMsg}</div>`;
     return `<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">${label} (${tasks.length})</div>
       <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;">${tasks.map(_taskRow).join('')}</div>`;
   }
@@ -4230,7 +5668,7 @@ function openCreateTeam() {
 }
 
 function openEditTeam(teamId) {
-  const team = getTeams().find(t => t.id === teamId);
+  const team = getTeams().find((t) => t.id === teamId);
   if (!team) return;
   _editingTeamId = teamId;
   document.getElementById('team-modal-title').textContent = '✏️ Edit Team';
@@ -4239,29 +5677,46 @@ function openEditTeam(teamId) {
   document.getElementById('tm-delete-btn').classList.remove('hidden');
   // Set color
   const radios = document.querySelectorAll('input[name="tm-color"]');
-  radios.forEach(r => { r.checked = (r.value === team.color); });
+  radios.forEach((r) => {
+    r.checked = r.value === team.color;
+  });
   renderTeamMemberPicker('');
   openModal('team-modal');
 }
 
 function renderTeamMemberPicker(filter) {
   const container = document.getElementById('tm-member-list');
-  const currentTeam = _editingTeamId ? getTeams().find(t => t.id === _editingTeamId) : null;
-  const currentMembers = currentTeam ? (currentTeam.memberIds || []) : [];
+  const currentTeam = _editingTeamId
+    ? getTeams().find((t) => t.id === _editingTeamId)
+    : null;
+  const currentMembers = currentTeam ? currentTeam.memberIds || [] : [];
   // Preserve checked state from DOM
   const checked = {};
-  container.querySelectorAll('input[type="checkbox"]').forEach(cb => { checked[cb.value] = cb.checked; });
+  container.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+    checked[cb.value] = cb.checked;
+  });
   // Merge with saved members for new opens (before first interaction)
-  currentMembers.forEach(id => { if (!(id in checked)) checked[id] = true; });
+  currentMembers.forEach((id) => {
+    if (!(id in checked)) checked[id] = true;
+  });
 
-  const users = getUsers().filter(u => u.role !== 'admin');
+  const users = getUsers().filter((u) => u.role !== 'admin');
   const q = (filter || '').toLowerCase();
-  const filtered = q ? users.filter(u => u.name.toLowerCase().includes(q) || u.username.toLowerCase().includes(q)) : users;
+  const filtered = q
+    ? users.filter(
+      (u) =>
+        u.name.toLowerCase().includes(q) ||
+        u.username.toLowerCase().includes(q),
+    )
+    : users;
 
   const roleIcon = { manager: '🏢', user: '👤' };
-  container.innerHTML = filtered.length === 0
-    ? '<div style="padding:12px;text-align:center;color:var(--text3);font-size:12px;">No users found</div>'
-    : filtered.map(u => `
+  container.innerHTML =
+    filtered.length === 0
+      ? '<div style="padding:12px;text-align:center;color:var(--text3);font-size:12px;">No users found</div>'
+      : filtered
+        .map(
+          (u) => `
       <label class="team-modal-member-item">
         <input type="checkbox" value="${escHtml(u.id)}" ${checked[u.id] ? 'checked' : ''} onchange="updateTmSelectedCount()">
         <div style="width:28px;height:28px;border-radius:50%;background:var(--bg4);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--text2);flex-shrink:0;">${escHtml((u.name || '?')[0].toUpperCase())}</div>
@@ -4269,7 +5724,9 @@ function renderTeamMemberPicker(filter) {
           <div style="font-size:13px;font-weight:600;">${escHtml(u.name)}</div>
           <div style="font-size:10px;color:var(--text3);">${roleIcon[u.role] || '👤'} ${u.role} · @${escHtml(u.username)}</div>
         </div>
-      </label>`).join('');
+      </label>`,
+        )
+        .join('');
 
   updateTmSelectedCount();
 }
@@ -4281,26 +5738,43 @@ function updateTmSelectedCount() {
 }
 
 function tmSelectAll() {
-  document.querySelectorAll('#tm-member-list input[type="checkbox"]').forEach(cb => cb.checked = true);
+  document
+    .querySelectorAll('#tm-member-list input[type="checkbox"]')
+    .forEach((cb) => (cb.checked = true));
   updateTmSelectedCount();
 }
 function tmClearAll() {
-  document.querySelectorAll('#tm-member-list input[type="checkbox"]').forEach(cb => cb.checked = false);
+  document
+    .querySelectorAll('#tm-member-list input[type="checkbox"]')
+    .forEach((cb) => (cb.checked = false));
   updateTmSelectedCount();
 }
 
 async function saveTeam() {
-  const _btn = document.querySelector('#team-modal .btn-primary[onclick="saveTeam()"]');
+  const _btn = document.querySelector(
+    '#team-modal .btn-primary[onclick="saveTeam()"]',
+  );
   if (!_lockOp('saveTeam', _btn, 'Saving…')) return;
   const name = document.getElementById('tm-name').value.trim();
-  if (!name) { toast('Team name is required.', 'error'); return; }
-  const color = document.querySelector('input[name="tm-color"]:checked')?.value || '#F59E0B';
-  const memberIds = Array.from(document.querySelectorAll('#tm-member-list input:checked')).map(cb => cb.value);
+  if (!name) {
+    toast('Team name is required.', 'error');
+    return;
+  }
+  const color =
+    document.querySelector('input[name="tm-color"]:checked')?.value ||
+    '#F59E0B';
+  const memberIds = Array.from(
+    document.querySelectorAll('#tm-member-list input:checked'),
+  ).map((cb) => cb.value);
 
   try {
     if (_editingTeamId) {
-      const updated = await API.put('/teams/' + _editingTeamId, { name, color, memberIds });
-      const idx = cache.teams.findIndex(t => t.id === _editingTeamId);
+      const updated = await API.put('/teams/' + _editingTeamId, {
+        name,
+        color,
+        memberIds,
+      });
+      const idx = cache.teams.findIndex((t) => t.id === _editingTeamId);
       if (idx !== -1) cache.teams[idx] = updated;
       toast('Team updated!', 'success');
     } else {
@@ -4310,40 +5784,61 @@ async function saveTeam() {
     }
     closeModal('team-modal');
     renderTeamsView();
-  } catch (err) { toast(err.message || 'Failed to save team.', 'error'); } finally { _unlockOp('saveTeam', _btn); }
+  } catch (err) {
+    toast(err.message || 'Failed to save team.', 'error');
+  } finally {
+    _unlockOp('saveTeam', _btn);
+  }
 }
 
 async function deleteTeam() {
   if (!_editingTeamId) return;
   const _dBtn = document.getElementById('tm-delete-btn');
   if (!_lockOp('deleteTeam', _dBtn, 'Deleting…')) return;
-  const team = getTeams().find(t => t.id === _editingTeamId);
-  if (!confirm('Delete team "' + (team ? team.name : '') + '"? This does not delete the users or their tasks.')) return;
+  const team = getTeams().find((t) => t.id === _editingTeamId);
+  if (
+    !confirm(
+      'Delete team "' +
+      (team ? team.name : '') +
+      '"? This does not delete the users or their tasks.',
+    )
+  )
+    return;
   try {
     await API.del('/teams/' + _editingTeamId);
-    cache.teams = cache.teams.filter(t => t.id !== _editingTeamId);
+    cache.teams = cache.teams.filter((t) => t.id !== _editingTeamId);
     closeModal('team-modal');
     toast('Team deleted.', 'info');
     renderTeamsView();
-  } catch (err) { toast(err.message || 'Failed to delete team.', 'error'); } finally { _unlockOp('deleteTeam', _dBtn); }
+  } catch (err) {
+    toast(err.message || 'Failed to delete team.', 'error');
+  } finally {
+    _unlockOp('deleteTeam', _dBtn);
+  }
 }
 
 // ---- Team Task Duration/EndDate toggle ----
 var _ttScheduleMode = 'duration';
 function setTtScheduleMode(mode) {
   _ttScheduleMode = mode;
-  const activeStyle = 'flex:1;padding:7px;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid var(--amber);background:var(--amber);color:var(--bg);cursor:pointer;transition:all 0.15s;';
-  const inactiveStyle = 'flex:1;padding:7px;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;transition:all 0.15s;';
+  const activeStyle =
+    'flex:1;padding:7px;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid var(--amber);background:var(--amber);color:var(--bg);cursor:pointer;transition:all 0.15s;';
+  const inactiveStyle =
+    'flex:1;padding:7px;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;transition:all 0.15s;';
   const durBtn = document.getElementById('tt-mode-duration');
   const endBtn = document.getElementById('tt-mode-enddate');
   const durGrp = document.getElementById('tt-duration-group');
   const endGrp = document.getElementById('tt-enddate-group');
   if (mode === 'duration') {
-    durBtn.style.cssText = activeStyle; endBtn.style.cssText = inactiveStyle;
-    durGrp.style.display = ''; endGrp.style.display = 'none';
+    durBtn.style.cssText = activeStyle;
+    endBtn.style.cssText = inactiveStyle;
+    durGrp.style.display = '';
+    endGrp.style.display = 'none';
   } else {
-    endBtn.style.cssText = activeStyle; durBtn.style.cssText = inactiveStyle;
-    endGrp.style.display = ''; durGrp.style.display = 'none';
+    endBtn.style.cssText = activeStyle;
+    durBtn.style.cssText = inactiveStyle;
+    endGrp.style.display = '';
+    durGrp.style.display = 'none';
   }
   updateTtDeadlinePreview();
   checkTeamTaskConflicts();
@@ -4352,7 +5847,9 @@ function getTtDeadline() {
   const start = document.getElementById('tt-start').value;
   if (!start) return null;
   if (_ttScheduleMode === 'enddate') {
-    const ed = document.getElementById('tt-deadline') ? document.getElementById('tt-deadline').value : '';
+    const ed = document.getElementById('tt-deadline')
+      ? document.getElementById('tt-deadline').value
+      : '';
     return ed || null;
   }
   const raw = parseFloat(document.getElementById('tt-duration').value);
@@ -4369,7 +5866,15 @@ function updateTtDeadlinePreview() {
   const dl = getTtDeadline();
   if (dl) {
     const d = new Date(dl);
-    prev.textContent = '⏱ Ends: ' + d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    prev.textContent =
+      '⏱ Ends: ' +
+      d.toLocaleString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
   } else {
     prev.textContent = '';
   }
@@ -4390,8 +5895,10 @@ function openTeamTaskModal(preselectedTeamId) {
   const now = new Date();
   document.getElementById('tt-start').value = toLocalISO(now);
   // Reset duration fields
-  if (document.getElementById('tt-duration')) document.getElementById('tt-duration').value = '1';
-  if (document.getElementById('tt-duration-unit')) document.getElementById('tt-duration-unit').value = 'hours';
+  if (document.getElementById('tt-duration'))
+    document.getElementById('tt-duration').value = '1';
+  if (document.getElementById('tt-duration-unit'))
+    document.getElementById('tt-duration-unit').value = 'hours';
   setTtScheduleMode('duration');
 
   // Populate team selector — if opened from a specific team card, lock to that team only
@@ -4399,7 +5906,7 @@ function openTeamTaskModal(preselectedTeamId) {
   const teamList = document.getElementById('tt-team-list');
   if (preselectedTeamId) {
     // Locked to one team — just show its name, no other choices
-    const selTeam = teams.find(t => t.id === preselectedTeamId);
+    const selTeam = teams.find((t) => t.id === preselectedTeamId);
     teamList.innerHTML = selTeam
       ? `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:${selTeam.color || '#F59E0B'}15;border:1px solid ${selTeam.color || '#F59E0B'}44;border-radius:8px;">
            <div style="width:10px;height:10px;border-radius:50%;background:${selTeam.color || '#F59E0B'};flex-shrink:0;"></div>
@@ -4410,16 +5917,21 @@ function openTeamTaskModal(preselectedTeamId) {
       : '<div style="color:var(--danger);font-size:12px;">Team not found.</div>';
   } else {
     // Generic open — show all teams as checkboxes
-    teamList.innerHTML = teams.length === 0
-      ? '<div style="color:var(--text3);font-size:12px;padding:4px;">No teams yet. Create a team first.</div>'
-      : teams.map(t => `
+    teamList.innerHTML =
+      teams.length === 0
+        ? '<div style="color:var(--text3);font-size:12px;padding:4px;">No teams yet. Create a team first.</div>'
+        : teams
+          .map(
+            (t) => `
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 6px;border-radius:6px;transition:background .15s;"
           onmouseenter="this.style.background='var(--bg4)'" onmouseleave="this.style.background=''">
           <input type="checkbox" value="${escHtml(t.id)}"
             onchange="onTeamTaskTeamChange()" style="width:14px;height:14px;accent-color:var(--amber);cursor:pointer;">
           <span style="font-size:12px;font-weight:600;color:var(--text);">${escHtml(t.name)}</span>
           <span style="font-size:11px;color:var(--text3);margin-left:auto;">${(t.memberIds || []).length} members</span>
-        </label>`).join('');
+        </label>`,
+          )
+          .join('');
   }
 
   document.getElementById('tt-members-preview').style.display = 'none';
@@ -4432,7 +5944,9 @@ function openTeamTaskModal(preselectedTeamId) {
 }
 
 function onTeamTaskTeamChange() {
-  const checkedIds = Array.from(document.querySelectorAll('#tt-team-list input[type=checkbox]:checked')).map(c => c.value);
+  const checkedIds = Array.from(
+    document.querySelectorAll('#tt-team-list input[type=checkbox]:checked'),
+  ).map((c) => c.value);
   const preview = document.getElementById('tt-members-preview');
   const list = document.getElementById('tt-members-list');
   const countEl = document.getElementById('tt-team-count');
@@ -4443,7 +5957,12 @@ function onTeamTaskTeamChange() {
     return;
   }
 
-  countEl.textContent = '(' + checkedIds.length + ' team' + (checkedIds.length > 1 ? 's' : '') + ' selected)';
+  countEl.textContent =
+    '(' +
+    checkedIds.length +
+    ' team' +
+    (checkedIds.length > 1 ? 's' : '') +
+    ' selected)';
 
   // Collect unique members across all selected teams
   const teams = getTeams();
@@ -4451,13 +5970,17 @@ function onTeamTaskTeamChange() {
   const seenMemberIds = new Set();
   const memberEntries = [];
 
-  checkedIds.forEach(teamId => {
-    const team = teams.find(t => t.id === teamId);
+  checkedIds.forEach((teamId) => {
+    const team = teams.find((t) => t.id === teamId);
     if (!team) return;
-    (team.memberIds || []).forEach(id => {
+    (team.memberIds || []).forEach((id) => {
       if (!seenMemberIds.has(id)) {
         seenMemberIds.add(id);
-        memberEntries.push({ id, teamColor: team.color || '#F59E0B', teamName: team.name });
+        memberEntries.push({
+          id,
+          teamColor: team.color || '#F59E0B',
+          teamName: team.name,
+        });
       }
     });
   });
@@ -4468,54 +5991,88 @@ function onTeamTaskTeamChange() {
     return;
   }
 
-  list.innerHTML = memberEntries.map(({ id, teamColor, teamName }) => {
-    const u = users.find(u => u.id === id);
-    if (!u) return '';
-    return `<div title="${escHtml(teamName)}" style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:${teamColor}18;border:1px solid ${teamColor}33;border-radius:8px;font-size:12px;font-weight:600;">
+  list.innerHTML = memberEntries
+    .map(({ id, teamColor, teamName }) => {
+      const u = users.find((u) => u.id === id);
+      if (!u) return '';
+      return `<div title="${escHtml(teamName)}" style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:${teamColor}18;border:1px solid ${teamColor}33;border-radius:8px;font-size:12px;font-weight:600;">
       <div style="width:20px;height:20px;border-radius:50%;background:${teamColor}33;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${teamColor};">${escHtml((u.name || '?')[0].toUpperCase())}</div>
       ${escHtml(u.name)}
     </div>`;
-  }).join('');
+    })
+    .join('');
   preview.style.display = '';
   checkTeamTaskConflicts();
 }
 
 function checkTeamTaskConflicts() {
-  const checkedIds = Array.from(document.querySelectorAll('#tt-team-list input[type=checkbox]:checked')).map(c => c.value);
+  const checkedIds = Array.from(
+    document.querySelectorAll('#tt-team-list input[type=checkbox]:checked'),
+  ).map((c) => c.value);
   const start = document.getElementById('tt-start').value;
-  const deadline = getTtDeadline ? getTtDeadline() : (document.getElementById('tt-deadline') ? document.getElementById('tt-deadline').value : null);
+  const deadline = getTtDeadline
+    ? getTtDeadline()
+    : document.getElementById('tt-deadline')
+      ? document.getElementById('tt-deadline').value
+      : null;
   if (checkedIds.length === 0 || !start || !deadline) return;
 
   // Gather unique member IDs across all selected teams
   const teams = getTeams();
   const memberIds = new Set();
-  checkedIds.forEach(tid => {
-    const t = teams.find(t => t.id === tid);
-    if (t) (t.memberIds || []).forEach(id => memberIds.add(id));
+  checkedIds.forEach((tid) => {
+    const t = teams.find((t) => t.id === tid);
+    if (t) (t.memberIds || []).forEach((id) => memberIds.add(id));
   });
   if (memberIds.size === 0) return;
 
-  const overlapMsgs = [], leaveMsgs = [];
+  const overlapMsgs = [],
+    leaveMsgs = [];
   const allTasks = getTasks();
-  const typeLabels = { lieu: 'Lieu Day', loa: 'Leave of Absence', awol: 'AWOL' };
+  const typeLabels = {
+    lieu: 'Lieu Day',
+    loa: 'Leave of Absence',
+    awol: 'AWOL',
+  };
 
-  memberIds.forEach(uid => {
-    const user = getUsers().find(u => u.id === uid);
+  memberIds.forEach((uid) => {
+    const user = getUsers().find((u) => u.id === uid);
     const name = user ? user.name : uid;
-    const userTasks = allTasks.filter(t => t.userId === uid && !t.cancelled && !t.done);
-    const tempTask = { id: 'temp', start: new Date(start).toISOString(), deadline: new Date(deadline).toISOString() };
+    const userTasks = allTasks.filter(
+      (t) => t.userId === uid && !t.cancelled && !t.done,
+    );
+    const tempTask = {
+      id: 'temp',
+      start: new Date(start).toISOString(),
+      deadline: new Date(deadline).toISOString(),
+    };
     const overlaps = checkTaskOverlap(tempTask, userTasks);
-    if (overlaps.length) overlapMsgs.push(name + ': conflicts with "' + overlaps.map(o => o.title).join('", "') + '"');
+    if (overlaps.length)
+      overlapMsgs.push(
+        name +
+        ': conflicts with "' +
+        overlaps.map((o) => o.title).join('", "') +
+        '"',
+      );
     const lc = checkLeaveConflict(uid, start, deadline);
-    if (lc.length) leaveMsgs.push(name + ' is on ' + lc.map(l => typeLabels[l.type]).join(', '));
+    if (lc.length)
+      leaveMsgs.push(
+        name + ' is on ' + lc.map((l) => typeLabels[l.type]).join(', '),
+      );
   });
 
   const overlapAlert = document.getElementById('tt-overlap-alert');
   const leaveAlert = document.getElementById('tt-leave-alert');
-  if (overlapMsgs.length) { document.getElementById('tt-overlap-text').textContent = overlapMsgs.join(' | '); overlapAlert.classList.remove('hidden'); }
-  else overlapAlert.classList.add('hidden');
-  if (leaveMsgs.length) { document.getElementById('tt-leave-text').textContent = leaveMsgs.join(' | '); leaveAlert.classList.remove('hidden'); }
-  else leaveAlert.classList.add('hidden');
+  if (overlapMsgs.length) {
+    document.getElementById('tt-overlap-text').textContent =
+      overlapMsgs.join(' | ');
+    overlapAlert.classList.remove('hidden');
+  } else overlapAlert.classList.add('hidden');
+  if (leaveMsgs.length) {
+    document.getElementById('tt-leave-text').textContent =
+      leaveMsgs.join(' | ');
+    leaveAlert.classList.remove('hidden');
+  } else leaveAlert.classList.add('hidden');
 }
 
 function addTtDescItem() {
@@ -4527,17 +6084,27 @@ function addTtDescItem() {
   renderTtDescItems();
   input.focus();
 }
-function removeTtDescItem(idx) { ttDescItems.splice(idx, 1); renderTtDescItems(); }
+function removeTtDescItem(idx) {
+  ttDescItems.splice(idx, 1);
+  renderTtDescItems();
+}
 function renderTtDescItems() {
-  document.getElementById('tt-desc-items').innerHTML = ttDescItems.map((item, i) =>
-    `<div class="desc-item"><span>${escHtml(item.text)}</span><button onclick="removeTtDescItem(${i})">✕</button></div>`
-  ).join('');
+  document.getElementById('tt-desc-items').innerHTML = ttDescItems
+    .map(
+      (item, i) =>
+        `<div class="desc-item"><span>${escHtml(item.text)}</span><button onclick="removeTtDescItem(${i})">✕</button></div>`,
+    )
+    .join('');
 }
 
 async function saveTeamTask() {
-  const _btn = document.querySelector('#team-task-modal .btn-primary[onclick="saveTeamTask()"]');
+  const _btn = document.querySelector(
+    '#team-task-modal .btn-primary[onclick="saveTeamTask()"]',
+  );
   if (!_lockOp('saveTeamTask', _btn, 'Assigning…')) return;
-  const checkedTeamIds = Array.from(document.querySelectorAll('#tt-team-list input[type=checkbox]:checked')).map(c => c.value);
+  const checkedTeamIds = Array.from(
+    document.querySelectorAll('#tt-team-list input[type=checkbox]:checked'),
+  ).map((c) => c.value);
   const title = document.getElementById('tt-title').value.trim();
   const requestor = document.getElementById('tt-requestor').value.trim();
   const priority = parseInt(document.getElementById('tt-priority').value);
@@ -4545,33 +6112,65 @@ async function saveTeamTask() {
   const deadlineRaw = getTtDeadline();
   const deadline = deadlineRaw || '';
 
-  if (checkedTeamIds.length === 0) { toast('Please select at least one team.', 'error'); _unlockOp('saveTeamTask', _btn); return; }
-  if (!title || !requestor || !start || !deadline) { toast('Please fill in all required fields.', 'error'); _unlockOp('saveTeamTask', _btn); return; }
-  if (new Date(start) >= new Date(deadline)) { toast('End time must be after start time.', 'error'); _unlockOp('saveTeamTask', _btn); return; }
+  if (checkedTeamIds.length === 0) {
+    toast('Please select at least one team.', 'error');
+    _unlockOp('saveTeamTask', _btn);
+    return;
+  }
+  if (!title || !requestor || !start || !deadline) {
+    toast('Please fill in all required fields.', 'error');
+    _unlockOp('saveTeamTask', _btn);
+    return;
+  }
+  if (new Date(start) >= new Date(deadline)) {
+    toast('End time must be after start time.', 'error');
+    _unlockOp('saveTeamTask', _btn);
+    return;
+  }
 
   const _wh = getWorkHours();
-  const _startHr = new Date(start).getHours() + new Date(start).getMinutes() / 60;
-  const _endHr = new Date(deadline).getHours() + new Date(deadline).getMinutes() / 60;
-  const _pad = h => String(h).padStart(2, '0');
-  if (_startHr < _wh.start || _endHr > _wh.end || _startHr >= _wh.end || _endHr <= _wh.start) {
-    toast('Bookings must be within work hours: ' + _pad(_wh.start) + ':00 – ' + _pad(_wh.end) + ':00', 'error');
+  const _startHr =
+    new Date(start).getHours() + new Date(start).getMinutes() / 60;
+  const _endHr =
+    new Date(deadline).getHours() + new Date(deadline).getMinutes() / 60;
+  const _pad = (h) => String(h).padStart(2, '0');
+  if (
+    _startHr < _wh.start ||
+    _endHr > _wh.end ||
+    _startHr >= _wh.end ||
+    _endHr <= _wh.start
+  ) {
+    toast(
+      'Bookings must be within work hours: ' +
+      _pad(_wh.start) +
+      ':00 – ' +
+      _pad(_wh.end) +
+      ':00',
+      'error',
+    );
     return;
   }
 
   // Collect unique member IDs and their team name (first team they belong to)
   const allTeams = getTeams();
   const memberTeamMap = new Map(); // memberId → first team they're in
-  checkedTeamIds.forEach(teamId => {
-    const team = allTeams.find(t => t.id === teamId);
+  checkedTeamIds.forEach((teamId) => {
+    const team = allTeams.find((t) => t.id === teamId);
     if (!team) return;
-    (team.memberIds || []).forEach(memberId => {
+    (team.memberIds || []).forEach((memberId) => {
       if (!memberTeamMap.has(memberId)) memberTeamMap.set(memberId, team);
     });
   });
 
-  if (memberTeamMap.size === 0) { toast('Selected teams have no members.', 'error'); return; }
+  if (memberTeamMap.size === 0) {
+    toast('Selected teams have no members.', 'error');
+    return;
+  }
 
-  const description = ttDescItems.map(d => ({ text: d.text, checked: false }));
+  const description = ttDescItems.map((d) => ({
+    text: d.text,
+    checked: false,
+  }));
   const groupId = 'tg-' + uid();
   const allTasks = getTasks();
   let assignedCount = 0;
@@ -4583,31 +6182,89 @@ async function saveTeamTask() {
   const descWithMeta = _buildDesc(description, groupMeta);
 
   for (const [memberId, team] of memberTeamMap) {
-    const user = getUsers().find(u => u.id === memberId);
+    const user = getUsers().find((u) => u.id === memberId);
     const name = user ? user.name : memberId;
     const lc = checkLeaveConflict(memberId, start, deadline);
-    if (lc.length) { skippedLeave.push(name); continue; }
-    const existingTasks = allTasks.filter(t => t.userId === memberId && !t.cancelled && !t.done);
-    const taskData = { title, requestor, priority, start: new Date(start).toISOString(), deadline: new Date(deadline).toISOString(), description: descWithMeta, isTeamTask: true, teamId: team.id, teamName: team.name, multiGroupId: groupId };
+    if (lc.length) {
+      skippedLeave.push(name);
+      continue;
+    }
+    const existingTasks = allTasks.filter(
+      (t) => t.userId === memberId && !t.cancelled && !t.done,
+    );
+    const taskData = {
+      title,
+      requestor,
+      priority,
+      start: new Date(start).toISOString(),
+      deadline: new Date(deadline).toISOString(),
+      description: descWithMeta,
+      isTeamTask: true,
+      teamId: team.id,
+      teamName: team.name,
+      multiGroupId: groupId,
+    };
     const overlapCheck = resolveOverlapsNew(taskData, existingTasks, memberId);
-    if (overlapCheck.moved) { taskData.start = overlapCheck.newStart; taskData.deadline = overlapCheck.newDeadline; }
+    if (overlapCheck.moved) {
+      taskData.start = overlapCheck.newStart;
+      taskData.deadline = overlapCheck.newDeadline;
+    }
     try {
-      const newTask = await API.post('/tasks', { ...taskData, userId: memberId });
+      const newTask = await API.post('/tasks', {
+        ...taskData,
+        userId: memberId,
+      });
       if (!cache.tasks) cache.tasks = [];
       if (newTask) cache.tasks.push(newTask);
-      const teamNames = checkedTeamIds.map(tid => { const t = allTeams.find(t => t.id === tid); return t ? t.name : ''; }).filter(Boolean).join(', ');
-      pushNotification(memberId, '🏷️ Team Task Assigned', '"' + title + '" has been assigned to you via team(s) "' + teamNames + '" by ' + state.currentUser.name + '.', newTask?.id);
-      if (newTask) addLog({ taskId: newTask.id, taskTitle: newTask.title, action: 'added', actorName: state.currentUser.name, userId: memberId });
+      const teamNames = checkedTeamIds
+        .map((tid) => {
+          const t = allTeams.find((t) => t.id === tid);
+          return t ? t.name : '';
+        })
+        .filter(Boolean)
+        .join(', ');
+      pushNotification(
+        memberId,
+        '🏷️ Team Task Assigned',
+        '"' +
+        title +
+        '" has been assigned to you via team(s) "' +
+        teamNames +
+        '" by ' +
+        state.currentUser.name +
+        '.',
+        newTask?.id,
+      );
+      if (newTask)
+        addLog({
+          taskId: newTask.id,
+          taskTitle: newTask.title,
+          action: 'added',
+          actorName: state.currentUser.name,
+          userId: memberId,
+        });
       assignedCount++;
-    } catch (e) { console.error('Failed to assign to', memberId, e); }
+    } catch (e) {
+      console.error('Failed to assign to', memberId, e);
+    }
   }
 
   _unlockOp('saveTeamTask', _btn);
   closeModal('team-task-modal');
   if (skippedLeave.length > 0) {
-    toast('Task assigned to ' + assignedCount + ' member(s). Skipped: ' + skippedLeave.join(', ') + ' (on leave).', 'warning');
+    toast(
+      'Task assigned to ' +
+      assignedCount +
+      ' member(s). Skipped: ' +
+      skippedLeave.join(', ') +
+      ' (on leave).',
+      'warning',
+    );
   } else {
-    toast('Team task assigned to ' + assignedCount + ' member(s)! ✓', 'success');
+    toast(
+      'Team task assigned to ' + assignedCount + ' member(s)! ✓',
+      'success',
+    );
   }
   renderTeamsView();
 }
@@ -4646,7 +6303,11 @@ function showCalendarToast() {
   // Animate progress bar
   requestAnimationFrame(() => {
     const bar = el.querySelector('.push-notif-progress-bar');
-    if (bar) { requestAnimationFrame(() => { bar.style.width = '0%'; }); }
+    if (bar) {
+      requestAnimationFrame(() => {
+        bar.style.width = '0%';
+      });
+    }
   });
   // Auto-dismiss after 6s
   setTimeout(() => {
@@ -4656,7 +6317,6 @@ function showCalendarToast() {
     }
   }, 6000);
 }
-
 
 /* ============================================================
    WORK SETTINGS (Admin) — multi-schedule with history
@@ -4677,63 +6337,111 @@ function renderWorkScheduleList() {
   var active = getWorkHours();
   var list = document.getElementById('ws-list');
   if (!scheds || scheds.length === 0) {
-    list.innerHTML = '<div style="padding:12px;color:var(--text3);font-size:12px;text-align:center;">No schedules saved yet.</div>';
+    list.innerHTML =
+      '<div style="padding:12px;color:var(--text3);font-size:12px;text-align:center;">No schedules saved yet.</div>';
     return;
   }
-  list.innerHTML = scheds.map(function (s) {
-    var fmt = function (h) { return (h < 10 ? '0' : '') + h + ':00'; };
-    var isActive = s.id === active.id || (s.active && s.id === active.id);
-    return '<div class="ws-item' + (isActive ? ' ws-item-active' : '') + '">' +
-      '<div class="ws-item-info">' +
-      '<div class="ws-item-name">' + escHtml(s.name) + (isActive ? ' <span class="ws-badge">Active</span>' : '') + '</div>' +
-      '<div class="ws-item-hours">' + fmt(s.start) + ' – ' + fmt(s.end) + ' (' + (s.end - s.start) + ' hrs)</div>' +
-      '</div>' +
-      '<div class="ws-item-actions">' +
-      (!isActive ? '<button class="btn-secondary ws-btn" onclick="activateSchedule(\'' + s.id + '\')">Set Active</button>' : '') +
-      '<button class="btn-secondary ws-btn" style="color:var(--danger);border-color:var(--danger);" onclick="deleteSchedule(\'' + s.id + '\')">Delete</button>' +
-      '</div>' +
-      '</div>';
-  }).join('');
+  list.innerHTML = scheds
+    .map(function (s) {
+      var fmt = function (h) {
+        return (h < 10 ? '0' : '') + h + ':00';
+      };
+      var isActive = s.id === active.id || (s.active && s.id === active.id);
+      return (
+        '<div class="ws-item' +
+        (isActive ? ' ws-item-active' : '') +
+        '">' +
+        '<div class="ws-item-info">' +
+        '<div class="ws-item-name">' +
+        escHtml(s.name) +
+        (isActive ? ' <span class="ws-badge">Active</span>' : '') +
+        '</div>' +
+        '<div class="ws-item-hours">' +
+        fmt(s.start) +
+        ' – ' +
+        fmt(s.end) +
+        ' (' +
+        (s.end - s.start) +
+        ' hrs)</div>' +
+        '</div>' +
+        '<div class="ws-item-actions">' +
+        (!isActive
+          ? '<button class="btn-secondary ws-btn" onclick="activateSchedule(\'' +
+          s.id +
+          '\')">Set Active</button>'
+          : '') +
+        '<button class="btn-secondary ws-btn" style="color:var(--danger);border-color:var(--danger);" onclick="deleteSchedule(\'' +
+        s.id +
+        '\')">Delete</button>' +
+        '</div>' +
+        '</div>'
+      );
+    })
+    .join('');
 }
 
 async function activateSchedule(id) {
   try {
     await API.put(`/schedules/${id}/activate`);
-    cache.workSchedules.forEach(s => s.active = s.id === id);
+    cache.workSchedules.forEach((s) => (s.active = s.id === id));
     renderWorkScheduleList();
     toast('Schedule activated.', 'success');
-  } catch (err) { toast(err.message || 'Failed.', 'error'); }
+  } catch (err) {
+    toast(err.message || 'Failed.', 'error');
+  }
 }
 
 async function deleteSchedule(id) {
   const scheds = getWorkSchedules();
-  if (scheds.length <= 1) { toast('Cannot delete the only schedule.', 'error'); return; }
-  if (getWorkHours().id === id) { toast('Cannot delete the active schedule.', 'error'); return; }
+  if (scheds.length <= 1) {
+    toast('Cannot delete the only schedule.', 'error');
+    return;
+  }
+  if (getWorkHours().id === id) {
+    toast('Cannot delete the active schedule.', 'error');
+    return;
+  }
   try {
     await API.del(`/schedules/${id}`);
-    cache.workSchedules = cache.workSchedules.filter(s => s.id !== id);
+    cache.workSchedules = cache.workSchedules.filter((s) => s.id !== id);
     renderWorkScheduleList();
     toast('Schedule deleted.', 'info');
-  } catch (err) { toast(err.message || 'Failed.', 'error'); }
+  } catch (err) {
+    toast(err.message || 'Failed.', 'error');
+  }
 }
 
 function updateWsNewPreview() {
   var s = parseInt(document.getElementById('ws-new-start').value);
   var e = parseInt(document.getElementById('ws-new-end').value);
   var name = document.getElementById('ws-new-name').value || 'New Schedule';
-  var fmt = function (h) { return (h < 10 ? '0' : '') + h + ':00'; };
+  var fmt = function (h) {
+    return (h < 10 ? '0' : '') + h + ':00';
+  };
   var p = document.getElementById('ws-new-preview');
-  if (p) p.textContent = name + ': ' + fmt(s) + ' – ' + fmt(e) + ' (' + (e - s) + ' hrs)';
+  if (p)
+    p.textContent =
+      name + ': ' + fmt(s) + ' – ' + fmt(e) + ' (' + (e - s) + ' hrs)';
 }
 
 async function saveNewSchedule() {
-  var _btn = document.querySelector('#worksettings-modal .btn-primary[onclick="saveNewSchedule()"]');
+  var _btn = document.querySelector(
+    '#worksettings-modal .btn-primary[onclick="saveNewSchedule()"]',
+  );
   if (!_lockOp('saveSchedule', _btn, 'Saving…')) return;
   var name = document.getElementById('ws-new-name').value.trim();
   var startHour = parseInt(document.getElementById('ws-new-start').value);
   var endHour = parseInt(document.getElementById('ws-new-end').value);
-  if (!name) { toast('Please enter a schedule name.', 'error'); _unlockOp('saveSchedule', _btn); return; }
-  if (endHour <= startHour) { toast('End hour must be after start hour.', 'error'); _unlockOp('saveSchedule', _btn); return; }
+  if (!name) {
+    toast('Please enter a schedule name.', 'error');
+    _unlockOp('saveSchedule', _btn);
+    return;
+  }
+  if (endHour <= startHour) {
+    toast('End hour must be after start hour.', 'error');
+    _unlockOp('saveSchedule', _btn);
+    return;
+  }
   try {
     const newSched = await API.post('/schedules', { name, startHour, endHour });
     cache.workSchedules.push(newSched);
@@ -4741,12 +6449,20 @@ async function saveNewSchedule() {
     document.getElementById('ws-add-form').classList.add('hidden');
     renderWorkScheduleList();
     toast('Schedule "' + name + '" saved!', 'success');
-  } catch (err) { toast(err.message || 'Failed to save schedule.', 'error'); } finally { _unlockOp('saveSchedule', _btn); }
+  } catch (err) {
+    toast(err.message || 'Failed to save schedule.', 'error');
+  } finally {
+    _unlockOp('saveSchedule', _btn);
+  }
 }
 
 // Legacy compat
-function updateWsPreview() { updateWsNewPreview(); }
-function saveWorkSettings() { saveNewSchedule(); }
+function updateWsPreview() {
+  updateWsNewPreview();
+}
+function saveWorkSettings() {
+  saveNewSchedule();
+}
 
 /* ============================================================
    CHANGE PASSWORD (Admin)
@@ -4754,43 +6470,81 @@ function saveWorkSettings() { saveNewSchedule(); }
 function openChangePassword() {
   const userSelect = document.getElementById('chpw-user');
   userSelect.innerHTML = '<option value="">Select user...</option>';
-  getUsers().filter(u => u.id !== state.currentUser.id).forEach(u => {
-    const opt = document.createElement('option');
-    opt.value = u.id;
-    opt.textContent = u.name + ' (@' + u.username + ') — ' + u.role;
-    userSelect.appendChild(opt);
-  });
+  getUsers()
+    .filter((u) => u.id !== state.currentUser.id)
+    .forEach((u) => {
+      const opt = document.createElement('option');
+      opt.value = u.id;
+      opt.textContent = u.name + ' (@' + u.username + ') — ' + u.role;
+      userSelect.appendChild(opt);
+    });
   document.getElementById('chpw-new').value = '';
   document.getElementById('chpw-confirm').value = '';
   openModal('chpw-modal');
 }
 
 async function changeUserPassword() {
-  const _btn = document.querySelector('#chpw-modal .btn-primary[onclick="changeUserPassword()"]');
+  const _btn = document.querySelector(
+    '#chpw-modal .btn-primary[onclick="changeUserPassword()"]',
+  );
   if (!_lockOp('chpwUser', _btn, 'Updating…')) return;
   const userId = document.getElementById('chpw-user').value;
   const newPw = document.getElementById('chpw-new').value.trim();
   const confirmPw = document.getElementById('chpw-confirm').value.trim();
-  if (!userId) { toast('Please select a user.', 'error'); _unlockOp('chpwUser', _btn); return; }
-  if (!newPw || newPw.length < 4) { toast('Password must be at least 4 characters.', 'error'); _unlockOp('chpwUser', _btn); return; }
-  if (newPw !== confirmPw) { toast('Passwords do not match.', 'error'); _unlockOp('chpwUser', _btn); return; }
-  const user = getUsers().find(u => u.id === userId);
+  if (!userId) {
+    toast('Please select a user.', 'error');
+    _unlockOp('chpwUser', _btn);
+    return;
+  }
+  if (!newPw || newPw.length < 4) {
+    toast('Password must be at least 4 characters.', 'error');
+    _unlockOp('chpwUser', _btn);
+    return;
+  }
+  if (newPw !== confirmPw) {
+    toast('Passwords do not match.', 'error');
+    _unlockOp('chpwUser', _btn);
+    return;
+  }
+  const user = getUsers().find((u) => u.id === userId);
   try {
     const result = await API.put(`/users/${userId}`, { password: newPw });
-    if (!result) throw new Error('Password update failed - no response from server');
-    addLog({ taskId: null, taskTitle: 'Password changed for ' + (user ? user.name : userId), action: 'edited', actorName: state.currentUser.name, userId });
-    pushNotification(userId, '🔑 Password Changed', 'Your account password was changed by ' + state.currentUser.name + '.', null);
+    if (!result)
+      throw new Error('Password update failed - no response from server');
+    addLog({
+      taskId: null,
+      taskTitle: 'Password changed for ' + (user ? user.name : userId),
+      action: 'edited',
+      actorName: state.currentUser.name,
+      userId,
+    });
+    pushNotification(
+      userId,
+      '🔑 Password Changed',
+      'Your account password was changed by ' + state.currentUser.name + '.',
+      null,
+    );
     closeModal('chpw-modal');
-    toast('Password updated' + (user ? ' for ' + user.name : '') + '!', 'success');
+    toast(
+      'Password updated' + (user ? ' for ' + user.name : '') + '!',
+      'success',
+    );
   } catch (err) {
     console.error('Password change error:', err);
-    toast(err.message || 'Failed to update password. Please check your connection.', 'error');
-  } finally { _unlockOp('chpwUser', _btn); }
+    toast(
+      err.message || 'Failed to update password. Please check your connection.',
+      'error',
+    );
+  } finally {
+    _unlockOp('chpwUser', _btn);
+  }
 }
 
 function openChangePasswordFor(userId) {
   openChangePassword();
-  setTimeout(function () { document.getElementById('chpw-user').value = userId; }, 50);
+  setTimeout(function () {
+    document.getElementById('chpw-user').value = userId;
+  }, 50);
 }
 
 /* ============================================================
@@ -4801,18 +6555,24 @@ var _mtScheduleMode = 'duration';
 
 function setMtScheduleMode(mode) {
   _mtScheduleMode = mode;
-  var activeStyle = 'flex:1;padding:7px;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid var(--amber);background:var(--amber);color:var(--bg);cursor:pointer;transition:all 0.15s;';
-  var inactiveStyle = 'flex:1;padding:7px;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;transition:all 0.15s;';
+  var activeStyle =
+    'flex:1;padding:7px;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid var(--amber);background:var(--amber);color:var(--bg);cursor:pointer;transition:all 0.15s;';
+  var inactiveStyle =
+    'flex:1;padding:7px;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;transition:all 0.15s;';
   var durBtn = document.getElementById('mt-mode-duration');
   var endBtn = document.getElementById('mt-mode-enddate');
   var durGrp = document.getElementById('mt-duration-group');
   var endGrp = document.getElementById('mt-enddate-group');
   if (mode === 'duration') {
-    durBtn.style.cssText = activeStyle; endBtn.style.cssText = inactiveStyle;
-    durGrp.style.display = ''; endGrp.style.display = 'none';
+    durBtn.style.cssText = activeStyle;
+    endBtn.style.cssText = inactiveStyle;
+    durGrp.style.display = '';
+    endGrp.style.display = 'none';
   } else {
-    endBtn.style.cssText = activeStyle; durBtn.style.cssText = inactiveStyle;
-    endGrp.style.display = ''; durGrp.style.display = 'none';
+    endBtn.style.cssText = activeStyle;
+    durBtn.style.cssText = inactiveStyle;
+    endGrp.style.display = '';
+    durGrp.style.display = 'none';
   }
   updateMtDeadlinePreview();
 }
@@ -4839,7 +6599,15 @@ function updateMtDeadlinePreview() {
   var dl = getMtDeadline();
   if (dl) {
     var d = new Date(dl);
-    prev.textContent = '⏱ Ends: ' + d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    prev.textContent =
+      '⏱ Ends: ' +
+      d.toLocaleString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
   } else {
     prev.textContent = '';
   }
@@ -4847,7 +6615,10 @@ function updateMtDeadlinePreview() {
 
 function openMultiTask() {
   var role = state.currentUser ? state.currentUser.role : '';
-  if (role !== 'manager' && role !== 'admin') { toast('Only managers can create multi-personnel tasks.', 'error'); return; }
+  if (role !== 'manager' && role !== 'admin') {
+    toast('Only managers can create multi-personnel tasks.', 'error');
+    return;
+  }
   mtDescItems = [];
   _mtScheduleMode = 'duration';
   document.getElementById('mt-title').value = '';
@@ -4860,7 +6631,8 @@ function openMultiTask() {
   document.getElementById('mt-enddate').value = '';
   document.getElementById('multi-overlap-alert').classList.add('hidden');
   document.getElementById('multi-leave-alert').classList.add('hidden');
-  if (document.getElementById('mt-search')) document.getElementById('mt-search').value = '';
+  if (document.getElementById('mt-search'))
+    document.getElementById('mt-search').value = '';
   setMtScheduleMode('duration');
   renderMtDescItems();
   renderMtUserList('');
@@ -4871,19 +6643,44 @@ function openMultiTask() {
 // Store all users for filtering
 function renderMtUserList(filter) {
   var container = document.getElementById('mt-users');
-  var users = getUsers().filter(function (u) { return u.role === 'user' || u.role === 'manager'; });
+  var users = getUsers().filter(function (u) {
+    return u.role === 'user' || u.role === 'manager';
+  });
   var q = (filter || '').toLowerCase();
-  var filtered = q ? users.filter(function (u) {
-    return u.name.toLowerCase().includes(q) || u.username.toLowerCase().includes(q);
-  }) : users;
+  var filtered = q
+    ? users.filter(function (u) {
+      return (
+        u.name.toLowerCase().includes(q) ||
+        u.username.toLowerCase().includes(q)
+      );
+    })
+    : users;
   // Preserve checked state
   var checked = {};
-  container.querySelectorAll('input[type="checkbox"]').forEach(function (cb) { if (cb.checked) checked[cb.value] = true; });
-  container.innerHTML = filtered.map(function (u) {
-    var isChecked = checked[u.id] ? 'checked' : '';
-    return '<label class="multi-user-option"><input type="checkbox" value="' + escHtml(u.id) + '" ' + isChecked + ' onchange="checkMultiTaskConflicts();updateMtSelectedCount()"><div><div class="multi-user-label">' + escHtml(u.name) + '</div><div class="multi-user-sub">@' + escHtml(u.username) + ' — ' + u.role + '</div></div></label>';
-  }).join('');
-  if (filtered.length === 0) container.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text3);font-size:12px;">No team members found</div>';
+  container.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+    if (cb.checked) checked[cb.value] = true;
+  });
+  container.innerHTML = filtered
+    .map(function (u) {
+      var isChecked = checked[u.id] ? 'checked' : '';
+      return (
+        '<label class="multi-user-option"><input type="checkbox" value="' +
+        escHtml(u.id) +
+        '" ' +
+        isChecked +
+        ' onchange="checkMultiTaskConflicts();updateMtSelectedCount()"><div><div class="multi-user-label">' +
+        escHtml(u.name) +
+        '</div><div class="multi-user-sub">@' +
+        escHtml(u.username) +
+        ' — ' +
+        u.role +
+        '</div></div></label>'
+      );
+    })
+    .join('');
+  if (filtered.length === 0)
+    container.innerHTML =
+      '<div style="padding:12px;text-align:center;color:var(--text3);font-size:12px;">No team members found</div>';
 }
 
 function filterMtUsers(val) {
@@ -4892,20 +6689,30 @@ function filterMtUsers(val) {
 }
 
 function selectAllMtUsers() {
-  document.querySelectorAll('#mt-users input[type="checkbox"]').forEach(function (cb) { cb.checked = true; });
+  document
+    .querySelectorAll('#mt-users input[type="checkbox"]')
+    .forEach(function (cb) {
+      cb.checked = true;
+    });
   updateMtSelectedCount();
   checkMultiTaskConflicts();
 }
 
 function clearAllMtUsers() {
-  document.querySelectorAll('#mt-users input[type="checkbox"]').forEach(function (cb) { cb.checked = false; });
+  document
+    .querySelectorAll('#mt-users input[type="checkbox"]')
+    .forEach(function (cb) {
+      cb.checked = false;
+    });
   updateMtSelectedCount();
   document.getElementById('multi-overlap-alert').classList.add('hidden');
   document.getElementById('multi-leave-alert').classList.add('hidden');
 }
 
 function updateMtSelectedCount() {
-  var n = document.querySelectorAll('#mt-users input[type="checkbox"]:checked').length;
+  var n = document.querySelectorAll(
+    '#mt-users input[type="checkbox"]:checked',
+  ).length;
   var el = document.getElementById('mt-selected-count');
   if (el) el.textContent = n + ' selected';
 }
@@ -4914,7 +6721,9 @@ function openMultiTaskFor(userId) {
   openMultiTask();
   setTimeout(function () {
     var cb = document.querySelector('#mt-users input[value="' + userId + '"]');
-    if (cb) { cb.checked = true; }
+    if (cb) {
+      cb.checked = true;
+    }
   }, 100);
 }
 
@@ -4934,9 +6743,17 @@ function removeMtDescItem(idx) {
 
 function renderMtDescItems() {
   var container = document.getElementById('mt-desc-items');
-  container.innerHTML = mtDescItems.map(function (item, i) {
-    return '<div class="desc-item"><span>' + escHtml(item.text) + '</span><button onclick="removeMtDescItem(' + i + ')">✕</button></div>';
-  }).join('');
+  container.innerHTML = mtDescItems
+    .map(function (item, i) {
+      return (
+        '<div class="desc-item"><span>' +
+        escHtml(item.text) +
+        '</span><button onclick="removeMtDescItem(' +
+        i +
+        ')">✕</button></div>'
+      );
+    })
+    .join('');
 }
 
 function checkMultiTaskConflicts() {
@@ -4944,98 +6761,238 @@ function checkMultiTaskConflicts() {
   var start = document.getElementById('mt-start').value;
   var deadline = getMtDeadline();
   if (!start || !deadline) return;
-  var selectedIds = Array.from(document.querySelectorAll('#mt-users input:checked')).map(function (c) { return c.value; });
+  var selectedIds = Array.from(
+    document.querySelectorAll('#mt-users input:checked'),
+  ).map(function (c) {
+    return c.value;
+  });
   if (selectedIds.length === 0) return;
   var overlapMsgs = [];
   var leaveMsgs = [];
   var allTasks = getTasks();
-  var typeLabelsLeave = { lieu: 'Lieu Day', loa: 'Leave of Absence', awol: 'AWOL' };
+  var typeLabelsLeave = {
+    lieu: 'Lieu Day',
+    loa: 'Leave of Absence',
+    awol: 'AWOL',
+  };
   selectedIds.forEach(function (uid) {
-    var user = getUsers().find(function (u) { return u.id === uid; });
-    var userTasks = allTasks.filter(function (t) { return t.userId === uid && !t.cancelled && !t.done; });
-    var tempTask = { id: 'temp', start: new Date(start).toISOString(), deadline: new Date(deadline).toISOString() };
+    var user = getUsers().find(function (u) {
+      return u.id === uid;
+    });
+    var userTasks = allTasks.filter(function (t) {
+      return t.userId === uid && !t.cancelled && !t.done;
+    });
+    var tempTask = {
+      id: 'temp',
+      start: new Date(start).toISOString(),
+      deadline: new Date(deadline).toISOString(),
+    };
     var overlaps = checkTaskOverlap(tempTask, userTasks);
-    if (overlaps.length > 0) overlapMsgs.push((user ? user.name : uid) + ': conflicts with "' + overlaps.map(function (o) { return o.title; }).join('", "') + '"');
+    if (overlaps.length > 0)
+      overlapMsgs.push(
+        (user ? user.name : uid) +
+        ': conflicts with "' +
+        overlaps
+          .map(function (o) {
+            return o.title;
+          })
+          .join('", "') +
+        '"',
+      );
     var leaveConflicts = checkLeaveConflict(uid, start, deadline);
-    if (leaveConflicts.length > 0) leaveMsgs.push((user ? user.name : uid) + ' is on ' + leaveConflicts.map(function (l) { return typeLabelsLeave[l.type]; }).join(', '));
+    if (leaveConflicts.length > 0)
+      leaveMsgs.push(
+        (user ? user.name : uid) +
+        ' is on ' +
+        leaveConflicts
+          .map(function (l) {
+            return typeLabelsLeave[l.type];
+          })
+          .join(', '),
+      );
   });
   var overlapAlert = document.getElementById('multi-overlap-alert');
   var leaveAlert = document.getElementById('multi-leave-alert');
   if (overlapMsgs.length > 0) {
-    document.getElementById('multi-overlap-text').textContent = overlapMsgs.join(' | ');
+    document.getElementById('multi-overlap-text').textContent =
+      overlapMsgs.join(' | ');
     overlapAlert.classList.remove('hidden');
   } else overlapAlert.classList.add('hidden');
   if (leaveMsgs.length > 0) {
-    document.getElementById('multi-leave-text').textContent = leaveMsgs.join(' | ');
+    document.getElementById('multi-leave-text').textContent =
+      leaveMsgs.join(' | ');
     leaveAlert.classList.remove('hidden');
   } else leaveAlert.classList.add('hidden');
 }
 
 async function saveMultiTask() {
-  var _btn = document.querySelector('#multi-task-modal .btn-primary[onclick="saveMultiTask()"]');
+  var _btn = document.querySelector(
+    '#multi-task-modal .btn-primary[onclick="saveMultiTask()"]',
+  );
   if (!_lockOp('saveMultiTask', _btn, 'Assigning…')) return;
   var title = document.getElementById('mt-title').value.trim();
   var requestor = document.getElementById('mt-requestor').value.trim();
   var priority = parseInt(document.getElementById('mt-priority').value);
   var start = document.getElementById('mt-start').value;
   var deadline = getMtDeadline();
-  if (!title || !requestor || !start || !deadline) { toast('Please fill all required fields.', 'error'); _unlockOp('saveMultiTask', _btn); return; }
-  if (new Date(start) >= new Date(deadline)) { toast('End time must be after start time.', 'error'); _unlockOp('saveMultiTask', _btn); return; }
-
-  var _mwh = getWorkHours();
-  var _mStartHr = new Date(start).getHours() + new Date(start).getMinutes() / 60;
-  var _mEndHr = new Date(deadline).getHours() + new Date(deadline).getMinutes() / 60;
-  var _mPad = function (h) { return String(h).padStart(2, '0'); };
-  if (_mStartHr < _mwh.start || _mEndHr > _mwh.end || _mStartHr >= _mwh.end || _mEndHr <= _mwh.start) {
-    toast('Bookings must be within work hours: ' + _mPad(_mwh.start) + ':00 – ' + _mPad(_mwh.end) + ':00', 'error');
+  if (!title || !requestor || !start || !deadline) {
+    toast('Please fill all required fields.', 'error');
+    _unlockOp('saveMultiTask', _btn);
+    return;
+  }
+  if (new Date(start) >= new Date(deadline)) {
+    toast('End time must be after start time.', 'error');
     _unlockOp('saveMultiTask', _btn);
     return;
   }
 
-  var selectedIds = Array.from(document.querySelectorAll('#mt-users input:checked')).map(function (c) { return c.value; });
-  if (selectedIds.length === 0) { toast('Select at least one user.', 'error'); _unlockOp('saveMultiTask', _btn); return; }
+  var _mwh = getWorkHours();
+  var _mStartHr =
+    new Date(start).getHours() + new Date(start).getMinutes() / 60;
+  var _mEndHr =
+    new Date(deadline).getHours() + new Date(deadline).getMinutes() / 60;
+  var _mPad = function (h) {
+    return String(h).padStart(2, '0');
+  };
+  if (
+    _mStartHr < _mwh.start ||
+    _mEndHr > _mwh.end ||
+    _mStartHr >= _mwh.end ||
+    _mEndHr <= _mwh.start
+  ) {
+    toast(
+      'Bookings must be within work hours: ' +
+      _mPad(_mwh.start) +
+      ':00 – ' +
+      _mPad(_mwh.end) +
+      ':00',
+      'error',
+    );
+    _unlockOp('saveMultiTask', _btn);
+    return;
+  }
+
+  var selectedIds = Array.from(
+    document.querySelectorAll('#mt-users input:checked'),
+  ).map(function (c) {
+    return c.value;
+  });
+  if (selectedIds.length === 0) {
+    toast('Select at least one user.', 'error');
+    _unlockOp('saveMultiTask', _btn);
+    return;
+  }
 
   var tasks = getTasks();
   var assignedCount = 0;
   var skippedLeave = [];
   var groupId = 'mg-' + uid();
-  var visibleDesc = mtDescItems.map(function (d) { return { text: d.text, checked: false }; });
+  var visibleDesc = mtDescItems.map(function (d) {
+    return { text: d.text, checked: false };
+  });
   var groupMeta = _makeGroupMeta(groupId, selectedIds.slice());
   var description = _buildDesc(visibleDesc, groupMeta);
 
   for (var i = 0; i < selectedIds.length; i++) {
     var uid_val = selectedIds[i];
-    var user = getUsers().find(function (u) { return u.id === uid_val; });
+    var user = getUsers().find(function (u) {
+      return u.id === uid_val;
+    });
     var leaveConflicts = checkLeaveConflict(uid_val, start, deadline);
-    if (leaveConflicts.length > 0) { skippedLeave.push(user ? user.name : uid_val); continue; }
-    var existingTasks = tasks.filter(function (t) { return t.userId === uid_val && !t.cancelled && !t.done; });
-    var taskData = { title: title, requestor: requestor, priority: priority, start: new Date(start).toISOString(), deadline: new Date(deadline).toISOString(), description: description, isMultiPersonnel: true, multiGroupId: groupId };
+    if (leaveConflicts.length > 0) {
+      skippedLeave.push(user ? user.name : uid_val);
+      continue;
+    }
+    var existingTasks = tasks.filter(function (t) {
+      return t.userId === uid_val && !t.cancelled && !t.done;
+    });
+    var taskData = {
+      title: title,
+      requestor: requestor,
+      priority: priority,
+      start: new Date(start).toISOString(),
+      deadline: new Date(deadline).toISOString(),
+      description: description,
+      isMultiPersonnel: true,
+      multiGroupId: groupId,
+    };
     var overlapCheck = resolveOverlapsNew(taskData, existingTasks, uid_val);
-    if (overlapCheck.moved) { taskData.start = overlapCheck.newStart; taskData.deadline = overlapCheck.newDeadline; notifyManagerOfOverlap(Object.assign({}, taskData, { userId: uid_val }), overlapCheck.overlaps, true); }
-    else if (overlapCheck.overlaps && overlapCheck.overlaps.length > 0) { notifyManagerOfOverlap(Object.assign({}, taskData, { userId: uid_val }), overlapCheck.overlaps, false); }
+    if (overlapCheck.moved) {
+      taskData.start = overlapCheck.newStart;
+      taskData.deadline = overlapCheck.newDeadline;
+      notifyManagerOfOverlap(
+        Object.assign({}, taskData, { userId: uid_val }),
+        overlapCheck.overlaps,
+        true,
+      );
+    } else if (overlapCheck.overlaps && overlapCheck.overlaps.length > 0) {
+      notifyManagerOfOverlap(
+        Object.assign({}, taskData, { userId: uid_val }),
+        overlapCheck.overlaps,
+        false,
+      );
+    }
     try {
-      var newTask = await API.post('/tasks', Object.assign({}, taskData, { userId: uid_val }));
+      var newTask = await API.post(
+        '/tasks',
+        Object.assign({}, taskData, { userId: uid_val }),
+      );
       if (!cache.tasks) cache.tasks = [];
       if (newTask) cache.tasks.push(newTask);
-      pushNotification(uid_val, '📌 Multi-Personnel Task Assigned', '"' + title + '" has been assigned to you by ' + state.currentUser.name + '.', newTask?.id);
-      if (newTask) addLog({ taskId: newTask.id, taskTitle: newTask.title, action: 'added', actorName: state.currentUser.name, userId: uid_val });
+      pushNotification(
+        uid_val,
+        '📌 Multi-Personnel Task Assigned',
+        '"' +
+        title +
+        '" has been assigned to you by ' +
+        state.currentUser.name +
+        '.',
+        newTask?.id,
+      );
+      if (newTask)
+        addLog({
+          taskId: newTask.id,
+          taskTitle: newTask.title,
+          action: 'added',
+          actorName: state.currentUser.name,
+          userId: uid_val,
+        });
       assignedCount++;
-    } catch (e) { console.error('Failed to assign to', uid_val, e); }
+    } catch (e) {
+      console.error('Failed to assign to', uid_val, e);
+    }
   }
 
   _unlockOp('saveMultiTask', _btn);
   closeModal('multi-task-modal');
-  if (skippedLeave.length > 0) toast('Task assigned to ' + assignedCount + ' user(s). Skipped: ' + skippedLeave.join(', ') + ' (on leave).', 'warning');
+  if (skippedLeave.length > 0)
+    toast(
+      'Task assigned to ' +
+      assignedCount +
+      ' user(s). Skipped: ' +
+      skippedLeave.join(', ') +
+      ' (on leave).',
+      'warning',
+    );
   else toast('Task assigned to ' + assignedCount + ' user(s)! ✓', 'success');
   if (state.view === 'calendar') renderCalendarDebounced();
   else if (state.view === 'user-list') renderUserList();
-  else { var userId = state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id; if (state.currentViewMode === 'timeline') renderTimeline(userId); else renderTasks(userId); }
+  else {
+    var userId =
+      state.view === 'user-tasks' ? state.targetUserId : state.currentUser.id;
+    if (state.currentViewMode === 'timeline') renderTimeline(userId);
+    else renderTasks(userId);
+  }
 }
 
 /* ============================================================
    TABLE-BASED CALENDAR
    ============================================================ */
-var calState = { year: new Date().getFullYear(), month: new Date().getMonth(), zoom: 'day' };
+var calState = {
+  year: new Date().getFullYear(),
+  month: new Date().getMonth(),
+  zoom: 'day',
+};
 
 /**
  * Debounced version of renderCalendar.
@@ -5043,7 +7000,9 @@ var calState = { year: new Date().getFullYear(), month: new Date().getMonth(), z
  * data changes (task save, cancel, reopen, leave update etc.)
  * so rapid successive calls are collapsed into one paint.
  */
-var renderCalendarDebounced = debounce(function () { renderCalendar(); }, CONFIG.DEBOUNCE_RENDER_MS);
+var renderCalendarDebounced = debounce(function () {
+  renderCalendar();
+}, CONFIG.DEBOUNCE_RENDER_MS);
 var _calColWidth = 80; // px — default column width for zoom
 
 function calZoom(dir) {
@@ -5053,7 +7012,10 @@ function calZoom(dir) {
   if (idx === -1) idx = 2; // default to 80
   idx = Math.max(0, Math.min(steps.length - 1, idx + dir));
   _calColWidth = steps[idx];
-  document.documentElement.style.setProperty('--cal-col-w', _calColWidth + 'px');
+  document.documentElement.style.setProperty(
+    '--cal-col-w',
+    _calColWidth + 'px',
+  );
 }
 
 function calToggleZoom() {
@@ -5069,8 +7031,14 @@ function calNav(dir) {
     calState.year += dir;
   } else {
     calState.month += dir;
-    if (calState.month > 11) { calState.month = 0; calState.year++; }
-    if (calState.month < 0) { calState.month = 11; calState.year--; }
+    if (calState.month > 11) {
+      calState.month = 0;
+      calState.year++;
+    }
+    if (calState.month < 0) {
+      calState.month = 11;
+      calState.year--;
+    }
   }
   renderCalendar();
 }
@@ -5093,7 +7061,9 @@ function calNavigateToTask(task) {
       if (card) {
         card.scrollIntoView({ behavior: 'smooth', block: 'center' });
         card.style.outline = '2px solid var(--amber)';
-        setTimeout(function () { card.style.outline = ''; }, 3000);
+        setTimeout(function () {
+          card.style.outline = '';
+        }, 3000);
         // Auto-expand the card
         var expandSection = document.getElementById('expand-' + taskId);
         if (expandSection && !expandSection.classList.contains('open')) {
@@ -5127,7 +7097,11 @@ function calGoToday() {
   setTimeout(function () {
     var todayCol = document.querySelector('#cal-dates-panel .today-col');
     if (todayCol) {
-      todayCol.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      todayCol.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center',
+      });
     }
   }, 80);
 }
@@ -5142,28 +7116,38 @@ document.addEventListener('DOMContentLoaded', function () {
     var _swipeStartY = 0;
     var _swipeOnStrip = false; // swipe started on week-strip (chip area)
 
-    document.addEventListener('touchstart', function (e) {
-      var cv = document.getElementById('calendar-view');
-      if (!cv || cv.classList.contains('hidden')) return;
-      _swipeStartX = e.touches[0].clientX;
-      _swipeStartY = e.touches[0].clientY;
-      // Only allow month-swipe when touching the calendar header area or week strip
-      var strip = document.getElementById('cal-week-strip');
-      var header = document.querySelector('#calendar-view .calendar-header');
-      _swipeOnStrip = (strip && strip.contains(e.target)) || (header && header.contains(e.target));
-    }, { passive: true });
+    document.addEventListener(
+      'touchstart',
+      function (e) {
+        var cv = document.getElementById('calendar-view');
+        if (!cv || cv.classList.contains('hidden')) return;
+        _swipeStartX = e.touches[0].clientX;
+        _swipeStartY = e.touches[0].clientY;
+        // Only allow month-swipe when touching the calendar header area or week strip
+        var strip = document.getElementById('cal-week-strip');
+        var header = document.querySelector('#calendar-view .calendar-header');
+        _swipeOnStrip =
+          (strip && strip.contains(e.target)) ||
+          (header && header.contains(e.target));
+      },
+      { passive: true },
+    );
 
-    document.addEventListener('touchend', function (e) {
-      var cv = document.getElementById('calendar-view');
-      if (!cv || cv.classList.contains('hidden')) return;
-      if (!_swipeOnStrip) return; // only navigate from header / strip area
-      var dx = e.changedTouches[0].clientX - _swipeStartX;
-      var dy = e.changedTouches[0].clientY - _swipeStartY;
-      if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.8) {
-        if (dx < 0) calNav(1);
-        else calNav(-1);
-      }
-    }, { passive: true });
+    document.addEventListener(
+      'touchend',
+      function (e) {
+        var cv = document.getElementById('calendar-view');
+        if (!cv || cv.classList.contains('hidden')) return;
+        if (!_swipeOnStrip) return; // only navigate from header / strip area
+        var dx = e.changedTouches[0].clientX - _swipeStartX;
+        var dy = e.changedTouches[0].clientY - _swipeStartY;
+        if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.8) {
+          if (dx < 0) calNav(1);
+          else calNav(-1);
+        }
+      },
+      { passive: true },
+    );
   })();
 });
 
@@ -5172,20 +7156,28 @@ document.addEventListener('DOMContentLoaded', function () {
    ============================================================ */
 const TaskTooltip = (function () {
   const PCOLORS = {
-    '1': '#EF4444', '2': '#FB923C', '3': '#F59E0B', '4': '#38BDF8', '5': '#64748B'
+    1: '#EF4444',
+    2: '#FB923C',
+    3: '#F59E0B',
+    4: '#38BDF8',
+    5: '#64748B',
   };
-  const PLABELS = { '1': 'P1', '2': 'P2', '3': 'P3', '4': 'P4', '5': 'P5' };
+  const PLABELS = { 1: 'P1', 2: 'P2', 3: 'P3', 4: 'P4', 5: 'P5' };
 
   let _tip = null;
   let _hideTimer = null;
   let _currentTaskId = null;
-  const isMobile = () => window.innerWidth <= 768 || ('ontouchstart' in window);
+  const isMobile = () => window.innerWidth <= 768 || 'ontouchstart' in window;
 
   function _buildHTML(task) {
     const desc = _visibleDesc(task.description || []);
     const total = desc.length;
-    const checked = desc.filter(d => d.checked).length;
-    const pct = task.done ? 100 : (total > 0 ? Math.round((checked / total) * 100) : 0);
+    const checked = desc.filter((d) => d.checked).length;
+    const pct = task.done
+      ? 100
+      : total > 0
+        ? Math.round((checked / total) * 100)
+        : 0;
     const pColor = PCOLORS[task.priority] || '#F59E0B';
     const pLabel = PLABELS[task.priority] || 'P3';
 
@@ -5197,26 +7189,40 @@ const TaskTooltip = (function () {
     const daysLeft = Math.ceil((te - now) / 86400000);
 
     function fmt(d) {
-      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
-        ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+      return (
+        d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
+        ' ' +
+        d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+      );
     }
 
-    const deadlineClass = isOverdue ? 'danger' : (daysLeft <= 1 ? 'warn' : 'ok');
-    const deadlineText = isOverdue ? 'OVERDUE' : (isToday ? 'Today' : (daysLeft + 'd left'));
+    const deadlineClass = isOverdue ? 'danger' : daysLeft <= 1 ? 'warn' : 'ok';
+    const deadlineText = isOverdue
+      ? 'OVERDUE'
+      : isToday
+        ? 'Today'
+        : daysLeft + 'd left';
 
     // Checklist preview (up to 4 items)
     const previewItems = desc.slice(0, 4);
     const moreCount = Math.max(0, desc.length - 4);
-    const checklistHtml = previewItems.length > 0 ? `
+    const checklistHtml =
+      previewItems.length > 0
+        ? `
       <div class="tt-divider"></div>
       <div class="tt-checklist">
-        ${previewItems.map(item => `
+        ${previewItems
+          .map(
+            (item) => `
           <div class="tt-check-item${item.checked ? ' done' : ''}">
             <div class="tt-check-dot${item.checked ? ' done' : ''}"></div>
             <span>${escHtml(item.text || item)}</span>
-          </div>`).join('')}
+          </div>`,
+          )
+          .join('')}
         ${moreCount > 0 ? `<div class="tt-more-items">+${moreCount} more item${moreCount > 1 ? 's' : ''}</div>` : ''}
-      </div>` : '';
+      </div>`
+        : '';
 
     return `
       <style>#tf-task-tooltip { --tt-accent: ${pColor}; }</style>
@@ -5236,10 +7242,11 @@ const TaskTooltip = (function () {
       </div>
       <div class="tt-row">
         <span class="tt-label">Status</span>
-        <span class="tt-value ${deadlineClass}">${task.done ? '✓ Completed' : (task.cancelled ? '✕ Cancelled' : deadlineText)}</span>
+        <span class="tt-value ${deadlineClass}">${task.done ? '✓ Completed' : task.cancelled ? '✕ Cancelled' : deadlineText}</span>
       </div>
       ${task.requestor ? `<div class="tt-row"><span class="tt-label">From</span><span class="tt-value">${escHtml(task.requestor)}</span></div>` : ''}
-      ${total > 0 ? `
+      ${total > 0
+        ? `
       <div class="tt-divider"></div>
       <div class="tt-row">
         <span class="tt-label">Progress</span>
@@ -5247,13 +7254,18 @@ const TaskTooltip = (function () {
       </div>
       <div class="tt-progress-wrap">
         <div class="tt-progress-bar" style="width:${pct}%;background:${task.done ? '#22C55E' : pColor}"></div>
-      </div>` : ''}
+      </div>`
+        : ''
+      }
       ${checklistHtml}
       ${task.isMultiPersonnel ? '<div class="tt-requestor">👥 Multi-personnel task</div>' : ''}`;
   }
 
   function show(task, anchorEl) {
-    if (isMobile()) { _showMobile(task); return; }
+    if (isMobile()) {
+      _showMobile(task);
+      return;
+    }
     clearTimeout(_hideTimer);
     _currentTaskId = task.id;
 
@@ -5265,7 +7277,8 @@ const TaskTooltip = (function () {
 
     // Position tooltip near the anchor element
     const rect = anchorEl.getBoundingClientRect();
-    const TW = 310, TH = 220;
+    const TW = 310,
+      TH = 220;
     let left = rect.right + 10;
     let top = rect.top - 10;
 
@@ -5279,7 +7292,10 @@ const TaskTooltip = (function () {
   }
 
   function hide(delay) {
-    if (isMobile()) { _hideMobile(); return; }
+    if (isMobile()) {
+      _hideMobile();
+      return;
+    }
     delay = delay || 0;
     clearTimeout(_hideTimer);
     _hideTimer = setTimeout(function () {
@@ -5295,16 +7311,30 @@ const TaskTooltip = (function () {
     const pColor = PCOLORS[task.priority] || '#F59E0B';
     const desc = _visibleDesc(task.description || []);
     const total = desc.length;
-    const checked = desc.filter(d => d.checked).length;
-    const pct = task.done ? 100 : (total > 0 ? Math.round((checked / total) * 100) : 0);
+    const checked = desc.filter((d) => d.checked).length;
+    const pct = task.done
+      ? 100
+      : total > 0
+        ? Math.round((checked / total) * 100)
+        : 0;
     const te = new Date(task.deadline);
     const now = new Date();
     const isOverdue = !task.done && te < now;
 
-    document.getElementById('ttm-title') && (document.getElementById('ttm-title').textContent = task.title);
+    document.getElementById('ttm-title') &&
+      (document.getElementById('ttm-title').textContent = task.title);
     document.getElementById('ttm-meta').textContent =
-      'P' + task.priority + ' · ' +
-      (task.done ? 'Done' : (isOverdue ? 'OVERDUE' : te.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })));
+      'P' +
+      task.priority +
+      ' · ' +
+      (task.done
+        ? 'Done'
+        : isOverdue
+          ? 'OVERDUE'
+          : te.toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+          }));
     const bar = document.getElementById('ttm-bar');
     bar.style.width = pct + '%';
     bar.style.background = task.done ? '#22C55E' : pColor;
@@ -5320,7 +7350,9 @@ const TaskTooltip = (function () {
     const mob = document.getElementById('tf-task-tooltip-mobile');
     if (!mob) return;
     mob.classList.remove('visible');
-    setTimeout(() => { if (mob) mob.style.display = 'none'; }, 200);
+    setTimeout(() => {
+      if (mob) mob.style.display = 'none';
+    }, 200);
   }
 
   return { show, hide };
@@ -5332,34 +7364,50 @@ document.addEventListener('DOMContentLoaded', function () {
     var _pendingShow = null;
 
     // Desktop: mouseenter/mouseleave
-    document.addEventListener('mouseenter', function (e) {
-      var block = e.target.closest('.cal-block[data-taskid]');
-      if (!block) return;
-      var taskId = block.dataset.taskid;
-      var task = (getTasks ? getTasks() : []).find(function (t) { return t.id === taskId; });
-      if (!task) return;
-      clearTimeout(_pendingShow);
-      _pendingShow = setTimeout(function () {
-        TaskTooltip.show(task, block);
-      }, 180);
-    }, true);
+    document.addEventListener(
+      'mouseenter',
+      function (e) {
+        var block = e.target.closest('.cal-block[data-taskid]');
+        if (!block) return;
+        var taskId = block.dataset.taskid;
+        var task = (getTasks ? getTasks() : []).find(function (t) {
+          return t.id === taskId;
+        });
+        if (!task) return;
+        clearTimeout(_pendingShow);
+        _pendingShow = setTimeout(function () {
+          TaskTooltip.show(task, block);
+        }, 180);
+      },
+      true,
+    );
 
-    document.addEventListener('mouseleave', function (e) {
-      var block = e.target.closest('.cal-block[data-taskid]');
-      if (!block) return;
-      clearTimeout(_pendingShow);
-      TaskTooltip.hide(120);
-    }, true);
+    document.addEventListener(
+      'mouseleave',
+      function (e) {
+        var block = e.target.closest('.cal-block[data-taskid]');
+        if (!block) return;
+        clearTimeout(_pendingShow);
+        TaskTooltip.hide(120);
+      },
+      true,
+    );
 
     // Mobile: touchstart on block shows hint briefly, touchend opens task
-    document.addEventListener('touchstart', function (e) {
-      var block = e.target.closest('.cal-block[data-taskid]');
-      if (!block) return;
-      var taskId = block.dataset.taskid;
-      var task = (getTasks ? getTasks() : []).find(function (t) { return t.id === taskId; });
-      if (!task) return;
-      TaskTooltip.show(task, block);
-    }, { passive: true });
+    document.addEventListener(
+      'touchstart',
+      function (e) {
+        var block = e.target.closest('.cal-block[data-taskid]');
+        if (!block) return;
+        var taskId = block.dataset.taskid;
+        var task = (getTasks ? getTasks() : []).find(function (t) {
+          return t.id === taskId;
+        });
+        if (!task) return;
+        TaskTooltip.show(task, block);
+      },
+      { passive: true },
+    );
   })();
 });
 
@@ -5377,21 +7425,46 @@ function buildCalWeekStrip(year, month, todayStr, users, allTasks, allLeaves) {
 
   var daysInMonth = new Date(year, month + 1, 0).getDate();
   var dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  var pColors = { '1': '#EF4444', '2': '#FB923C', '3': '#F59E0B', '4': '#38BDF8', '5': '#64748B' };
+  var pColors = {
+    1: '#EF4444',
+    2: '#FB923C',
+    3: '#F59E0B',
+    4: '#38BDF8',
+    5: '#64748B',
+  };
 
   strip.innerHTML = '';
   strip.classList.remove('hidden');
 
   // Month label chip at start
-  var monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var monthNames = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
   var monthLabel = document.createElement('div');
-  monthLabel.style.cssText = 'font-size:10px;font-weight:800;color:var(--amber);writing-mode:vertical-lr;transform:rotate(180deg);padding:0 6px 6px;letter-spacing:0.06em;text-transform:uppercase;flex-shrink:0;';
+  monthLabel.style.cssText =
+    'font-size:10px;font-weight:800;color:var(--amber);writing-mode:vertical-lr;transform:rotate(180deg);padding:0 6px 6px;letter-spacing:0.06em;text-transform:uppercase;flex-shrink:0;';
   monthLabel.textContent = monthNames[month];
   strip.appendChild(monthLabel);
 
   for (var d = 1; d <= daysInMonth; d++) {
     var date = new Date(year, month, d);
-    var dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    var dateStr =
+      year +
+      '-' +
+      String(month + 1).padStart(2, '0') +
+      '-' +
+      String(d).padStart(2, '0');
     var dow = date.getDay();
     var isToday = dateStr === todayStr;
     var isWeekend = dow === 0 || dow === 6;
@@ -5402,8 +7475,10 @@ function buildCalWeekStrip(year, month, todayStr, users, allTasks, allLeaves) {
       allTasks.forEach(function (t) {
         var ts = new Date(t.start || t.createdAt);
         var te = new Date(t.deadline);
-        var ds = new Date(date); ds.setHours(0, 0, 0, 0);
-        var de = new Date(date); de.setHours(23, 59, 59, 999);
+        var ds = new Date(date);
+        ds.setHours(0, 0, 0, 0);
+        var de = new Date(date);
+        de.setHours(23, 59, 59, 999);
         if (ts <= de && te >= ds && dots.length < 3) {
           dots.push(pColors[t.priority] || pColors['3']);
         }
@@ -5414,14 +7489,22 @@ function buildCalWeekStrip(year, month, todayStr, users, allTasks, allLeaves) {
         var sd = l.startDate || '';
         var ed = l.endDate || '';
         if (sd <= dateStr && ed >= dateStr && dots.length < 3) {
-          var c = l.type === 'lieu' ? '#10B981' : (l.type === 'loa' ? '#3B82F6' : '#EF4444');
+          var c =
+            l.type === 'lieu'
+              ? '#10B981'
+              : l.type === 'loa'
+                ? '#3B82F6'
+                : '#EF4444';
           dots.push(c);
         }
       });
     }
 
     var chip = document.createElement('div');
-    chip.className = 'cal-week-chip' + (isToday ? ' today-chip' : '') + (isWeekend ? ' weekend-chip' : '');
+    chip.className =
+      'cal-week-chip' +
+      (isToday ? ' today-chip' : '') +
+      (isWeekend ? ' weekend-chip' : '');
     chip.dataset.dateStr = dateStr;
 
     var dayEl = document.createElement('div');
@@ -5453,12 +7536,22 @@ function buildCalWeekStrip(year, month, todayStr, users, allTasks, allLeaves) {
     chip.appendChild(dotsEl);
 
     // Tap: scroll that date column into view
-    chip.addEventListener('click', (function (ds) {
-      return function () {
-        var col = document.querySelector('#cal-dates-panel th[data-date="' + ds + '"]');
-        if (col) col.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-      };
-    })(dateStr));
+    chip.addEventListener(
+      'click',
+      (function (ds) {
+        return function () {
+          var col = document.querySelector(
+            '#cal-dates-panel th[data-date="' + ds + '"]',
+          );
+          if (col)
+            col.scrollIntoView({
+              behavior: 'smooth',
+              block: 'nearest',
+              inline: 'center',
+            });
+        };
+      })(dateStr),
+    );
 
     strip.appendChild(chip);
   }
@@ -5466,11 +7559,14 @@ function buildCalWeekStrip(year, month, todayStr, users, allTasks, allLeaves) {
   // Scroll today's chip into center
   requestAnimationFrame(function () {
     var todayChip = strip.querySelector('.today-chip');
-    if (todayChip) todayChip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    if (todayChip)
+      todayChip.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center',
+      });
   });
 }
-
-
 
 /* ============================================================
    CALENDAR USER TOOLTIP
@@ -5480,7 +7576,7 @@ function showCalUserTooltip(user, tdEl) {
   hideCalUserTooltip();
   const year = calState.year;
   const month = calState.month;
-  const leaves = getLeaves().filter(l => l.userId === user.id);
+  const leaves = getLeaves().filter((l) => l.userId === user.id);
 
   // Count working days this month (Mon-Fri, minus AWOL)
   const workDays = countMonthlyWorkingDays(user.id, year, month);
@@ -5496,13 +7592,22 @@ function showCalUserTooltip(user, tdEl) {
 
   // AWOL count this month
   const monthStr = year + '-' + String(month + 1).padStart(2, '0');
-  const awolDays = leaves.filter(l => l.type === 'awol' &&
-    l.startDate && l.startDate.startsWith(monthStr)).reduce((sum, l) => sum + countWorkingDays(l.startDate, l.endDate), 0);
+  const awolDays = leaves
+    .filter(
+      (l) =>
+        l.type === 'awol' && l.startDate && l.startDate.startsWith(monthStr),
+    )
+    .reduce((sum, l) => sum + countWorkingDays(l.startDate, l.endDate), 0);
 
   const s = getCompanySettings();
-  const weekendNote = (s.satWorking || s.sunWorking) ?
-    '<div style="margin-top:4px;font-size:10px;color:#F59E0B;">Weekend working: ' +
-    [s.satWorking ? 'Sat' : '', s.sunWorking ? 'Sun' : ''].filter(Boolean).join('+') + '</div>' : '';
+  const weekendNote =
+    s.satWorking || s.sunWorking
+      ? '<div style="margin-top:4px;font-size:10px;color:#F59E0B;">Weekend working: ' +
+      [s.satWorking ? 'Sat' : '', s.sunWorking ? 'Sun' : '']
+        .filter(Boolean)
+        .join('+') +
+      '</div>'
+      : '';
 
   const html = `
     <div style="font-family:monospace;font-size:12px;">
@@ -5528,10 +7633,18 @@ function showCalUserTooltip(user, tdEl) {
   const tip = document.createElement('div');
   tip.id = 'cal-user-tooltip';
   tip.style.cssText = [
-    'position:fixed', 'z-index:9999', 'background:#0F1117', 'border:1px solid #2A2D38',
-    'border-radius:10px', 'padding:14px 16px', 'pointer-events:none',
-    'box-shadow:0 8px 32px rgba(0,0,0,0.6)', 'min-width:200px', 'max-width:260px',
-    'transition:opacity .15s ease', 'opacity:0'
+    'position:fixed',
+    'z-index:9999',
+    'background:#0F1117',
+    'border:1px solid #2A2D38',
+    'border-radius:10px',
+    'padding:14px 16px',
+    'pointer-events:none',
+    'box-shadow:0 8px 32px rgba(0,0,0,0.6)',
+    'min-width:200px',
+    'max-width:260px',
+    'transition:opacity .15s ease',
+    'opacity:0',
   ].join(';');
   tip.innerHTML = html;
   document.body.appendChild(tip);
@@ -5542,17 +7655,22 @@ function showCalUserTooltip(user, tdEl) {
   let left = rect.right + 8;
   let top = rect.top;
   // Keep within viewport
-  const tw = 260; const th = 180;
+  const tw = 260;
+  const th = 180;
   if (left + tw > window.innerWidth - 10) left = rect.left - tw - 8;
   if (top + th > window.innerHeight - 10) top = window.innerHeight - th - 10;
   tip.style.left = left + 'px';
   tip.style.top = Math.max(10, top) + 'px';
-  requestAnimationFrame(() => { tip.style.opacity = '1'; });
+  requestAnimationFrame(() => {
+    tip.style.opacity = '1';
+  });
 }
 function hideCalUserTooltip() {
-  if (_calTooltipEl) { _calTooltipEl.remove(); _calTooltipEl = null; }
+  if (_calTooltipEl) {
+    _calTooltipEl.remove();
+    _calTooltipEl = null;
+  }
 }
-
 
 /* ============================================================
    CALENDAR YEAR VIEW — iPhone-style mini month grids
@@ -5571,16 +7689,38 @@ function renderCalendarYearView() {
   var today = new Date();
   var allTasks = getTasks();
   var allLeaves = getLeaves();
-  var isPersonal = state.calendarMode === 'personal' || (state.currentUser.role === 'user' && state.calendarMode !== 'team');
+  var isPersonal =
+    state.calendarMode === 'personal' ||
+    (state.currentUser.role === 'user' && state.calendarMode !== 'team');
   var viewUserId = isPersonal ? state.currentUser.id : null;
-  var monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  var monthNames = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
   var dayLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-  var pColors = { '1': '#EF4444', '2': '#FB923C', '3': '#FBBF24', '4': '#60A5FA', '5': '#9CA3AF' };
+  var pColors = {
+    1: '#EF4444',
+    2: '#FB923C',
+    3: '#FBBF24',
+    4: '#60A5FA',
+    5: '#9CA3AF',
+  };
   var leaveColors = { lieu: '#10B981', loa: '#3B82F6', awol: '#EF4444' };
 
   var grid = document.createElement('div');
   grid.id = 'cal-year-grid';
-  grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px;padding:16px;overflow-y:auto;';
+  grid.style.cssText =
+    'display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px;padding:16px;overflow-y:auto;';
 
   for (var m = 0; m < 12; m++) {
     var isCurrentMonth = today.getFullYear() === year && today.getMonth() === m;
@@ -5588,9 +7728,18 @@ function renderCalendarYearView() {
     var firstDow = new Date(year, m, 1).getDay();
 
     var card = document.createElement('div');
-    card.style.cssText = 'background:var(--bg3);border:1px solid ' + (isCurrentMonth ? 'var(--amber)' : 'var(--border)') + ';border-radius:12px;padding:12px;cursor:pointer;transition:all .15s;';
-    card.onmouseenter = function () { this.style.transform = 'translateY(-2px)'; this.style.boxShadow = '0 6px 24px rgba(0,0,0,0.3)'; };
-    card.onmouseleave = function () { this.style.transform = ''; this.style.boxShadow = ''; };
+    card.style.cssText =
+      'background:var(--bg3);border:1px solid ' +
+      (isCurrentMonth ? 'var(--amber)' : 'var(--border)') +
+      ';border-radius:12px;padding:12px;cursor:pointer;transition:all .15s;';
+    card.onmouseenter = function () {
+      this.style.transform = 'translateY(-2px)';
+      this.style.boxShadow = '0 6px 24px rgba(0,0,0,0.3)';
+    };
+    card.onmouseleave = function () {
+      this.style.transform = '';
+      this.style.boxShadow = '';
+    };
     (function (mo) {
       card.onclick = function () {
         calState.month = mo;
@@ -5602,23 +7751,30 @@ function renderCalendarYearView() {
     })(m);
 
     var title = document.createElement('div');
-    title.style.cssText = 'font-size:13px;font-weight:800;color:' + (isCurrentMonth ? 'var(--amber)' : 'var(--text)') + ';margin-bottom:8px;';
+    title.style.cssText =
+      'font-size:13px;font-weight:800;color:' +
+      (isCurrentMonth ? 'var(--amber)' : 'var(--text)') +
+      ';margin-bottom:8px;';
     title.textContent = monthNames[m];
     card.appendChild(title);
 
     var dowRow = document.createElement('div');
-    dowRow.style.cssText = 'display:grid;grid-template-columns:repeat(7,1fr);gap:1px;margin-bottom:4px;';
+    dowRow.style.cssText =
+      'display:grid;grid-template-columns:repeat(7,1fr);gap:1px;margin-bottom:4px;';
     dayLetters.forEach(function (l) {
       var h = document.createElement('div');
-      h.style.cssText = 'font-size:8px;color:var(--text3);text-align:center;font-weight:700;';
+      h.style.cssText =
+        'font-size:8px;color:var(--text3);text-align:center;font-weight:700;';
       h.textContent = l;
       dowRow.appendChild(h);
     });
     card.appendChild(dowRow);
 
     var daysGrid = document.createElement('div');
-    daysGrid.style.cssText = 'display:grid;grid-template-columns:repeat(7,1fr);gap:1px;';
-    for (var e = 0; e < firstDow; e++) daysGrid.appendChild(document.createElement('div'));
+    daysGrid.style.cssText =
+      'display:grid;grid-template-columns:repeat(7,1fr);gap:1px;';
+    for (var e = 0; e < firstDow; e++)
+      daysGrid.appendChild(document.createElement('div'));
 
     for (var d = 1; d <= daysInMonth; d++) {
       (function (day, mo2) {
@@ -5631,34 +7787,73 @@ function renderCalendarYearView() {
         if (viewUserId) {
           var dStart = new Date(year, mo2, day, 0, 0, 0);
           var dEnd = new Date(year, mo2, day, 23, 59, 59);
-          allTasks.filter(function (t) { return t.userId === viewUserId && !t.cancelled; }).forEach(function (t) {
-            var ts = new Date(t.start || t.createdAt); var te = new Date(t.deadline);
-            if (ts <= dEnd && te >= dStart) dots.push(pColors[String(t.priority)] || '#FBBF24');
-          });
-          allLeaves.filter(function (l) { return l.userId === viewUserId && l.startDate <= dayStr && l.endDate >= dayStr; })
-            .forEach(function (l) { dots.push(leaveColors[l.type] || '#888'); });
+          allTasks
+            .filter(function (t) {
+              return t.userId === viewUserId && !t.cancelled;
+            })
+            .forEach(function (t) {
+              var ts = new Date(t.start || t.createdAt);
+              var te = new Date(t.deadline);
+              if (ts <= dEnd && te >= dStart)
+                dots.push(pColors[String(t.priority)] || '#FBBF24');
+            });
+          allLeaves
+            .filter(function (l) {
+              return (
+                l.userId === viewUserId &&
+                l.startDate <= dayStr &&
+                l.endDate >= dayStr
+              );
+            })
+            .forEach(function (l) {
+              dots.push(leaveColors[l.type] || '#888');
+            });
         } else {
           var dStart2 = new Date(year, mo2, day, 0, 0, 0);
           var dEnd2 = new Date(year, mo2, day, 23, 59, 59);
-          if (allTasks.some(function (t) { if (t.cancelled) return false; var ts = new Date(t.start || t.createdAt), te = new Date(t.deadline); return ts <= dEnd2 && te >= dStart2; })) dots.push('var(--amber)');
-          if (allLeaves.some(function (l) { return l.startDate <= dayStr && l.endDate >= dayStr; })) dots.push('#10B981');
+          if (
+            allTasks.some(function (t) {
+              if (t.cancelled) return false;
+              var ts = new Date(t.start || t.createdAt),
+                te = new Date(t.deadline);
+              return ts <= dEnd2 && te >= dStart2;
+            })
+          )
+            dots.push('var(--amber)');
+          if (
+            allLeaves.some(function (l) {
+              return l.startDate <= dayStr && l.endDate >= dayStr;
+            })
+          )
+            dots.push('#10B981');
         }
 
         var cell = document.createElement('div');
-        cell.style.cssText = 'display:flex;flex-direction:column;align-items:center;padding:1px 0;' + (isWknd && !isToday ? 'opacity:0.45;' : '');
+        cell.style.cssText =
+          'display:flex;flex-direction:column;align-items:center;padding:1px 0;' +
+          (isWknd && !isToday ? 'opacity:0.45;' : '');
         if (isToday) {
           cell.style.cssText += 'background:var(--amber);border-radius:50%;';
         }
         var num = document.createElement('div');
-        num.style.cssText = 'font-size:9px;font-weight:' + (isToday ? '800' : '400') + ';color:' + (isToday ? 'var(--bg)' : 'var(--text2)') + ';width:16px;height:14px;display:flex;align-items:center;justify-content:center;';
+        num.style.cssText =
+          'font-size:9px;font-weight:' +
+          (isToday ? '800' : '400') +
+          ';color:' +
+          (isToday ? 'var(--bg)' : 'var(--text2)') +
+          ';width:16px;height:14px;display:flex;align-items:center;justify-content:center;';
         num.textContent = day;
         cell.appendChild(num);
         if (dots.length > 0) {
           var dr = document.createElement('div');
-          dr.style.cssText = 'display:flex;gap:1px;justify-content:center;margin-top:1px;';
+          dr.style.cssText =
+            'display:flex;gap:1px;justify-content:center;margin-top:1px;';
           dots.slice(0, 3).forEach(function (c) {
             var dot = document.createElement('div');
-            dot.style.cssText = 'width:3px;height:3px;border-radius:50%;background:' + c + ';flex-shrink:0;';
+            dot.style.cssText =
+              'width:3px;height:3px;border-radius:50%;background:' +
+              c +
+              ';flex-shrink:0;';
             dr.appendChild(dot);
           });
           cell.appendChild(dr);
@@ -5691,13 +7886,30 @@ function renderCalendar() {
   if (splitWrapper) splitWrapper.style.display = 'flex';
   if (legacyTable) legacyTable.style.display = 'none';
 
-  var isPersonal = state.calendarMode === 'personal' || (state.currentUser.role === 'user' && state.calendarMode !== 'team');
-  var isElevated = state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
+  var isPersonal =
+    state.calendarMode === 'personal' ||
+    (state.currentUser.role === 'user' && state.calendarMode !== 'team');
+  var isElevated =
+    state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
 
   var year = calState.year;
   var month = calState.month;
-  var monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  if (EL.calMonthLabel) EL.calMonthLabel.textContent = monthNames[month] + ' ' + year;
+  var monthNames = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+  if (EL.calMonthLabel)
+    EL.calMonthLabel.textContent = monthNames[month] + ' ' + year;
 
   var namesTable = EL.calNamesTable || $('cal-names-table');
   var datesTable = EL.calDatesTable || $('cal-dates-table');
@@ -5731,9 +7943,14 @@ function renderCalendar() {
     var dayStr = toDateStr(day);
     var isCustomWorkday = customWorkdays.includes(dayStr);
     var isMobile = window.innerWidth <= 768;
-    th.innerHTML = '<span class="cal-date-day">' + dayNames[day.getDay()] + '</span><span class="cal-date-num">' + day.getDate() + '</span>';
+    th.innerHTML =
+      '<span class="cal-date-day">' +
+      dayNames[day.getDay()] +
+      '</span><span class="cal-date-num">' +
+      day.getDate() +
+      '</span>';
     th.style.minWidth = isMobile ? 'var(--cal-col-w, 46px)' : '80px';
-    th.dataset.date = dayStr;  /* for strip chip tap-scroll */
+    th.dataset.date = dayStr; /* for strip chip tap-scroll */
     if (isToday) th.classList.add('today-col');
     else if (isWeekend) th.classList.add('weekend-col');
     if (isCustomWorkday) th.classList.add('custom-workday-col');
@@ -5744,11 +7961,20 @@ function renderCalendar() {
 
   var allTasks = getTasks();
   var allLeaves = getLeaves();
-  var allUsers = getUsers().filter(function (u) { return u.role !== 'admin'; });
-  var users = isPersonal ? allUsers.filter(function (u) { return u.id === state.currentUser.id; }) : allUsers;
+  var allUsers = getUsers().filter(function (u) {
+    return u.role !== 'admin';
+  });
+  var users = isPersonal
+    ? allUsers.filter(function (u) {
+      return u.id === state.currentUser.id;
+    })
+    : allUsers;
   if (!isPersonal && calSearchFilter) {
     users = users.filter(function (u) {
-      return u.name.toLowerCase().includes(calSearchFilter) || u.username.toLowerCase().includes(calSearchFilter);
+      return (
+        u.name.toLowerCase().includes(calSearchFilter) ||
+        u.username.toLowerCase().includes(calSearchFilter)
+      );
     });
   }
 
@@ -5763,7 +7989,8 @@ function renderCalendar() {
   if (users.length === 0) {
     var emptyTr = document.createElement('tr');
     var emptyTd = document.createElement('td');
-    emptyTd.style.cssText = 'text-align:center;padding:60px;color:var(--text3);font-size:13px;';
+    emptyTd.style.cssText =
+      'text-align:center;padding:60px;color:var(--text3);font-size:13px;';
     emptyTd.textContent = 'No team members registered yet.';
     emptyTr.appendChild(emptyTd);
     namesTbody.appendChild(emptyTr);
@@ -5775,58 +8002,120 @@ function renderCalendar() {
     namesTr.dataset.userId = user.id;
     var userTd = document.createElement('td');
     var rc = roleColors[user.role] || 'var(--p4)';
-    userTd.innerHTML = '<div class="cal-user-label" style="cursor:pointer;" title="View ' + escHtml(user.name) + '\'s tasks"><div class="cal-user-name">' + escHtml(user.name) + '</div><div class="cal-user-role" style="color:' + rc + '">@' + escHtml(user.username) + '</div>' + (isElevated ? '<div class="cal-lieu-btns"><button class="cal-lieu-btn" onclick="event.stopPropagation();openAddLieuDay(\'' + user.id + '\',\'' + escHtml(user.name) + '\')">+ Lieu</button><button class="cal-lieu-btn cal-lieu-btn-minus" onclick="event.stopPropagation();removeLieuDay(\'' + user.id + '\',\'' + escHtml(user.name) + '\')">− Lieu</button></div>' : '') + '</div>';
-    userTd.onclick = (function (uid) { return function () { viewUserTasks(uid); }; })(user.id);
+    userTd.innerHTML =
+      '<div class="cal-user-label" style="cursor:pointer;" title="View ' +
+      escHtml(user.name) +
+      '\'s tasks"><div class="cal-user-name">' +
+      escHtml(user.name) +
+      '</div><div class="cal-user-role" style="color:' +
+      rc +
+      '">@' +
+      escHtml(user.username) +
+      '</div>' +
+      (isElevated
+        ? '<div class="cal-lieu-btns"><button class="cal-lieu-btn" onclick="event.stopPropagation();openAddLieuDay(\'' +
+        user.id +
+        "','" +
+        escHtml(user.name) +
+        '\')">+ Lieu</button><button class="cal-lieu-btn cal-lieu-btn-minus" onclick="event.stopPropagation();removeLieuDay(\'' +
+        user.id +
+        "','" +
+        escHtml(user.name) +
+        '\')">− Lieu</button></div>'
+        : '') +
+      '</div>';
+    userTd.onclick = (function (uid) {
+      return function () {
+        viewUserTasks(uid);
+      };
+    })(user.id);
     userTd.style.position = 'relative';
-    userTd.addEventListener('mouseenter', (function (u) { return function (e) { showCalUserTooltip(u, e.currentTarget); }; })(user));
+    userTd.addEventListener(
+      'mouseenter',
+      (function (u) {
+        return function (e) {
+          showCalUserTooltip(u, e.currentTarget);
+        };
+      })(user),
+    );
     userTd.addEventListener('mouseleave', hideCalUserTooltip);
     namesTr.appendChild(userTd);
     namesTbody.appendChild(namesTr);
 
     // ── Dates panel row ──
     var datesTr = document.createElement('tr');
-    var userTasks = allTasks.filter(function (t) { return t.userId === user.id; });
-    var userLeaves = allLeaves.filter(function (l) { return l.userId === user.id; });
+    var userTasks = allTasks.filter(function (t) {
+      return t.userId === user.id;
+    });
+    var userLeaves = allLeaves.filter(function (l) {
+      return l.userId === user.id;
+    });
 
     // ── Pre-compute global slot assignments for this user ──
     // All tasks touching this month, sorted strictly by priority (P1=slot 0).
     // Each task keeps the SAME slot index across every day it appears → one continuous bar.
-    var monthStart = new Date(year, month, 1); monthStart.setHours(0, 0, 0, 0);
-    var monthEnd = new Date(year, month + 1, 0); monthEnd.setHours(23, 59, 59, 999);
-    var slottedTasks = userTasks.filter(function (t) {
-      var ts = new Date(t.start || t.createdAt);
-      var te = new Date(t.deadline);
-      return ts <= monthEnd && te >= monthStart;
-    }).sort(function (a, b) {
-      // Primary: priority ascending (P1 → P5)
-      var pa = a.priority || 3, pb = b.priority || 3;
-      if (pa !== pb) return pa - pb;
-      // Secondary: earlier start first
-      return new Date(a.start || a.createdAt) - new Date(b.start || b.createdAt);
-    });
+    var monthStart = new Date(year, month, 1);
+    monthStart.setHours(0, 0, 0, 0);
+    var monthEnd = new Date(year, month + 1, 0);
+    monthEnd.setHours(23, 59, 59, 999);
+    var slottedTasks = userTasks
+      .filter(function (t) {
+        var ts = new Date(t.start || t.createdAt);
+        var te = new Date(t.deadline);
+        return ts <= monthEnd && te >= monthStart;
+      })
+      .sort(function (a, b) {
+        // Primary: priority ascending (P1 → P5)
+        var pa = a.priority || 3,
+          pb = b.priority || 3;
+        if (pa !== pb) return pa - pb;
+        // Secondary: earlier start first
+        return (
+          new Date(a.start || a.createdAt) - new Date(b.start || b.createdAt)
+        );
+      });
 
     // ── Pre-compute leave slot assignments (each unique leave period = one row) ──
     // Merge consecutive/overlapping leaves of the same type into single bars
-    var rawSlottedLeaves = userLeaves.filter(function (l) {
-      var sd = l.startDate || (l.start ? l.start.slice(0, 10) : '');
-      var ed = l.endDate || (l.end ? l.end.slice(0, 10) : '');
-      return sd <= toDateStr(days[days.length - 1]) && ed >= toDateStr(days[0]);
-    }).sort(function (a, b) {
-      var sa = a.startDate || (a.start ? a.start.slice(0, 10) : '');
-      var sb = b.startDate || (b.start ? b.start.slice(0, 10) : '');
-      return sa < sb ? -1 : sa > sb ? 1 : 0;
-    });
+    var rawSlottedLeaves = userLeaves
+      .filter(function (l) {
+        var sd = l.startDate || (l.start ? l.start.slice(0, 10) : '');
+        var ed = l.endDate || (l.end ? l.end.slice(0, 10) : '');
+        return (
+          sd <= toDateStr(days[days.length - 1]) && ed >= toDateStr(days[0])
+        );
+      })
+      .sort(function (a, b) {
+        var sa = a.startDate || (a.start ? a.start.slice(0, 10) : '');
+        var sb = b.startDate || (b.start ? b.start.slice(0, 10) : '');
+        return sa < sb ? -1 : sa > sb ? 1 : 0;
+      });
     // Merge consecutive leaves of same type into virtual bars
     var slottedLeaves = (function (leaves) {
       var merged = [];
       leaves.forEach(function (l) {
         var sd = l.startDate || (l.start ? l.start.slice(0, 10) : '');
         var ed = l.endDate || (l.end ? l.end.slice(0, 10) : '');
-        if (!merged.length) { merged.push({ id: l.id, userId: l.userId, type: l.type, startDate: sd, endDate: ed, reason: l.reason, _ids: [l.id] }); return; }
+        if (!merged.length) {
+          merged.push({
+            id: l.id,
+            userId: l.userId,
+            type: l.type,
+            startDate: sd,
+            endDate: ed,
+            reason: l.reason,
+            _ids: [l.id],
+          });
+          return;
+        }
         var last = merged[merged.length - 1];
         // Check if same type and consecutive (adjacent or overlapping dates)
         if (last.type === l.type) {
-          var nextDay = (function (d) { var dt = new Date(d + 'T12:00:00'); dt.setDate(dt.getDate() + 1); return dt.toISOString().slice(0, 10); })(last.endDate);
+          var nextDay = (function (d) {
+            var dt = new Date(d + 'T12:00:00');
+            dt.setDate(dt.getDate() + 1);
+            return dt.toISOString().slice(0, 10);
+          })(last.endDate);
           if (sd <= nextDay) {
             // Merge: extend end date
             if (ed > last.endDate) last.endDate = ed;
@@ -5834,7 +8123,15 @@ function renderCalendar() {
             return;
           }
         }
-        merged.push({ id: l.id, userId: l.userId, type: l.type, startDate: sd, endDate: ed, reason: l.reason, _ids: [l.id] });
+        merged.push({
+          id: l.id,
+          userId: l.userId,
+          type: l.type,
+          startDate: sd,
+          endDate: ed,
+          reason: l.reason,
+          _ids: [l.id],
+        });
       });
       return merged;
     })(rawSlottedLeaves);
@@ -5858,18 +8155,29 @@ function renderCalendar() {
       if (isToday) {
         td.classList.add('today-col');
       } else if (isWeekend) {
-        if (isUserWorkday) { td.classList.add('day-off'); td.classList.add('user-workday'); }
-        else td.classList.add('day-off');
+        if (isUserWorkday) {
+          td.classList.add('day-off');
+          td.classList.add('user-workday');
+        } else td.classList.add('day-off');
       } else if (isUserWorkday || isAutoWorkday) {
         var hasLeave = userLeaves.some(function (leave) {
-          var sd = leave.startDate || (leave.start ? leave.start.slice(0, 10) : '');
+          var sd =
+            leave.startDate || (leave.start ? leave.start.slice(0, 10) : '');
           var ed = leave.endDate || (leave.end ? leave.end.slice(0, 10) : '');
-          return sd <= dayStr && ed >= dayStr && (leave.type === 'lieu' || leave.type === 'loa');
+          return (
+            sd <= dayStr &&
+            ed >= dayStr &&
+            (leave.type === 'lieu' || leave.type === 'loa')
+          );
         });
-        if (!hasLeave) { td.classList.add('past-workday'); }
+        if (!hasLeave) {
+          td.classList.add('past-workday');
+        }
       }
-      var dayStart = new Date(day); dayStart.setHours(0, 0, 0, 0);
-      var dayEnd = new Date(day); dayEnd.setHours(23, 59, 59, 999);
+      var dayStart = new Date(day);
+      dayStart.setHours(0, 0, 0, 0);
+      var dayEnd = new Date(day);
+      dayEnd.setHours(23, 59, 59, 999);
       var cell = document.createElement('div');
       cell.className = 'cal-cell-content';
 
@@ -5880,7 +8188,13 @@ function renderCalendar() {
       //   3. On collision days (a spanning item ENDS the same day another STARTS),
       //      the ending item keeps its locked slot and the starting item goes below it.
 
-      var pColors = { 1: 'var(--p1)', 2: 'var(--p2)', 3: 'var(--p3)', 4: 'var(--p4)', 5: 'var(--p5)' };
+      var pColors = {
+        1: 'var(--p1)',
+        2: 'var(--p2)',
+        3: 'var(--p3)',
+        4: 'var(--p4)',
+        5: 'var(--p5)',
+      };
 
       // Build a flat ordered list of all items (leaves first, then tasks).
       // Each entry carries enough metadata so slot assignment works uniformly.
@@ -5889,8 +8203,12 @@ function renderCalendar() {
         var sd = lv.startDate || (lv.start ? lv.start.slice(0, 10) : '');
         var ed = lv.endDate || (lv.end ? lv.end.slice(0, 10) : '');
         allItems.push({
-          kind: 'leave', item: lv, key: 'L_' + lv.id, startStr: sd, endStr: ed,
-          isSpanning: sd !== ed
+          kind: 'leave',
+          item: lv,
+          key: 'L_' + lv.id,
+          startStr: sd,
+          endStr: ed,
+          isSpanning: sd !== ed,
         });
       });
       slottedTasks.forEach(function (tk) {
@@ -5898,12 +8216,19 @@ function renderCalendar() {
         var te = new Date(tk.deadline);
         var tss = ts.toISOString().slice(0, 10);
         var tes = te.toISOString().slice(0, 10);
-        var tStartDay = new Date(ts); tStartDay.setHours(0, 0, 0, 0);
-        var tEndDay = new Date(te); tEndDay.setHours(23, 59, 59, 999);
+        var tStartDay = new Date(ts);
+        tStartDay.setHours(0, 0, 0, 0);
+        var tEndDay = new Date(te);
+        tEndDay.setHours(23, 59, 59, 999);
         allItems.push({
-          kind: 'task', item: tk, key: 'T_' + tk.id,
-          startStr: tss, endStr: tes, ts: ts, te: te,
-          isSpanning: tStartDay < dayStart || tEndDay > dayEnd
+          kind: 'task',
+          item: tk,
+          key: 'T_' + tk.id,
+          startStr: tss,
+          endStr: tes,
+          ts: ts,
+          te: te,
+          isSpanning: tStartDay < dayStart || tEndDay > dayEnd,
         });
       });
 
@@ -5931,7 +8256,7 @@ function renderCalendar() {
 
       // ── Slot assignment for this day ──
       // Pass 1: mark slots already locked by spanning items.
-      var usedSlots = {};  // slot# → key
+      var usedSlots = {}; // slot# → key
       allItems.forEach(function (e) {
         if (slotMap[e.key] !== undefined) usedSlots[slotMap[e.key]] = e.key;
       });
@@ -5955,14 +8280,20 @@ function renderCalendar() {
         e._slot = s;
 
         // Lock into slotMap only if it spans beyond today
-        if (e.isSpanning || (e.kind === 'task' && new Date(e.te).setHours(23, 59, 59, 999) > dayEnd)) {
+        if (
+          e.isSpanning ||
+          (e.kind === 'task' &&
+            new Date(e.te).setHours(23, 59, 59, 999) > dayEnd)
+        ) {
           slotMap[e.key] = s;
         }
       });
 
       // Release slots for items that fully ended before today.
       Object.keys(slotMap).forEach(function (key) {
-        var e = allItems.find(function (x) { return x.key === key; });
+        var e = allItems.find(function (x) {
+          return x.key === key;
+        });
         if (e && e.endStr < dayStr) delete slotMap[key];
       });
 
@@ -6019,10 +8350,15 @@ function renderCalendar() {
           slotEl.className = 'cal-leave-slot';
           var bar = document.createElement('div');
           bar.className = 'cal-leave-bar leave-' + leave.type + spanCls;
-          bar.title = (typeLabels[leave.type] || leave.type) + (leave.reason ? ': ' + leave.reason : '');
+          bar.title =
+            (typeLabels[leave.type] || leave.type) +
+            (leave.reason ? ': ' + leave.reason : '');
           var lbl = document.createElement('span');
           lbl.className = 'cal-leave-day-label';
-          lbl.textContent = (isLvStart || dayStr === toDateStr(days[0])) ? (typeLabels[leave.type] || leave.type) : (typeLabels[leave.type] || leave.type);
+          lbl.textContent =
+            isLvStart || dayStr === toDateStr(days[0])
+              ? typeLabels[leave.type] || leave.type
+              : typeLabels[leave.type] || leave.type;
           bar.appendChild(lbl);
           if (isElevated) {
             var delB = document.createElement('button');
@@ -6033,9 +8369,15 @@ function renderCalendar() {
               return function (e) {
                 e.stopPropagation();
                 var actualLeave = getLeaves().filter(function (l) {
-                  var lsd = l.startDate || (l.start ? l.start.slice(0, 10) : '');
+                  var lsd =
+                    l.startDate || (l.start ? l.start.slice(0, 10) : '');
                   var led = l.endDate || (l.end ? l.end.slice(0, 10) : '');
-                  return l.userId === leave.userId && l.type === leave.type && lsd <= dStr && led >= dStr;
+                  return (
+                    l.userId === leave.userId &&
+                    l.type === leave.type &&
+                    lsd <= dStr &&
+                    led >= dStr
+                  );
                 })[0];
                 if (actualLeave) removeLeaveDay(actualLeave.id, dStr);
               };
@@ -6044,7 +8386,6 @@ function renderCalendar() {
           }
           slotEl.appendChild(bar);
           cell.appendChild(slotEl);
-
         } else {
           // task
           var task = entry.item;
@@ -6061,12 +8402,20 @@ function renderCalendar() {
 
           var desc = _visibleDesc(task.description || []);
           var totalItems = desc.length;
-          var checkedItems = desc.filter(function (d) { return d.checked; }).length;
-          var pct = task.done ? 100 : (totalItems > 0 ? Math.round((checkedItems / totalItems) * 100) : 0);
+          var checkedItems = desc.filter(function (d) {
+            return d.checked;
+          }).length;
+          var pct = task.done
+            ? 100
+            : totalItems > 0
+              ? Math.round((checkedItems / totalItems) * 100)
+              : 0;
           var pColor = pColors[task.priority] || 'var(--p3)';
 
-          var taskStartDay = new Date(ts); taskStartDay.setHours(0, 0, 0, 0);
-          var taskEndDay = new Date(te); taskEndDay.setHours(23, 59, 59, 999);
+          var taskStartDay = new Date(ts);
+          taskStartDay.setHours(0, 0, 0, 0);
+          var taskEndDay = new Date(te);
+          taskEndDay.setHours(23, 59, 59, 999);
           var isTaskStart = taskStartDay >= dayStart;
           var isTaskEnd = taskEndDay <= dayEnd;
           var spansMultiT = !isTaskStart || !isTaskEnd;
@@ -6079,11 +8428,39 @@ function renderCalendar() {
 
           var block = document.createElement('div');
           var cancelledClass = task.cancelled ? ' cal-block-cancelled' : '';
-          block.className = 'cal-block task-p' + task.priority + (task.isMultiPersonnel ? ' multi-task' : '') + spanClass + cancelledClass;
+          block.className =
+            'cal-block task-p' +
+            task.priority +
+            (task.isMultiPersonnel ? ' multi-task' : '') +
+            spanClass +
+            cancelledClass;
           block.dataset.taskid = task.id;
-          var statusSuffix = task.cancelled ? ' — 🚫 CANCELLED' : (task.done ? ' — ✓ DONE' : '');
-          block.title = task.title + ' — P' + task.priority + ' — ' + checkedItems + '/' + (totalItems || '–') + ' done (' + pct + '%) — ' + new Date(ts).toLocaleString() + ' → ' + new Date(te).toLocaleString() + statusSuffix;
-          block.onclick = (function (t) { return function (e) { e.stopPropagation(); calNavigateToTask(t); }; })(task);
+          var statusSuffix = task.cancelled
+            ? ' — 🚫 CANCELLED'
+            : task.done
+              ? ' — ✓ DONE'
+              : '';
+          block.title =
+            task.title +
+            ' — P' +
+            task.priority +
+            ' — ' +
+            checkedItems +
+            '/' +
+            (totalItems || '–') +
+            ' done (' +
+            pct +
+            '%) — ' +
+            new Date(ts).toLocaleString() +
+            ' → ' +
+            new Date(te).toLocaleString() +
+            statusSuffix;
+          block.onclick = (function (t) {
+            return function (e) {
+              e.stopPropagation();
+              calNavigateToTask(t);
+            };
+          })(task);
 
           var isFirstVisible = isTaskStart || dayStr === toDateStr(days[0]);
           if (isFirstVisible) {
@@ -6096,7 +8473,12 @@ function renderCalendar() {
             dot.textContent = task.priority;
             var titleEl = document.createElement('span');
             titleEl.className = 'cal-block-title';
-            titleEl.textContent = (task.title.length > 14 ? task.title.substring(0, 14) + '…' : task.title) + (task.done ? ' ✓' : '') + (task.cancelled ? ' 🚫' : '');
+            titleEl.textContent =
+              (task.title.length > 14
+                ? task.title.substring(0, 14) + '…'
+                : task.title) +
+              (task.done ? ' ✓' : '') +
+              (task.cancelled ? ' 🚫' : '');
             inner.appendChild(dot);
             inner.appendChild(titleEl);
             block.appendChild(inner);
@@ -6112,9 +8494,16 @@ function renderCalendar() {
           barWrap.appendChild(barFill);
           block.appendChild(barWrap);
 
-          block.addEventListener('contextmenu', (function (tid) {
-            return function (e) { e.preventDefault(); e.stopPropagation(); showContextMenu(e, tid); };
-          })(task.id));
+          block.addEventListener(
+            'contextmenu',
+            (function (tid) {
+              return function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                showContextMenu(e, tid);
+              };
+            })(task.id),
+          );
 
           cell.appendChild(block);
         }
@@ -6124,7 +8513,8 @@ function renderCalendar() {
       // Badges
       if (!isToday) {
         var hasLeaveBadge = userLeaves.some(function (leave) {
-          var sd = leave.startDate || (leave.start ? leave.start.slice(0, 10) : '');
+          var sd =
+            leave.startDate || (leave.start ? leave.start.slice(0, 10) : '');
           var ed = leave.endDate || (leave.end ? leave.end.slice(0, 10) : '');
           return sd <= dayStr && ed >= dayStr;
         });
@@ -6182,8 +8572,10 @@ function renderCalendar() {
   var newDatesPanel = datesPanel.cloneNode(false);
   newNamesPanel.appendChild(namesTable);
   newDatesPanel.appendChild(datesTable);
-  if (namesPanel.parentNode) namesPanel.parentNode.replaceChild(newNamesPanel, namesPanel);
-  if (datesPanel.parentNode) datesPanel.parentNode.replaceChild(newDatesPanel, datesPanel);
+  if (namesPanel.parentNode)
+    namesPanel.parentNode.replaceChild(newNamesPanel, namesPanel);
+  if (datesPanel.parentNode)
+    datesPanel.parentNode.replaceChild(newDatesPanel, datesPanel);
   // Update cached references so subsequent renders use the live DOM nodes
   EL.calNamesPanel = newNamesPanel;
   EL.calDatesPanel = newDatesPanel;
@@ -6194,25 +8586,33 @@ function renderCalendar() {
     // This prevents the double-movement bug on mobile scroll
   }
 
-  newDatesPanel.addEventListener('scroll', function () {
-    newNamesPanel.scrollTop = newDatesPanel.scrollTop;
-    stickyHeader(newDatesPanel);
-    stickyHeader(newNamesPanel);
-  }, { passive: true });
-  newNamesPanel.addEventListener('scroll', function () {
-    newDatesPanel.scrollTop = newNamesPanel.scrollTop;
-    stickyHeader(newDatesPanel);
-    stickyHeader(newNamesPanel);
-  }, { passive: true });
+  newDatesPanel.addEventListener(
+    'scroll',
+    function () {
+      newNamesPanel.scrollTop = newDatesPanel.scrollTop;
+      stickyHeader(newDatesPanel);
+      stickyHeader(newNamesPanel);
+    },
+    { passive: true },
+  );
+  newNamesPanel.addEventListener(
+    'scroll',
+    function () {
+      newDatesPanel.scrollTop = newNamesPanel.scrollTop;
+      stickyHeader(newDatesPanel);
+      stickyHeader(newNamesPanel);
+    },
+    { passive: true },
+  );
 
   // ── Wheel: vertical scrolls the panel content, Shift+wheel scrolls calendar horizontally ──
   function calWheelHandler(e) {
-    var isHorizontal = e.shiftKey || (Math.abs(e.deltaX) > Math.abs(e.deltaY));
+    var isHorizontal = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
     if (isHorizontal) {
       // Consume and apply horizontal scroll to dates panel
       e.preventDefault();
       e.stopPropagation();
-      newDatesPanel.scrollLeft += (e.shiftKey ? e.deltaY : e.deltaX);
+      newDatesPanel.scrollLeft += e.shiftKey ? e.deltaY : e.deltaX;
     } else {
       // Vertical scroll — apply to both panels directly
       var dy = e.deltaY;
@@ -6233,22 +8633,30 @@ function renderCalendar() {
     var len = Math.min(nameRows.length, dateRows.length);
     // PHASE 1: reset all heights (single write pass)
     for (var i = 0; i < len; i++) {
-      Array.from(nameRows[i].cells).forEach(function (c) { c.style.height = ''; });
-      Array.from(dateRows[i].cells).forEach(function (c) { c.style.height = ''; });
+      Array.from(nameRows[i].cells).forEach(function (c) {
+        c.style.height = '';
+      });
+      Array.from(dateRows[i].cells).forEach(function (c) {
+        c.style.height = '';
+      });
     }
     // PHASE 2: read all heights in one pass (no interleaved writes)
     var heights = new Array(len);
     for (var i = 0; i < len; i++) {
       heights[i] = Math.max(
         nameRows[i].getBoundingClientRect().height,
-        dateRows[i].getBoundingClientRect().height
+        dateRows[i].getBoundingClientRect().height,
       );
     }
     // PHASE 3: write all heights in one pass (no interleaved reads)
     for (var i = 0; i < len; i++) {
       var hpx = heights[i] + 'px';
-      Array.from(nameRows[i].cells).forEach(function (c) { c.style.height = hpx; });
-      Array.from(dateRows[i].cells).forEach(function (c) { c.style.height = hpx; });
+      Array.from(nameRows[i].cells).forEach(function (c) {
+        c.style.height = hpx;
+      });
+      Array.from(dateRows[i].cells).forEach(function (c) {
+        c.style.height = hpx;
+      });
     }
   }
   // Double rAF ensures browser has fully laid out the DOM before measuring
@@ -6259,13 +8667,16 @@ function renderCalendar() {
   // Scroll today's column into view
   setTimeout(function () {
     var todayCol = newDatesPanel.querySelector('th.today-col');
-    if (todayCol) todayCol.scrollIntoView({ inline: 'center', block: 'nearest' });
+    if (todayCol)
+      todayCol.scrollIntoView({ inline: 'center', block: 'nearest' });
   }, 50);
 
   // BusyCal-style date chip strip (mobile)
   try {
     buildCalWeekStrip(year, month, todayStr, users, allTasks, allLeaves);
-  } catch (e) { /* strip is optional */ }
+  } catch (e) {
+    /* strip is optional */
+  }
 }
 
 /* ============================================================
@@ -6601,7 +9012,10 @@ var _lieuTargetUserId = null;
 var _lieuTargetUserName = null;
 
 function openAddLieuDay(userId, userName) {
-  if (state.currentUser.role !== 'manager' && state.currentUser.role !== 'admin') {
+  if (
+    state.currentUser.role !== 'manager' &&
+    state.currentUser.role !== 'admin'
+  ) {
     toast('Only managers can add lieu days.', 'error');
     return;
   }
@@ -6609,14 +9023,23 @@ function openAddLieuDay(userId, userName) {
   _lieuTargetUserName = userName;
   const currentBalance = countLieuDays(userId);
   const infoEl = document.getElementById('lieu-day-info');
-  if (infoEl) infoEl.textContent = 'Adding lieu days for ' + userName + '. Current balance: ' + currentBalance + ' day(s).';
+  if (infoEl)
+    infoEl.textContent =
+      'Adding lieu days for ' +
+      userName +
+      '. Current balance: ' +
+      currentBalance +
+      ' day(s).';
   const countEl = document.getElementById('lieu-day-count');
   if (countEl) countEl.value = '1';
   openModal('lieu-day-modal');
 }
 
 function removeLieuDay(userId, userName) {
-  if (state.currentUser.role !== 'manager' && state.currentUser.role !== 'admin') {
+  if (
+    state.currentUser.role !== 'manager' &&
+    state.currentUser.role !== 'admin'
+  ) {
     toast('Only managers can remove lieu days.', 'error');
     return;
   }
@@ -6630,17 +9053,30 @@ function removeLieuDay(userId, userName) {
   const lieuBonus = s.lieuBonus || {};
   lieuBonus[userId] = (lieuBonus[userId] || 0) - 1;
   saveCompanySettings({ lieuBonus: lieuBonus });
-  toast('Removed 1 lieu day from ' + userName + '. Balance: ' + countLieuDays(userId), 'success');
+  toast(
+    'Removed 1 lieu day from ' +
+    userName +
+    '. Balance: ' +
+    countLieuDays(userId),
+    'success',
+  );
   if (state.view === 'calendar') renderCalendarDebounced();
 }
 
 // Alias: HTML calls saveLieuDays(), logic lives in confirmAddLieuDays()
-function saveLieuDays() { confirmAddLieuDays(); }
+function saveLieuDays() {
+  confirmAddLieuDays();
+}
 
 function confirmAddLieuDays() {
-  const countInput = document.getElementById('lieu-day-count') || document.getElementById('lieu-days-count');
+  const countInput =
+    document.getElementById('lieu-day-count') ||
+    document.getElementById('lieu-days-count');
   const count = parseInt(countInput ? countInput.value : 0);
-  if (!count || count < 1) { toast('Please enter a valid number of lieu days.', 'error'); return; }
+  if (!count || count < 1) {
+    toast('Please enter a valid number of lieu days.', 'error');
+    return;
+  }
   if (!_lieuTargetUserId) return;
 
   // Add bonus lieu days directly to the balance (no fake weekend workdays)
@@ -6650,7 +9086,10 @@ function confirmAddLieuDays() {
   saveCompanySettings({ lieuBonus: lieuBonus });
 
   closeModal('lieu-day-modal');
-  toast(`Added ${count} lieu day${count !== 1 ? 's' : ''} to ${_lieuTargetUserName}'s balance.`, 'success');
+  toast(
+    `Added ${count} lieu day${count !== 1 ? 's' : ''} to ${_lieuTargetUserName}'s balance.`,
+    'success',
+  );
   if (state.view === 'calendar') renderCalendarDebounced();
 }
 
@@ -6679,75 +9118,154 @@ function renderUserList(filterText) {
   if (!searchWrap) {
     searchWrap = document.createElement('div');
     searchWrap.id = 'user-list-search-wrap';
-    searchWrap.style.cssText = 'width:100%;max-width:400px;margin:0 auto 16px;position:relative;';
-    searchWrap.innerHTML = '<span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;">🔍</span>' +
+    searchWrap.style.cssText =
+      'width:100%;max-width:400px;margin:0 auto 16px;position:relative;';
+    searchWrap.innerHTML =
+      '<span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;">🔍</span>' +
       '<input type="text" id="user-list-search" placeholder="Search users…" ' +
       'style="width:100%;padding:10px 14px 10px 34px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;font-family:var(--mono);">';
     grid.parentNode.insertBefore(searchWrap, grid);
-    document.getElementById('user-list-search').addEventListener('input', function () {
-      renderUserList(this.value.trim().toLowerCase());
-    });
+    document
+      .getElementById('user-list-search')
+      .addEventListener('input', function () {
+        renderUserList(this.value.trim().toLowerCase());
+      });
   }
   // Keep search value in sync
   var searchInput = document.getElementById('user-list-search');
-  if (searchInput && filterText === undefined) filterText = searchInput.value.trim().toLowerCase();
+  if (searchInput && filterText === undefined)
+    filterText = searchInput.value.trim().toLowerCase();
 
-  var users = getUsers().filter(function (u) { return u.role !== 'admin'; });
+  var users = getUsers().filter(function (u) {
+    return u.role !== 'admin';
+  });
   // Apply search filter
   if (filterText) {
     users = users.filter(function (u) {
-      return u.name.toLowerCase().includes(filterText) || u.username.toLowerCase().includes(filterText);
+      return (
+        u.name.toLowerCase().includes(filterText) ||
+        u.username.toLowerCase().includes(filterText)
+      );
     });
   }
   var tasks = getTasks();
   if (users.length === 0) {
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--text3);">' + (filterText ? 'No users match your search.' : 'No users registered yet. <br>Click &quot;Register User&quot; to add one.') + '</div>';
+    grid.innerHTML =
+      '<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--text3);">' +
+      (filterText
+        ? 'No users match your search.'
+        : 'No users registered yet. <br>Click &quot;Register User&quot; to add one.') +
+      '</div>';
     return;
   }
   var roleColors = { manager: '#A78BFA', user: 'var(--p4)' };
   var roleLabels = { manager: '🏢 Manager', user: '👤 User' };
-  grid.innerHTML = users.map(function (u) {
-    var userTasks = tasks.filter(function (t) { return t.userId === u.id; });
-    var active = userTasks.filter(function (t) { return !t.done && !t.cancelled; }).length;
-    var cancelled = userTasks.filter(function (t) { return t.cancelled; }).length;
-    var done = userTasks.filter(function (t) { return t.done; }).length;
-    var roleColor = roleColors[u.role] || 'var(--p4)';
-    var roleLabel = roleLabels[u.role] || u.role;
-    var userTeams = getTeams().filter(function (t) { return (t.memberIds || []).includes(u.id); });
-    var teamBadges = userTeams.length > 0
-      ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin:5px 0 2px;">' +
-      userTeams.map(function (t) {
-        var c = t.color || '#F59E0B';
-        return '<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;background:' + c + '18;border:1px solid ' + c + '44;color:' + c + ';">🏷 ' + escHtml(t.name) + '</span>';
-      }).join('') + '</div>'
-      : '';
-    return '<div class="user-card" onclick="viewUserTasks(\'' + u.id + '\')">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-      '<div class="user-card-name">' + escHtml(u.name) + '</div>' +
-      '<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px;background:' + roleColor + '18;color:' + roleColor + ';border:1px solid ' + roleColor + '30;">' + roleLabel + '</span>' +
-      '</div>' +
-      '<div class="user-card-username">@' + escHtml(u.username) + '</div>' +
-      teamBadges +
-      '<div class="user-card-stats">' +
-      '<div class="stat"><div class="stat-num">' + userTasks.length + '</div><div class="stat-label">Total</div></div>' +
-      '<div class="stat"><div class="stat-num" style="color:var(--p1)">' + active + '</div><div class="stat-label">Active</div></div>' +
-      '<div class="stat"><div class="stat-num" style="color:var(--danger)">' + cancelled + '</div><div class="stat-label">Cancelled</div></div>' +
-      '<div class="stat"><div class="stat-num" style="color:var(--success)">' + done + '</div><div class="stat-label">Done</div></div>' +
-      '</div>' +
-      '<div class="user-card-actions" onclick="event.stopPropagation()">' +
-      '<button class="btn-secondary" style="flex:1;font-size:11px;padding:6px;" onclick="viewUserTasks(\'' + u.id + '\')">View Tasks</button>' +
-      (isElevated ? '<button class="btn-secondary" style="font-size:11px;padding:6px 10px;" data-tip="Assign multi-task" onclick="openMultiTaskFor(\'' + u.id + '\')">👥</button>' : '') +
-      (isAdmin ? '<button class="btn-secondary" style="font-size:11px;padding:6px 10px;" data-tip="Change password" onclick="openChangePasswordFor(\'' + u.id + '\')">🔑</button>' : '') +
-      (isAdmin ? '<button class="btn-danger" style="font-size:11px;padding:6px 10px;" onclick="deleteUser(\'' + u.id + '\')">✕</button>' : '') +
-      '</div>' +
-      '</div>';
-  }).join('');
+  grid.innerHTML = users
+    .map(function (u) {
+      var userTasks = tasks.filter(function (t) {
+        return t.userId === u.id;
+      });
+      var active = userTasks.filter(function (t) {
+        return !t.done && !t.cancelled;
+      }).length;
+      var cancelled = userTasks.filter(function (t) {
+        return t.cancelled;
+      }).length;
+      var done = userTasks.filter(function (t) {
+        return t.done;
+      }).length;
+      var roleColor = roleColors[u.role] || 'var(--p4)';
+      var roleLabel = roleLabels[u.role] || u.role;
+      var userTeams = getTeams().filter(function (t) {
+        return (t.memberIds || []).includes(u.id);
+      });
+      var teamBadges =
+        userTeams.length > 0
+          ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin:5px 0 2px;">' +
+          userTeams
+            .map(function (t) {
+              var c = t.color || '#F59E0B';
+              return (
+                '<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;background:' +
+                c +
+                '18;border:1px solid ' +
+                c +
+                '44;color:' +
+                c +
+                ';">🏷 ' +
+                escHtml(t.name) +
+                '</span>'
+              );
+            })
+            .join('') +
+          '</div>'
+          : '';
+      return (
+        '<div class="user-card" onclick="viewUserTasks(\'' +
+        u.id +
+        '\')">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
+        '<div class="user-card-name">' +
+        escHtml(u.name) +
+        '</div>' +
+        '<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px;background:' +
+        roleColor +
+        '18;color:' +
+        roleColor +
+        ';border:1px solid ' +
+        roleColor +
+        '30;">' +
+        roleLabel +
+        '</span>' +
+        '</div>' +
+        '<div class="user-card-username">@' +
+        escHtml(u.username) +
+        '</div>' +
+        teamBadges +
+        '<div class="user-card-stats">' +
+        '<div class="stat"><div class="stat-num">' +
+        userTasks.length +
+        '</div><div class="stat-label">Total</div></div>' +
+        '<div class="stat"><div class="stat-num" style="color:var(--p1)">' +
+        active +
+        '</div><div class="stat-label">Active</div></div>' +
+        '<div class="stat"><div class="stat-num" style="color:var(--danger)">' +
+        cancelled +
+        '</div><div class="stat-label">Cancelled</div></div>' +
+        '<div class="stat"><div class="stat-num" style="color:var(--success)">' +
+        done +
+        '</div><div class="stat-label">Done</div></div>' +
+        '</div>' +
+        '<div class="user-card-actions" onclick="event.stopPropagation()">' +
+        '<button class="btn-secondary" style="flex:1;font-size:11px;padding:6px;" onclick="viewUserTasks(\'' +
+        u.id +
+        '\')">View Tasks</button>' +
+        (isElevated
+          ? '<button class="btn-secondary" style="font-size:11px;padding:6px 10px;" data-tip="Assign multi-task" onclick="openMultiTaskFor(\'' +
+          u.id +
+          '\')">👥</button>'
+          : '') +
+        (isAdmin
+          ? '<button class="btn-secondary" style="font-size:11px;padding:6px 10px;" data-tip="Change password" onclick="openChangePasswordFor(\'' +
+          u.id +
+          '\')">🔑</button>'
+          : '') +
+        (isAdmin
+          ? '<button class="btn-danger" style="font-size:11px;padding:6px 10px;" onclick="deleteUser(\'' +
+          u.id +
+          '\')">✕</button>'
+          : '') +
+        '</div>' +
+        '</div>'
+      );
+    })
+    .join('');
 }
 
 initDB();
 
 // Prevent context menu outside cards / calendar cells
-document.addEventListener('contextmenu', e => {
+document.addEventListener('contextmenu', (e) => {
   const calTd = e.target.closest('#cal-dates-panel td');
 
   // ── Calendar day right-click: task blocks get their own menu ──
@@ -6763,20 +9281,36 @@ document.addEventListener('contextmenu', e => {
     // Weekend workday marker — admin/manager (right-click on day off shows work question tooltip)
     if (isWeekend && isElevated) {
       e.preventDefault();
-      showCalCtxMenu(e, calTd.dataset.dateStr, calTd.dataset.userId, calTd.dataset.userName);
+      showCalCtxMenu(
+        e,
+        calTd.dataset.dateStr,
+        calTd.dataset.userId,
+        calTd.dataset.userName,
+      );
       return;
     }
 
     // Day action menu — elevated roles on any day
     if (isElevated) {
       e.preventDefault();
-      showCalDayCtxMenu(e, calTd.dataset.dateStr, calTd.dataset.userId, calTd.dataset.userName);
+      showCalDayCtxMenu(
+        e,
+        calTd.dataset.dateStr,
+        calTd.dataset.userId,
+        calTd.dataset.userName,
+      );
       return;
     }
   }
 
   // Allow right-click on task cards, timeline bars, leave blocks, AND calendar task blocks
-  if (!e.target.closest('.task-card') && !e.target.closest('.timeline-bar') && !e.target.closest('.leave-block') && !isCalBlock) e.preventDefault();
+  if (
+    !e.target.closest('.task-card') &&
+    !e.target.closest('.timeline-bar') &&
+    !e.target.closest('.leave-block') &&
+    !isCalBlock
+  )
+    e.preventDefault();
 });
 
 /* ============================================================
@@ -6793,27 +9327,50 @@ function showCalCtxMenu(e, dateStr, userId, userName) {
   const userDays = getUserCustomWorkdays(userId);
   const isMarked = userDays.includes(dateStr);
   const d = new Date(dateStr + 'T12:00:00');
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const dayLabel = dayNames[d.getDay()] + ', ' + d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const dayNames = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+  ];
+  const dayLabel =
+    dayNames[d.getDay()] +
+    ', ' +
+    d.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
   document.getElementById('cal-ctx-date-label').textContent = dayLabel;
-  document.getElementById('cal-ctx-user-label').textContent = '👤 ' + (userName || 'Employee');
+  document.getElementById('cal-ctx-user-label').textContent =
+    '👤 ' + (userName || 'Employee');
   document.getElementById('cal-ctx-question').textContent = isMarked
     ? 'This day is marked as worked. Remove it?'
     : 'Did this employee work on this day?';
-  document.getElementById('cal-ctx-set-btn').style.display = isMarked ? 'none' : '';
-  document.getElementById('cal-ctx-unset-btn').style.display = isMarked ? '' : 'none';
+  document.getElementById('cal-ctx-set-btn').style.display = isMarked
+    ? 'none'
+    : '';
+  document.getElementById('cal-ctx-unset-btn').style.display = isMarked
+    ? ''
+    : 'none';
   menu.classList.remove('hidden');
   menu.style.left = e.clientX + 'px';
   menu.style.top = e.clientY + 'px';
   requestAnimationFrame(() => {
     const rect = menu.getBoundingClientRect();
-    if (rect.right > window.innerWidth) menu.style.left = (e.clientX - rect.width) + 'px';
-    if (rect.bottom > window.innerHeight) menu.style.top = (e.clientY - rect.height) + 'px';
+    if (rect.right > window.innerWidth)
+      menu.style.left = e.clientX - rect.width + 'px';
+    if (rect.bottom > window.innerHeight)
+      menu.style.top = e.clientY - rect.height + 'px';
   });
 }
 function hideCalCtxMenu() {
   document.getElementById('cal-ctx-menu').classList.add('hidden');
-  _calCtxDate = null; _calCtxUserId = null;
+  _calCtxDate = null;
+  _calCtxUserId = null;
 }
 document.addEventListener('click', hideCalCtxMenu);
 
@@ -6832,7 +9389,9 @@ function saveUserCustomWorkday(userId, dateStr) {
 function removeUserCustomWorkday(userId, dateStr) {
   const s = getCompanySettings();
   const uwd = s.userWorkdays || {};
-  uwd[userId] = (Array.isArray(uwd[userId]) ? uwd[userId] : []).filter(d => d !== dateStr);
+  uwd[userId] = (Array.isArray(uwd[userId]) ? uwd[userId] : []).filter(
+    (d) => d !== dateStr,
+  );
   saveCompanySettings({ userWorkdays: uwd });
 }
 function getCustomWorkdays() {
@@ -6843,8 +9402,13 @@ function getCustomWorkdays() {
 function calCtxSetWorkday() {
   if (!_calCtxDate || !_calCtxUserId) return;
   saveUserCustomWorkday(_calCtxUserId, _calCtxDate);
-  const user = getUsers().find(u => u.id === _calCtxUserId);
-  toast('📅 Weekend workday recorded for ' + (user?.name || 'employee') + ' — lieu balance updated', 'success');
+  const user = getUsers().find((u) => u.id === _calCtxUserId);
+  toast(
+    '📅 Weekend workday recorded for ' +
+    (user?.name || 'employee') +
+    ' — lieu balance updated',
+    'success',
+  );
   renderCalendar();
   hideCalCtxMenu();
 }
@@ -6870,21 +9434,53 @@ function showCalDayCtxMenu(e, dateStr, userId, userName) {
   _calDayCtxUserName = userName;
 
   const d = new Date(dateStr + 'T12:00:00');
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const label = dayNames[d.getDay()] + ', ' + monthNames[d.getMonth()] + ' ' + d.getDate() + ' ' + d.getFullYear();
+  const dayNames = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+  ];
+  const monthNames = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  const label =
+    dayNames[d.getDay()] +
+    ', ' +
+    monthNames[d.getMonth()] +
+    ' ' +
+    d.getDate() +
+    ' ' +
+    d.getFullYear();
 
   document.getElementById('cal-day-ctx-date-label').textContent = label;
-  document.getElementById('cal-day-ctx-user-label').textContent = '👤 ' + (userName || 'Employee');
+  document.getElementById('cal-day-ctx-user-label').textContent =
+    '👤 ' + (userName || 'Employee');
 
   // Gray out Lieu Day button if user has no lieu days available
-  const lieuBtn = document.querySelector('#cal-day-ctx-menu .ctx-item[onclick="calDayCtxSetStatus(\'lieu\')"]');
+  const lieuBtn = document.querySelector(
+    '#cal-day-ctx-menu .ctx-item[onclick="calDayCtxSetStatus(\'lieu\')"]',
+  );
   if (lieuBtn && userId) {
     const lieuBalance = countLieuDays(userId);
     lieuBtn.disabled = lieuBalance <= 0;
     lieuBtn.style.opacity = lieuBalance <= 0 ? '0.4' : '';
     lieuBtn.style.cursor = lieuBalance <= 0 ? 'not-allowed' : '';
-    lieuBtn.title = lieuBalance <= 0 ? 'No lieu days available for this employee' : '';
+    lieuBtn.title =
+      lieuBalance <= 0 ? 'No lieu days available for this employee' : '';
   }
 
   const menu = document.getElementById('cal-day-ctx-menu');
@@ -6893,8 +9489,10 @@ function showCalDayCtxMenu(e, dateStr, userId, userName) {
   menu.style.top = e.clientY + 'px';
   requestAnimationFrame(() => {
     const rect = menu.getBoundingClientRect();
-    if (rect.right > window.innerWidth) menu.style.left = (e.clientX - rect.width) + 'px';
-    if (rect.bottom > window.innerHeight) menu.style.top = (e.clientY - rect.height) + 'px';
+    if (rect.right > window.innerWidth)
+      menu.style.left = e.clientX - rect.width + 'px';
+    if (rect.bottom > window.innerHeight)
+      menu.style.top = e.clientY - rect.height + 'px';
   });
 }
 
@@ -6925,7 +9523,9 @@ function calDayCtxCreateTask() {
   setTimeout(function () {
     const _wh = getWorkHours();
     const startHour = _wh.start || 8;
-    const d = new Date(dateStr + 'T' + String(startHour).padStart(2, '0') + ':00:00');
+    const d = new Date(
+      dateStr + 'T' + String(startHour).padStart(2, '0') + ':00:00',
+    );
     const startEl = document.getElementById('f-start');
     if (startEl) {
       startEl.value = toLocalISO(d);
@@ -6959,13 +9559,20 @@ function calDayCtxSetStatus(type) {
 
   // Block if a leave already exists on this day for this user
   if (userId) {
-    const existing = getLeaves().filter(l => l.userId === userId).find(l => {
-      const ls = l.startDate || (l.start ? l.start.slice(0, 10) : '');
-      const le = l.endDate || (l.end ? l.end.slice(0, 10) : '');
-      return ls <= dateStr && le >= dateStr;
-    });
+    const existing = getLeaves()
+      .filter((l) => l.userId === userId)
+      .find((l) => {
+        const ls = l.startDate || (l.start ? l.start.slice(0, 10) : '');
+        const le = l.endDate || (l.end ? l.end.slice(0, 10) : '');
+        return ls <= dateStr && le >= dateStr;
+      });
     if (existing) {
-      toast('A leave already exists on ' + dateStr + ' for this person. Remove it first.', 'error');
+      toast(
+        'A leave already exists on ' +
+        dateStr +
+        ' for this person. Remove it first.',
+        'error',
+      );
       return;
     }
   }
@@ -6979,7 +9586,8 @@ function calDayCtxSetStatus(type) {
     const typeEl = document.getElementById('leave-type');
     if (typeEl) {
       typeEl.value = type;
-      if (typeof updateLeaveTypeOptions === 'function') updateLeaveTypeOptions();
+      if (typeof updateLeaveTypeOptions === 'function')
+        updateLeaveTypeOptions();
     }
     const startEl = document.getElementById('leave-start');
     const endEl = document.getElementById('leave-end');
@@ -6990,12 +9598,21 @@ function calDayCtxSetStatus(type) {
 
 // Backspace key triggers back button
 document.addEventListener('keydown', function (e) {
-  if (e.key === 'Backspace' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'SELECT') {
+  if (
+    e.key === 'Backspace' &&
+    e.target.tagName !== 'INPUT' &&
+    e.target.tagName !== 'TEXTAREA' &&
+    e.target.tagName !== 'SELECT'
+  ) {
     var backBtn = document.getElementById('cal-back-btn');
     if (backBtn && state.view === 'calendar') {
       e.preventDefault();
       backBtn.click();
-    } else if (state.previousView && state.previousView !== state.view && state.previousView !== 'login') {
+    } else if (
+      state.previousView &&
+      state.previousView !== state.view &&
+      state.previousView !== 'login'
+    ) {
       e.preventDefault();
       showView(state.previousView);
     }
@@ -7007,7 +9624,7 @@ document.addEventListener('keydown', function (e) {
    ============================================================ */
 var _importRows = [];
 var _importRunning = false;
-var _importWb = null;   // cached XLSX workbook
+var _importWb = null; // cached XLSX workbook
 var _importFileName = '';
 
 function openImportUsers() {
@@ -7059,7 +9676,10 @@ function importOnDrop(e) {
 
 function importHandleFile(file) {
   if (!file) return;
-  if (!window.XLSX) { toast('Excel parser not loaded yet — please try again.', 'error'); return; }
+  if (!window.XLSX) {
+    toast('Excel parser not loaded yet — please try again.', 'error');
+    return;
+  }
   var ext = file.name.split('.').pop().toLowerCase();
   if (!['xlsx', 'xls', 'csv'].includes(ext)) {
     toast('Unsupported file. Use .xlsx, .xls or .csv', 'error');
@@ -7077,13 +9697,18 @@ function importHandleFile(file) {
         // Single sheet — skip picker, go straight to preview
         var ws = wb.Sheets[wb.SheetNames[0]];
         var json = XLSX.utils.sheet_to_json(ws, { defval: '' });
-        if (!json || !json.length) { toast('Sheet is empty.', 'error'); return; }
+        if (!json || !json.length) {
+          toast('Sheet is empty.', 'error');
+          return;
+        }
         importParseRows(json, file.name + ' › ' + wb.SheetNames[0]);
       } else {
         // Multiple sheets — show picker
         importShowSheetPicker(wb, file.name);
       }
-    } catch (err) { toast('Could not read file: ' + err.message, 'error'); }
+    } catch (err) {
+      toast('Could not read file: ' + err.message, 'error');
+    }
   };
   reader.readAsArrayBuffer(file);
 }
@@ -7091,17 +9716,27 @@ function importHandleFile(file) {
 function importShowSheetPicker(wb, fileName) {
   document.getElementById('import-step-upload').classList.add('hidden');
   document.getElementById('import-sheet-file-label').textContent =
-    fileName + ' — ' + wb.SheetNames.length + ' sheets found. Click a sheet to preview it.';
+    fileName +
+    ' — ' +
+    wb.SheetNames.length +
+    ' sheets found. Click a sheet to preview it.';
 
   var grid = document.getElementById('import-sheet-grid');
   grid.innerHTML = wb.SheetNames.map(function (name) {
     var ws = wb.Sheets[name];
     var json = XLSX.utils.sheet_to_json(ws, { defval: '' });
     var rowTxt = json.length + ' row' + (json.length !== 1 ? 's' : '');
-    return '<div class="sheet-tab" onclick="importSelectSheet(\'' + name.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')">' +
-      '📋 ' + escHtml(name) +
-      '<div class="sheet-tab-rows">' + rowTxt + '</div>' +
-      '</div>';
+    return (
+      '<div class="sheet-tab" onclick="importSelectSheet(\'' +
+      name.replace(/\\/g, '\\\\').replace(/'/g, "\\'") +
+      '\')">' +
+      '📋 ' +
+      escHtml(name) +
+      '<div class="sheet-tab-rows">' +
+      rowTxt +
+      '</div>' +
+      '</div>'
+    );
   }).join('');
 
   document.getElementById('import-step-sheets').classList.remove('hidden');
@@ -7111,33 +9746,54 @@ function importSelectSheet(sheetName) {
   if (!_importWb) return;
   var ws = _importWb.Sheets[sheetName];
   var json = XLSX.utils.sheet_to_json(ws, { defval: '' });
-  if (!json || !json.length) { toast('That sheet is empty.', 'error'); return; }
+  if (!json || !json.length) {
+    toast('That sheet is empty.', 'error');
+    return;
+  }
   document.getElementById('import-step-sheets').classList.add('hidden');
   importParseRows(json, _importFileName + ' › ' + sheetName);
 }
 
 function importBackToSheets() {
-  if (!_importWb) { importReset(); return; }
+  if (!_importWb) {
+    importReset();
+    return;
+  }
   _importRows = [];
   document.getElementById('import-step-preview').classList.add('hidden');
   document.getElementById('import-submit-btn').classList.add('hidden');
   document.getElementById('import-table-body').innerHTML = '';
   document.getElementById('import-progress-wrap').classList.add('hidden');
   document.getElementById('import-progress-fill').style.width = '0%';
-  if (_importWb.SheetNames.length === 1) { importReset(); return; }
+  if (_importWb.SheetNames.length === 1) {
+    importReset();
+    return;
+  }
   importShowSheetPicker(_importWb, _importFileName);
 }
 
 function importParseRows(json, label) {
   var ALIAS = {
-    'full name': 'name', 'fullname': 'name', 'display name': 'name',
-    'user name': 'username', 'user_name': 'username', 'login': 'username',
-    'pass': 'password', 'pwd': 'password',
-    'e-mail': 'email', 'mail': 'email',
-    'group': 'team', 'department': 'team', 'dept': 'team',
-    'type': 'role', 'user type': 'role', 'account type': 'role'
+    'full name': 'name',
+    fullname: 'name',
+    'display name': 'name',
+    'user name': 'username',
+    user_name: 'username',
+    login: 'username',
+    pass: 'password',
+    pwd: 'password',
+    'e-mail': 'email',
+    mail: 'email',
+    group: 'team',
+    department: 'team',
+    dept: 'team',
+    type: 'role',
+    'user type': 'role',
+    'account type': 'role',
   };
-  var existingUnames = getUsers().map(function (u) { return u.username.toLowerCase(); });
+  var existingUnames = getUsers().map(function (u) {
+    return u.username.toLowerCase();
+  });
   var rows = [];
 
   json.slice(0, 1000).forEach(function (raw, idx) {
@@ -7158,18 +9814,29 @@ function importParseRows(json, label) {
     if (!username) errors.push('username required');
     if (!password) errors.push('password required');
     if (password && password.length < 4) errors.push('password min 4 chars');
-    if (role !== 'user' && role !== 'manager') errors.push('role must be "user" or "manager"');
-    if (existingUnames.includes(username)) errors.push('username already taken');
+    if (role !== 'user' && role !== 'manager')
+      errors.push('role must be "user" or "manager"');
+    if (existingUnames.includes(username))
+      errors.push('username already taken');
 
     rows.push({
-      idx: idx + 1, name, username, password, email, team, role,
-      errors, valid: errors.length === 0,
-      status: errors.length === 0 ? '✓ Ready' : '⚠ ' + errors[0]
+      idx: idx + 1,
+      name,
+      username,
+      password,
+      email,
+      team,
+      role,
+      errors,
+      valid: errors.length === 0,
+      status: errors.length === 0 ? '✓ Ready' : '⚠ ' + errors[0],
     });
   });
 
   _importRows = rows;
-  var validCount = rows.filter(function (r) { return r.valid; }).length;
+  var validCount = rows.filter(function (r) {
+    return r.valid;
+  }).length;
   var errCount = rows.length - validCount;
 
   document.getElementById('import-cnt-total').textContent = rows.length;
@@ -7178,34 +9845,72 @@ function importParseRows(json, label) {
   document.getElementById('import-file-name').textContent = label;
 
   var tbody = document.getElementById('import-table-body');
-  tbody.innerHTML = rows.map(function (r) {
-    var rowCls = r.valid ? 'row-ok' : 'row-error';
-    var roleCls = r.role === 'manager' ? 'import-role-manager'
-      : r.role === 'user' ? 'import-role-user' : 'import-role-invalid';
-    return '<tr class="' + rowCls + '">' +
-      '<td style="color:var(--text3)">' + r.idx + '</td>' +
-      '<td>' + escHtml(r.name) + '</td>' +
-      '<td style="color:var(--amber)">@' + escHtml(r.username) + '</td>' +
-      '<td style="color:var(--text3)">••••••</td>' +
-      '<td style="color:var(--text3)">' + escHtml(r.email || '—') + '</td>' +
-      '<td>' + (r.team ? escHtml(r.team) : '<span style="color:var(--text3)">—</span>') + '</td>' +
-      '<td><span class="import-role-badge ' + roleCls + '">' + escHtml(r.role) + '</span></td>' +
-      '<td class="import-status">' + escHtml(r.status) + '</td>' +
-      '</tr>';
-  }).join('');
+  tbody.innerHTML = rows
+    .map(function (r) {
+      var rowCls = r.valid ? 'row-ok' : 'row-error';
+      var roleCls =
+        r.role === 'manager'
+          ? 'import-role-manager'
+          : r.role === 'user'
+            ? 'import-role-user'
+            : 'import-role-invalid';
+      return (
+        '<tr class="' +
+        rowCls +
+        '">' +
+        '<td style="color:var(--text3)">' +
+        r.idx +
+        '</td>' +
+        '<td>' +
+        escHtml(r.name) +
+        '</td>' +
+        '<td style="color:var(--amber)">@' +
+        escHtml(r.username) +
+        '</td>' +
+        '<td style="color:var(--text3)">••••••</td>' +
+        '<td style="color:var(--text3)">' +
+        escHtml(r.email || '—') +
+        '</td>' +
+        '<td>' +
+        (r.team
+          ? escHtml(r.team)
+          : '<span style="color:var(--text3)">—</span>') +
+        '</td>' +
+        '<td><span class="import-role-badge ' +
+        roleCls +
+        '">' +
+        escHtml(r.role) +
+        '</span></td>' +
+        '<td class="import-status">' +
+        escHtml(r.status) +
+        '</td>' +
+        '</tr>'
+      );
+    })
+    .join('');
 
   document.getElementById('import-step-preview').classList.remove('hidden');
 
   if (validCount > 0) {
     var btn = document.getElementById('import-submit-btn');
-    btn.textContent = 'Import ' + validCount + ' Valid User' + (validCount !== 1 ? 's' : '') + ' →';
+    btn.textContent =
+      'Import ' +
+      validCount +
+      ' Valid User' +
+      (validCount !== 1 ? 's' : '') +
+      ' →';
     btn.classList.remove('hidden');
   }
 }
 
 async function importSubmit() {
-  var validRows = _importRows.filter(function (r) { return r.valid; });
-  if (!validRows.length) { toast('No valid rows to import.', 'error'); return; }
+  var validRows = _importRows.filter(function (r) {
+    return r.valid;
+  });
+  if (!validRows.length) {
+    toast('No valid rows to import.', 'error');
+    return;
+  }
   if (_importRunning) return;
   _importRunning = true;
   var _importBtn = document.getElementById('import-submit-btn');
@@ -7215,35 +9920,55 @@ async function importSubmit() {
   var fill = document.getElementById('import-progress-fill');
   var label = document.getElementById('import-progress-label');
   var teams = getTeams();
-  var done = 0, failed = 0;
+  var done = 0,
+    failed = 0;
   var total = validRows.length;
 
   for (var i = 0; i < validRows.length; i++) {
     var r = validRows[i];
-    label.textContent = 'Importing ' + (i + 1) + ' / ' + total + ' — ' + r.name + '…';
+    label.textContent =
+      'Importing ' + (i + 1) + ' / ' + total + ' — ' + r.name + '…';
     fill.style.width = Math.round(((i + 1) / total) * 100) + '%';
 
     var trEl = null;
-    var allTr = document.getElementById('import-table-body').querySelectorAll('tr');
+    var allTr = document
+      .getElementById('import-table-body')
+      .querySelectorAll('tr');
     for (var ti = 0; ti < allTr.length; ti++) {
       var cells = allTr[ti].querySelectorAll('td');
-      if (cells.length && parseInt(cells[0].textContent) === r.idx) { trEl = allTr[ti]; break; }
+      if (cells.length && parseInt(cells[0].textContent) === r.idx) {
+        trEl = allTr[ti];
+        break;
+      }
     }
-    if (trEl) { trEl.querySelector('.import-status').textContent = '⏳'; trEl.className = ''; }
+    if (trEl) {
+      trEl.querySelector('.import-status').textContent = '⏳';
+      trEl.className = '';
+    }
 
     try {
       var newUser = await API.post('/users', {
-        name: r.name, username: r.username, password: r.password,
-        role: r.role, email: r.email, emailNotif: !!r.email
+        name: r.name,
+        username: r.username,
+        password: r.password,
+        role: r.role,
+        email: r.email,
+        emailNotif: !!r.email,
       });
       cache.users.push(newUser);
 
       if (r.team) {
-        var matchTeam = teams.find(function (t) { return t.name.toLowerCase() === r.team.toLowerCase(); });
+        var matchTeam = teams.find(function (t) {
+          return t.name.toLowerCase() === r.team.toLowerCase();
+        });
         if (!matchTeam) {
           // Auto-create the team if it doesn't exist yet
           try {
-            matchTeam = await API.post('/teams', { name: r.team, color: '#F59E0B', memberIds: [] });
+            matchTeam = await API.post('/teams', {
+              name: r.team,
+              color: '#F59E0B',
+              memberIds: [],
+            });
             teams.push(matchTeam);
             cache.teams.push(matchTeam);
           } catch (teamErr) {
@@ -7254,26 +9979,41 @@ async function importSubmit() {
           if (!matchTeam.memberIds) matchTeam.memberIds = [];
           if (!matchTeam.memberIds.includes(newUser.id)) {
             matchTeam.memberIds.push(newUser.id);
-            await API.put('/teams/' + matchTeam.id, { memberIds: matchTeam.memberIds });
+            await API.put('/teams/' + matchTeam.id, {
+              memberIds: matchTeam.memberIds,
+            });
           }
         }
       }
       done++;
-      if (trEl) { trEl.querySelector('.import-status').textContent = '✓ Imported'; trEl.className = 'row-done'; }
+      if (trEl) {
+        trEl.querySelector('.import-status').textContent = '✓ Imported';
+        trEl.className = 'row-done';
+      }
     } catch (err) {
       failed++;
-      var msg = (err && err.message) ? err.message : 'Failed';
-      if (trEl) { trEl.querySelector('.import-status').textContent = '✕ ' + msg; trEl.className = 'row-fail'; }
+      var msg = err && err.message ? err.message : 'Failed';
+      if (trEl) {
+        trEl.querySelector('.import-status').textContent = '✕ ' + msg;
+        trEl.className = 'row-fail';
+      }
     }
   }
 
   fill.style.width = '100%';
-  label.textContent = '✓ Done — ' + done + ' imported' + (failed ? ', ' + failed + ' failed' : '') + '.';
+  label.textContent =
+    '✓ Done — ' +
+    done +
+    ' imported' +
+    (failed ? ', ' + failed + ' failed' : '') +
+    '.';
   _importRunning = false;
   _unlockOp('importUsers', _importBtn);
   document.getElementById('import-submit-btn').classList.add('hidden');
 
-  try { cache.teams = await API.get('/teams') || cache.teams; } catch (e) { }
+  try {
+    cache.teams = (await API.get('/teams')) || cache.teams;
+  } catch (e) { }
 
   var summary = done + ' user' + (done !== 1 ? 's' : '') + ' imported!';
   if (failed) summary += ' ' + failed + ' failed — see table for details.';
@@ -7284,15 +10024,19 @@ async function importSubmit() {
 }
 
 function importDownloadTemplate() {
-  var csv = 'name,username,password,email,team,role\n' +
+  var csv =
+    'name,username,password,email,team,role\n' +
     'Jane Smith,jane.smith,password123,jane@company.com,Engineering,user\n' +
     'John Doe,john.doe,password123,john@company.com,Sales,manager\n';
   var blob = new Blob([csv], { type: 'text/csv' });
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
-  a.href = url; a.download = 'taskflow_import_template.csv';
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a); URL.revokeObjectURL(url);
+  a.href = url;
+  a.download = 'taskflow_import_template.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 /* ============================================================
@@ -7329,21 +10073,35 @@ function updateDeleteBtn() {
   });
   document.getElementById('del-all').checked = allChecked;
 
-  var anyChecked = ['del-tasks', 'del-users', 'del-teams', 'del-all'].some(function (id) {
-    return document.getElementById(id).checked;
-  });
-  var confirmed = document.getElementById('del-confirm-input').value.trim().toUpperCase() === 'DELETE';
-  document.getElementById('delete-all-btn').disabled = !(anyChecked && confirmed);
+  var anyChecked = ['del-tasks', 'del-users', 'del-teams', 'del-all'].some(
+    function (id) {
+      return document.getElementById(id).checked;
+    },
+  );
+  var confirmed =
+    document.getElementById('del-confirm-input').value.trim().toUpperCase() ===
+    'DELETE';
+  document.getElementById('delete-all-btn').disabled = !(
+    anyChecked && confirmed
+  );
 }
 
 async function executeDeleteAll() {
   var delTasks = document.getElementById('del-tasks').checked;
   var delUsers = document.getElementById('del-users').checked;
   var delTeams = document.getElementById('del-teams').checked;
-  var confirmed = document.getElementById('del-confirm-input').value.trim().toUpperCase() === 'DELETE';
+  var confirmed =
+    document.getElementById('del-confirm-input').value.trim().toUpperCase() ===
+    'DELETE';
 
-  if (!confirmed) { toast('Type DELETE to confirm.', 'error'); return; }
-  if (!delTasks && !delUsers && !delTeams) { toast('Select at least one option.', 'error'); return; }
+  if (!confirmed) {
+    toast('Type DELETE to confirm.', 'error');
+    return;
+  }
+  if (!delTasks && !delUsers && !delTeams) {
+    toast('Select at least one option.', 'error');
+    return;
+  }
 
   var _delBtn = document.getElementById('delete-all-btn');
   _lockOp('deleteAll', _delBtn, 'Deleting data…');
@@ -7369,25 +10127,35 @@ async function executeDeleteAll() {
       progress('Deleting all tasks…');
       var tasks = getTasks();
       for (var i = 0; i < tasks.length; i++) {
-        try { await API.del('/tasks/' + tasks[i].id); } catch (e) { }
+        try {
+          await API.del('/tasks/' + tasks[i].id);
+        } catch (e) { }
       }
       cache.tasks = [];
     }
 
     if (delUsers) {
       progress('Deleting all user accounts…');
-      var users = getUsers().filter(function (u) { return u.role !== 'admin'; });
+      var users = getUsers().filter(function (u) {
+        return u.role !== 'admin';
+      });
       for (var j = 0; j < users.length; j++) {
-        try { await API.del('/users/' + users[j].id); } catch (e) { }
+        try {
+          await API.del('/users/' + users[j].id);
+        } catch (e) { }
       }
-      cache.users = cache.users.filter(function (u) { return u.role === 'admin'; });
+      cache.users = cache.users.filter(function (u) {
+        return u.role === 'admin';
+      });
     }
 
     if (delTeams) {
       progress('Deleting all teams…');
       var teams = getTeams();
       for (var k = 0; k < teams.length; k++) {
-        try { await API.del('/teams/' + teams[k].id); } catch (e) { }
+        try {
+          await API.del('/teams/' + teams[k].id);
+        } catch (e) { }
       }
       cache.teams = [];
     }
@@ -7408,7 +10176,6 @@ async function executeDeleteAll() {
       else if (state.view === 'task-board') renderTasks(state.currentUser.id);
       else if (state.view === 'teams') renderTeamsView();
     }, 800);
-
   } catch (err) {
     toast('Delete failed: ' + (err.message || 'Unknown error'), 'error');
     _unlockOp('deleteAll', _delBtn);
@@ -7422,37 +10189,52 @@ document.addEventListener('DOMContentLoaded', function () {
   (function initModalSwipeDismiss() {
     if (!('ontouchstart' in window)) return;
 
-    let _startY = 0, _modal = null, _isDragging = false;
+    let _startY = 0,
+      _modal = null,
+      _isDragging = false;
 
-    document.addEventListener('touchstart', e => {
-      const header = e.target.closest('.modal-header');
-      if (!header) return;
-      _modal = header.closest('.modal');
-      if (!_modal) return;
-      _startY = e.touches[0].clientY;
-      _isDragging = true;
-      _modal.style.transition = 'none';
-    }, { passive: true });
+    document.addEventListener(
+      'touchstart',
+      (e) => {
+        const header = e.target.closest('.modal-header');
+        if (!header) return;
+        _modal = header.closest('.modal');
+        if (!_modal) return;
+        _startY = e.touches[0].clientY;
+        _isDragging = true;
+        _modal.style.transition = 'none';
+      },
+      { passive: true },
+    );
 
-    document.addEventListener('touchmove', e => {
-      if (!_isDragging || !_modal) return;
-      const dy = e.touches[0].clientY - _startY;
-      if (dy > 0) _modal.style.transform = 'translateY(' + dy + 'px)';
-    }, { passive: true });
+    document.addEventListener(
+      'touchmove',
+      (e) => {
+        if (!_isDragging || !_modal) return;
+        const dy = e.touches[0].clientY - _startY;
+        if (dy > 0) _modal.style.transform = 'translateY(' + dy + 'px)';
+      },
+      { passive: true },
+    );
 
-    document.addEventListener('touchend', e => {
-      if (!_isDragging || !_modal) return;
-      const dy = e.changedTouches[0].clientY - _startY;
-      _modal.style.transition = '';
-      if (dy > 80) {
-        const overlay = _modal.closest('.modal-overlay');
-        if (overlay && overlay.id) closeModal(overlay.id);
-        else _modal.style.transform = '';
-      } else {
-        _modal.style.transform = '';
-      }
-      _isDragging = false; _modal = null;
-    }, { passive: true });
+    document.addEventListener(
+      'touchend',
+      (e) => {
+        if (!_isDragging || !_modal) return;
+        const dy = e.changedTouches[0].clientY - _startY;
+        _modal.style.transition = '';
+        if (dy > 80) {
+          const overlay = _modal.closest('.modal-overlay');
+          if (overlay && overlay.id) closeModal(overlay.id);
+          else _modal.style.transform = '';
+        } else {
+          _modal.style.transform = '';
+        }
+        _isDragging = false;
+        _modal = null;
+      },
+      { passive: true },
+    );
   })();
 });
 
@@ -7489,7 +10271,10 @@ document.addEventListener('DOMContentLoaded', function () {
       const overlay = document.getElementById(id);
       if (overlay) {
         const modal = overlay.querySelector('.modal');
-        if (modal) { modal.style.removeProperty('max-height'); modal.style.removeProperty('transition'); }
+        if (modal) {
+          modal.style.removeProperty('max-height');
+          modal.style.removeProperty('transition');
+        }
       }
     };
 
@@ -7501,9 +10286,9 @@ document.addEventListener('DOMContentLoaded', function () {
       const viewportTop = vv.offsetTop;
       const windowH = window.innerHeight;
       const kbHeight = windowH - viewportTop - viewportH;
-      const kbOpen = kbHeight > 100;  // > 100px means keyboard is up
+      const kbOpen = kbHeight > 100; // > 100px means keyboard is up
 
-      overlays.forEach(overlay => {
+      overlays.forEach((overlay) => {
         const modal = overlay.querySelector('.modal');
         if (!modal) return;
 
@@ -7518,7 +10303,14 @@ document.addEventListener('DOMContentLoaded', function () {
           // Scroll the focused input into the visible portion of the modal body
           const focused = document.activeElement;
           if (focused && modal.contains(focused)) {
-            setTimeout(() => focused.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 120);
+            setTimeout(
+              () =>
+                focused.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'nearest',
+                }),
+              120,
+            );
           }
         } else {
           // Keyboard hidden — smoothly restore full height.
@@ -7531,7 +10323,9 @@ document.addEventListener('DOMContentLoaded', function () {
             modal.style.removeProperty('transition');
             modal.removeEventListener('transitionend', clearTransition);
           };
-          modal.addEventListener('transitionend', clearTransition, { once: true });
+          modal.addEventListener('transitionend', clearTransition, {
+            once: true,
+          });
         }
       });
     }
@@ -7539,11 +10333,18 @@ document.addEventListener('DOMContentLoaded', function () {
     vv.addEventListener('resize', _adjustForKeyboard);
 
     // Scroll focused inputs into view (after keyboard animation completes)
-    document.addEventListener('focusin', e => {
-      const target = e.target;
-      if (!target.closest('.modal')) return;
-      setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 380);
-    }, true);
+    document.addEventListener(
+      'focusin',
+      (e) => {
+        const target = e.target;
+        if (!target.closest('.modal')) return;
+        setTimeout(
+          () => target.scrollIntoView({ behavior: 'smooth', block: 'nearest' }),
+          380,
+        );
+      },
+      true,
+    );
   })();
 });
 
@@ -7557,7 +10358,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const modal = document.getElementById(id);
         if (!modal) return;
         // Focus first visible text/number/date input in modal body
-        const inp = modal.querySelector('.modal-body input:not([type=checkbox]):not([type=radio]):not([hidden]), .modal-body textarea');
+        const inp = modal.querySelector(
+          '.modal-body input:not([type=checkbox]):not([type=radio]):not([hidden]), .modal-body textarea',
+        );
         if (inp) {
           setTimeout(() => inp.focus(), 150);
         }
@@ -7565,7 +10368,6 @@ document.addEventListener('DOMContentLoaded', function () {
     };
   })();
 });
-
 
 /* ============================================================
    OFFLINE QUEUE — IndexedDB-backed write queue
@@ -7580,7 +10382,10 @@ const OfflineQueue = (() => {
 
   function _open() {
     return new Promise((resolve, reject) => {
-      if (_db) { resolve(_db); return; }
+      if (_db) {
+        resolve(_db);
+        return;
+      }
       const req = indexedDB.open(DB_NAME, DB_VERSION);
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
@@ -7588,7 +10393,10 @@ const OfflineQueue = (() => {
           db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
         }
       };
-      req.onsuccess = (e) => { _db = e.target.result; resolve(_db); };
+      req.onsuccess = (e) => {
+        _db = e.target.result;
+        resolve(_db);
+      };
       req.onerror = (e) => reject(e.target.error);
     });
   }
@@ -7599,7 +10407,10 @@ const OfflineQueue = (() => {
     const tx = db.transaction(STORE, 'readwrite');
     const store = tx.objectStore(STORE);
     store.add({ ...op, ts: Date.now() });
-    return new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+    return new Promise((res, rej) => {
+      tx.oncomplete = res;
+      tx.onerror = rej;
+    });
   }
 
   async function getAll() {
@@ -7618,7 +10429,10 @@ const OfflineQueue = (() => {
     const tx = db.transaction(STORE, 'readwrite');
     const store = tx.objectStore(STORE);
     store.delete(id);
-    return new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+    return new Promise((res, rej) => {
+      tx.oncomplete = res;
+      tx.onerror = rej;
+    });
   }
 
   async function _pingServer() {
@@ -7626,7 +10440,7 @@ const OfflineQueue = (() => {
     try {
       const res = await fetch(SUPA_URL + '/rest/v1/', {
         method: 'GET',
-        headers: { 'apikey': SUPA_KEY },
+        headers: { apikey: SUPA_KEY },
         signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined,
       });
       return res.ok || res.status === 400; // 400 = no table specified but server is alive
@@ -7640,7 +10454,9 @@ const OfflineQueue = (() => {
     // Verify actual server reachability before attempting to sync
     const serverUp = await _pingServer();
     if (!serverUp) {
-      console.log('[OfflineQueue] navigator.onLine=true but server unreachable — skipping sync');
+      console.log(
+        '[OfflineQueue] navigator.onLine=true but server unreachable — skipping sync',
+      );
       return 0;
     }
     const items = await getAll();
@@ -7665,17 +10481,28 @@ const OfflineQueue = (() => {
       // Remove optimistic offline tasks from local cache so they get replaced
       // by the real server-synced tasks when loadAll() re-fetches
       if (cache.tasks) {
-        cache.tasks = cache.tasks.filter(t => !t.id || !String(t.id).startsWith('offline_'));
+        cache.tasks = cache.tasks.filter(
+          (t) => !t.id || !String(t.id).startsWith('offline_'),
+        );
       }
       // Refresh data from server after sync
-      try { await loadAll(); } catch (e) { }
+      try {
+        await loadAll();
+      } catch (e) { }
       const userId = state.currentUser?.id;
       if (userId) {
         if (state.currentViewMode === 'timeline') renderTimeline(userId);
-        else if (document.getElementById('task-board') && !document.getElementById('task-board').classList.contains('hidden')) renderTasks(userId);
+        else if (
+          document.getElementById('task-board') &&
+          !document.getElementById('task-board').classList.contains('hidden')
+        )
+          renderTasks(userId);
         if (state.view === 'calendar') renderCalendar();
       }
-      toast(`📶 ${synced} offline change${synced > 1 ? 's' : ''} synced to server.`, 'success');
+      toast(
+        `📶 ${synced} offline change${synced > 1 ? 's' : ''} synced to server.`,
+        'success',
+      );
     }
     return synced;
   }
@@ -7699,10 +10526,21 @@ const OfflineQueue = (() => {
       indicator = document.createElement('div');
       indicator.id = 'tf-offline-indicator';
       indicator.style.cssText = [
-        'position:fixed', 'top:10px', 'left:50%', 'transform:translateX(-50%)',
-        'background:#EF4444', 'color:#fff', 'font-size:11px', 'font-weight:700',
-        'padding:5px 14px', 'border-radius:20px', 'z-index:99999',
-        'display:none', 'align-items:center', 'gap:6px', 'box-shadow:0 4px 16px rgba(0,0,0,0.4)'
+        'position:fixed',
+        'top:10px',
+        'left:50%',
+        'transform:translateX(-50%)',
+        'background:#EF4444',
+        'color:#fff',
+        'font-size:11px',
+        'font-weight:700',
+        'padding:5px 14px',
+        'border-radius:20px',
+        'z-index:99999',
+        'display:none',
+        'align-items:center',
+        'gap:6px',
+        'box-shadow:0 4px 16px rgba(0,0,0,0.4)',
       ].join(';');
       indicator.innerHTML = '📵 Offline — changes will sync when reconnected';
       document.body.appendChild(indicator);
@@ -7736,14 +10574,23 @@ const Session = (() => {
   function getDeviceId() {
     let id = localStorage.getItem(DEVICE_KEY);
     if (!id) {
-      id = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
+      id =
+        'dev_' +
+        Date.now().toString(36) +
+        '_' +
+        Math.random().toString(36).slice(2);
       localStorage.setItem(DEVICE_KEY, id);
     }
     return id;
   }
 
   function newSessionId() {
-    return 'sess_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
+    return (
+      'sess_' +
+      Date.now().toString(36) +
+      '_' +
+      Math.random().toString(36).slice(2)
+    );
   }
 
   // Store active session in Supabase under tf_users.active_session
@@ -7754,7 +10601,7 @@ const Session = (() => {
     localStorage.setItem(SESSION_KEY, sessId);
     try {
       await SB.update('tf_users', userId, {
-        active_session: JSON.stringify({ sessId, deviceId, ts: Date.now() })
+        active_session: JSON.stringify({ sessId, deviceId, ts: Date.now() }),
       });
     } catch (e) {
       // Column may not exist — that's fine, degrade gracefully
@@ -7768,7 +10615,10 @@ const Session = (() => {
     const myDevice = getDeviceId();
     if (!mySession) return 'ok'; // no session to check
     try {
-      const rows = await SB.select('tf_users', `id=eq.${userId}&select=active_session&limit=1`);
+      const rows = await SB.select(
+        'tf_users',
+        `id=eq.${userId}&select=active_session&limit=1`,
+      );
       if (!rows || rows.length === 0) return 'ok';
       const raw = rows[0].active_session;
       if (!raw) return 'ok'; // column empty or doesn't exist
@@ -7809,7 +10659,10 @@ const Session = (() => {
   function startSessionPoll(userId) {
     clearInterval(_pollTimer);
     _pollTimer = setInterval(async () => {
-      if (!state.currentUser) { clearInterval(_pollTimer); return; }
+      if (!state.currentUser) {
+        clearInterval(_pollTimer);
+        return;
+      }
       const result = await checkSession(userId);
       if (result === 'stolen') {
         clearInterval(_pollTimer);
@@ -7818,9 +10671,18 @@ const Session = (() => {
     }, 30000);
   }
 
-  function stopSessionPoll() { clearInterval(_pollTimer); }
+  function stopSessionPoll() {
+    clearInterval(_pollTimer);
+  }
 
-  return { claimSession, checkSession, startSessionPoll, stopSessionPoll, showSessionStolenBanner, getDeviceId };
+  return {
+    claimSession,
+    checkSession,
+    startSessionPoll,
+    stopSessionPoll,
+    showSessionStolenBanner,
+    getDeviceId,
+  };
 })();
 
 // Hook into signIn to claim session
@@ -7866,12 +10728,18 @@ async function initializeApp() {
 
   // Wire up login event listeners
   EL.loginBtn.addEventListener('click', signIn);
-  EL.loginPw.addEventListener('keydown', function (e) { if (e.key === 'Enter') signIn(); });
-  EL.loginUser.addEventListener('keydown', function (e) { if (e.key === 'Enter') EL.loginPw.focus(); });
+  EL.loginPw.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') signIn();
+  });
+  EL.loginUser.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') EL.loginPw.focus();
+  });
 
   // Wire up modal overlay click-to-close
-  document.querySelectorAll('.modal-overlay').forEach(overlay => {
-    overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(overlay.id); });
+  document.querySelectorAll('.modal-overlay').forEach((overlay) => {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeModal(overlay.id);
+    });
   });
 
   // Mark body as ready so app panel becomes visible (prevents FOUC)
@@ -7888,12 +10756,26 @@ async function initializeApp() {
 
   try {
     // Re-fetch the user record to confirm session is still valid
-    const rows = await SB.select('tf_users', `id=eq.${uid}&select=id,name,username,role,company_id&limit=1`);
-    if (!rows || rows.length === 0) { API.clearToken(); return; }
+    const rows = await SB.select(
+      'tf_users',
+      `id=eq.${uid}&select=id,name,username,role,company_id&limit=1`,
+    );
+    if (!rows || rows.length === 0) {
+      API.clearToken();
+      return;
+    }
     const u = rows[0];
-    state.currentUser = { id: u.id, name: u.name, username: u.username, role: u.role, companyId: u.company_id };
+    state.currentUser = {
+      id: u.id,
+      name: u.name,
+      username: u.username,
+      role: u.role,
+      companyId: u.company_id,
+    };
 
-    (EL.loginScreen || document.getElementById('login-screen')).classList.add('hidden');
+    (EL.loginScreen || document.getElementById('login-screen')).classList.add(
+      'hidden',
+    );
 
     if (role === 'superadmin') {
       document.getElementById('sa-panel').classList.remove('hidden');
@@ -7913,14 +10795,20 @@ async function initializeApp() {
         const calBtn = document.getElementById('my-cal-btn');
         if (calBtn) calBtn.classList.remove('hidden');
       }
-      if (savedView && savedView !== 'admin-home' && savedView !== 'worker-home') {
+      if (
+        savedView &&
+        savedView !== 'admin-home' &&
+        savedView !== 'worker-home'
+      ) {
         if (savedView === 'user-tasks') {
           var savedUid = localStorage.getItem('tf_target_uid');
           if (savedUid) {
             state.targetUserId = savedUid;
             showView('user-tasks');
           } else {
-            showView(role === 'admin' || role === 'manager' ? 'user-list' : 'my-tasks');
+            showView(
+              role === 'admin' || role === 'manager' ? 'user-list' : 'my-tasks',
+            );
           }
         } else {
           showView(savedView);
@@ -7960,8 +10848,13 @@ window._sessionClaimOnRestore = async function () {
       // Someone else is logged in — boot us to login
       API.clearToken();
       document.getElementById('app').classList.add('hidden');
-      (EL.loginScreen || document.getElementById('login-screen')).classList.remove('hidden');
-      toast('Your session was opened on another device. Please sign in.', 'warning');
+      (
+        EL.loginScreen || document.getElementById('login-screen')
+      ).classList.remove('hidden');
+      toast(
+        'Your session was opened on another device. Please sign in.',
+        'warning',
+      );
       return;
     }
     await Session.claimSession(state.currentUser.id);
@@ -7976,6 +10869,19 @@ window.signOut = async function () {
   await _origSignOut.apply(this, arguments);
 };
 
-
 // Expose initializeApp globally so bootstrap script can always find it
 if (typeof window !== 'undefined') window.initializeApp = initializeApp;
+
+window.debugEmailHTML = function () {
+  const user = { name: 'Alice', emailNotif: true, email: 'test@example.com' };
+  const task = { title: 'Test Task', requestor: 'Bob', priority: 2, description: [{ text: 'Do it', checked: false }] };
+  const action = 'assigned';
+  const html = composeTaskEmail(user, task, action, 'My Company');
+  console.log('--- HTML OUTPUT ---');
+  console.log(html);
+
+  // also test the insert
+  sendEmailViaAPI(user.email, 'Test', html).then(() => {
+    console.log('[DEBUG] Insert test fired. Check table.');
+  });
+};
