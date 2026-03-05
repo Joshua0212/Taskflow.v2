@@ -3451,7 +3451,11 @@ async function sendLeaveEmail(user, leaveInfo) {
 }
 
 async function sendTaskEmail(user, task, action) {
-  if (!user || user.emailNotif === false || !user.email) return;
+  console.log('[EMAIL] sendTaskEmail called:', { userName: user?.name, email: user?.email, emailNotif: user?.emailNotif, taskTitle: task?.title, action });
+  if (!user || user.emailNotif === false || !user.email) {
+    console.log('[EMAIL] Skipped — missing user, emailNotif is false, or no email');
+    return;
+  }
   const companyName = cache.companies?.find?.(c => c.id === _cid())?.name || 'Your Company';
   const subject = `[TaskFlow] Task ${action} — ${task.title}`;
   const body = composeTaskEmail(user, task, action, companyName);
@@ -3460,19 +3464,18 @@ async function sendTaskEmail(user, task, action) {
 
 // Email via Supabase Edge Function (deploy separately) or fallback
 async function sendEmailViaAPI(to, subject, htmlBody) {
-  // Store in tf_email_queue table for processing by a Supabase Edge Function
-  // If the table doesn't exist yet, this silently fails — no disruption to app
+  console.log('[EMAIL] sendEmailViaAPI called:', { to, subject, bodyLength: htmlBody?.length });
   try {
-    await SB.insert('tf_email_queue', {
+    const result = await SB.insert('tf_email_queue', {
       company_id: _cid() || null,
       to_email: to,
       subject: subject,
       html_body: htmlBody,
       sent: false
     });
+    console.log('[EMAIL] ✅ Queued successfully:', result);
   } catch (e) {
-    // Table may not exist yet — that's OK, email is optional
-    console.warn('Email queue not available:', e.message);
+    console.error('[EMAIL] ❌ Failed to queue:', e.message, e);
   }
 }
 
