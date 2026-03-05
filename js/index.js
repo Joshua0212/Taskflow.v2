@@ -3479,6 +3479,25 @@ async function sendEmailViaAPI(to, subject, htmlBody) {
   }
 }
 
+// Debug: call testEmailQueue() from browser console to test email insert
+window.testEmailQueue = async function () {
+  console.log('[TEST] Testing email queue insert...');
+  try {
+    const result = await SB.insert('tf_email_queue', {
+      company_id: _cid() || null,
+      to_email: 'test@test.com',
+      subject: '[TEST] Email Queue Test',
+      html_body: '<p>This is a test email from TaskFlow.</p>',
+      sent: false
+    });
+    console.log('[TEST] ✅ SUCCESS! Row inserted:', result);
+    alert('✅ Email queue works! Check tf_email_queue in Supabase.');
+  } catch (e) {
+    console.error('[TEST] ❌ FAILED:', e.message, e);
+    alert('❌ Email queue failed: ' + e.message);
+  }
+};
+
 function composeLeaveEmail(user, info, companyName) {
   const { type, startDate, endDate, days, typeLabel, reason, icon } = info;
   const fmt = d => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
