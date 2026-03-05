@@ -3107,8 +3107,13 @@ async function saveTask() {
       }
       if (!cache.tasks) cache.tasks = [];
       cache.tasks.push(newTask);
-      if (state.currentUser.role === 'admin' && userId !== state.currentUser.id) {
-        pushNotification(userId, `📌 New Task Assigned`, `"${title}" has been added by Admin.`, newTask.id);
+      if ((state.currentUser.role === 'admin' || state.currentUser.role === 'manager') && userId !== state.currentUser.id) {
+        var actorRole = state.currentUser.role === 'admin' ? 'Admin' : 'Manager';
+        var assignedName = getUsers().find(u => u.id === userId)?.name || 'User';
+        // Notify the assignee
+        pushNotification(userId, `📌 New Task Assigned`, `"${title}" has been added by ${actorRole}.`, newTask.id, { type: 'task', action: 'assigned' });
+        // Notify the setter (confirmation)
+        pushNotification(state.currentUser.id, `✅ Task Assigned to ${assignedName}`, `"${title}" has been assigned successfully.`, newTask.id, { type: 'task', action: 'assigned-confirm', sendEmail: false });
       }
       const assignedUser = getUsers().find(u => u.id === userId);
       if (assignedUser) sendTaskEmail(assignedUser, newTask, 'assigned').catch(() => { });
@@ -6525,7 +6530,7 @@ function addUserCustomWorkday(userId, dateStr) {
 /* ============================================================
    USER LIST (admin/manager)
    ============================================================ */
-function renderUserList() {
+function renderUserList(filterText) {
   var grid = document.getElementById('user-grid');
   var isAdmin = state.currentUser.role === 'admin';
   var isElevated = isAdmin || state.currentUser.role === 'manager';
@@ -6537,10 +6542,35 @@ function renderUserList() {
   if (regBtn) regBtn.style.display = isAdmin ? '' : 'none';
   var importBtn = document.getElementById('import-user-list-btn');
   if (importBtn) importBtn.style.display = isAdmin ? '' : 'none';
+
+  // Search bar — insert once
+  var searchWrap = document.getElementById('user-list-search-wrap');
+  if (!searchWrap) {
+    searchWrap = document.createElement('div');
+    searchWrap.id = 'user-list-search-wrap';
+    searchWrap.style.cssText = 'width:100%;max-width:400px;margin:0 auto 16px;position:relative;';
+    searchWrap.innerHTML = '<span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;">🔍</span>' +
+      '<input type="text" id="user-list-search" placeholder="Search users…" ' +
+      'style="width:100%;padding:10px 14px 10px 34px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;font-family:var(--mono);">';
+    grid.parentNode.insertBefore(searchWrap, grid);
+    document.getElementById('user-list-search').addEventListener('input', function () {
+      renderUserList(this.value.trim().toLowerCase());
+    });
+  }
+  // Keep search value in sync
+  var searchInput = document.getElementById('user-list-search');
+  if (searchInput && filterText === undefined) filterText = searchInput.value.trim().toLowerCase();
+
   var users = getUsers().filter(function (u) { return u.role !== 'admin'; });
+  // Apply search filter
+  if (filterText) {
+    users = users.filter(function (u) {
+      return u.name.toLowerCase().includes(filterText) || u.username.toLowerCase().includes(filterText);
+    });
+  }
   var tasks = getTasks();
   if (users.length === 0) {
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--text3);">No users registered yet. <br>Click &quot;Register User&quot; to add one.</div>';
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--text3);">' + (filterText ? 'No users match your search.' : 'No users registered yet. <br>Click &quot;Register User&quot; to add one.') + '</div>';
     return;
   }
   var roleColors = { manager: '#A78BFA', user: 'var(--p4)' };
