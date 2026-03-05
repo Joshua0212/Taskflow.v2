@@ -535,6 +535,7 @@ async function loadAll() {
   } catch (e) {
     console.error('loadAll failed:', e);
   }
+  _initialLoadDone = true;
 }
 
 /* ============================================================
@@ -985,8 +986,8 @@ function showView(v) {
 
     // Show breadcrumbs on desktop; hide on mobile (browser back handles navigation)
     var breadcrumb = document.getElementById('breadcrumb');
+    var isMobileView = window.innerWidth <= 768 || ('ontouchstart' in window);
     if (breadcrumb) {
-      var isMobileView = window.innerWidth <= 768 || ('ontouchstart' in window);
       if (isMobileView) { breadcrumb.classList.add('hidden'); }
       else { breadcrumb.classList.remove('hidden'); }
     }
@@ -998,6 +999,7 @@ function showView(v) {
     if (mobAddBtn) mobAddBtn.style.display = 'none';
 
     // Add back button to calendar header (desktop only)
+    var calHeader = document.querySelector('.calendar-header');
     if (calHeader && !document.getElementById('cal-back-btn') && !isMobileView) {
       var backBtn = document.createElement('button');
       backBtn.id = 'cal-back-btn';
@@ -3480,6 +3482,7 @@ let _notifPollInterval = null;
 let _lastNotifCount = 0;
 let _realtimeWs = null;
 let _realtimeConnected = false;
+let _initialLoadDone = false;
 
 function startRealtimeNotifs() {
   // Try Supabase Realtime WebSocket first
@@ -3500,14 +3503,8 @@ function startRealtimeNotifs() {
       const unread = fresh.filter(n => n.userId === state.currentUser.id && !n.read).length;
       if (unread > _lastNotifCount && _lastNotifCount >= 0) {
         const newest = fresh.filter(n => n.userId === state.currentUser.id && !n.read)[0];
-        if (newest && Notification.permission === 'granted') {
-          if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-            navigator.serviceWorker.controller.postMessage({
-              type: 'SHOW_NOTIFICATION', title: newest.title, body: newest.body, tag: 'tf-' + newest.id
-            });
-          } else {
-            new Notification(newest.title, { body: newest.body, icon: '/favicon.ico', tag: 'tf-' + newest.id });
-          }
+        if (newest) {
+          _showBrowserNotif(newest.title, newest.body, 'tf-' + newest.id);
         }
         const btn = document.getElementById('notif-btn');
         if (btn) { btn.style.animation = 'none'; setTimeout(() => btn.style.animation = '', 10); }
@@ -3515,8 +3512,8 @@ function startRealtimeNotifs() {
       _lastNotifCount = unread;
       updateNotifBadge();
 
-      // Also refresh tasks for sync (only if realtime is not connected)
-      if (!_realtimeConnected) {
+      // Also refresh tasks for sync (only if realtime is not connected and initial load is done)
+      if (!_realtimeConnected && _initialLoadDone) {
         const freshTasks = await API.get('/tasks');
         if (freshTasks) {
           cache.tasks = freshTasks;
@@ -3536,7 +3533,7 @@ function stopRealtimeNotifs() {
 // and no modal is open (to avoid disrupting user interactions)
 var _lastTaskHash = '';
 function _silentRerender() {
-  if (!state.currentUser) return;
+  if (!state.currentUser || !_initialLoadDone) return;
   // Don't re-render if a modal is open
   var openModal = document.querySelector('.modal-overlay:not(.hidden)');
   if (openModal) return;
@@ -3684,15 +3681,7 @@ function _handleRealtimeNotification(type, record) {
       cache.notifications.unshift(record);
       updateNotifBadge();
       // Show browser notification
-      if (Notification.permission === 'granted') {
-        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-          navigator.serviceWorker.controller.postMessage({
-            type: 'SHOW_NOTIFICATION', title: record.title, body: record.body, tag: 'tf-' + record.id
-          });
-        } else {
-          new Notification(record.title, { body: record.body, icon: '/favicon.ico', tag: 'tf-' + record.id });
-        }
-      }
+      _showBrowserNotif(record.title, record.body, 'tf-' + record.id);
       // Pulse bell
       var btn = document.getElementById('notif-btn');
       if (btn) { btn.style.animation = 'none'; setTimeout(function () { btn.style.animation = ''; }, 10); }
@@ -3768,8 +3757,33 @@ function clearNotifs() {
 }
 
 async function requestNotifPermission() {
-  if ('Notification' in window && Notification.permission === 'default') {
-    await Notification.requestPermission();
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    // Prompt user with a toast first, then request
+    toast('📱 Enable notifications to get task alerts outside the app.', 'info');
+    setTimeout(async () => {
+      const result = await Notification.requestPermission();
+      if (result === 'granted') {
+        toast('✅ Notifications enabled!', 'success');
+      }
+    }, 1500);
+  }
+}
+
+// Show a browser/OS notification that appears OUTSIDE the website
+function _showBrowserNotif(title, body, tag) {
+  if (Notification.permission !== 'granted') return;
+  // Only show when tab is NOT focused (so it appears outside the site)
+  // Or always show via service worker (which shows even when focused)
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: 'SHOW_NOTIFICATION', title: title, body: body, tag: tag || 'taskflow-notif'
+    });
+  } else {
+    // Fallback: direct Notification API (only shows if tab is not focused in some browsers)
+    try {
+      new Notification(title, { body: body, icon: '/favicon.ico', tag: tag || 'tf-notif' });
+    } catch (e) { /* Mobile browsers may block Notification constructor */ }
   }
 }
 
@@ -3779,7 +3793,16 @@ async function requestNotifPermission() {
 async function registerSW() {
   if (!('serviceWorker' in navigator)) return;
   try {
-    await navigator.serviceWorker.register('./sw.js');
+    var reg = await navigator.serviceWorker.register('./sw.js');
+    // Wait for SW to activate and claim this page so controller is available
+    if (!navigator.serviceWorker.controller) {
+      await new Promise(function (resolve) {
+        navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true });
+        // Timeout after 3s in case SW doesn't claim
+        setTimeout(resolve, 3000);
+      });
+    }
+    console.log('[SW] Registered and controlling page');
   } catch (e) {
     console.warn('SW registration failed:', e);
   }
