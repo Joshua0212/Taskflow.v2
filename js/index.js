@@ -419,9 +419,17 @@ const API = {
           start_date: body.startDate,
           end_date: body.endDate,
           reason: body.reason || null,
+          status: body.status || 'approved',
+          requested_by: body.requestedBy || null,
         };
         if (!isSA) ins.company_id = cid;
         return _mapLeave(await SB.insert('tf_leaves', ins));
+      }
+      if (method === 'PATCH' && id) {
+        const upd = {};
+        if (body.status !== undefined) upd.status = body.status;
+        if (body.requestedBy !== undefined) upd.requested_by = body.requestedBy;
+        return _mapLeave(await SB.update('tf_leaves', id, upd));
       }
       if (method === 'PUT' && id) {
         const upd = {};
@@ -525,6 +533,9 @@ const API = {
   },
   put(path, body) {
     return this.request('PUT', path, body);
+  },
+  patch(path, body) {
+    return this.request('PATCH', path, body);
   },
   del(path) {
     return this.request('DELETE', path);
@@ -662,6 +673,8 @@ function _mapLeave(r) {
     startDate: r.start_date,
     endDate: r.end_date,
     reason: r.reason,
+    status: r.status || 'approved',
+    requestedBy: r.requested_by || null,
     createdAt: r.created_at,
   };
 }
@@ -1038,6 +1051,14 @@ let state = {
   currentViewMode: 'board', // 'board' or 'timeline'
   calendarMode: 'personal', // 'personal' or 'team'
   _returnToCalendar: false,
+};
+
+var gcalState = {
+  mode: 'week', // 'day' | 'week' | 'month'
+  anchorDate: new Date(), // reference date for current view
+  hourHeight: 60, // px per hour — basis for all positioning
+  startHour: 7, // first visible hour
+  endHour: 23, // last visible hour
 };
 
 /* ============================================================
@@ -1520,13 +1541,25 @@ function showView(v) {
 
     // Force all calendar sub-containers to a known good state before rendering
     var _sw = document.getElementById('cal-split-wrapper');
-    if (_sw) _sw.style.display = 'flex';
+    var _gcal = document.getElementById('gcal-view');
+    var isGcal = localStorage.getItem('tf_gcal_active') === '1';
+
+    if (_gcal) _gcal.classList.toggle('hidden', !isGcal);
+    if (_sw) _sw.style.display = isGcal ? 'none' : 'flex';
+
     var _yg = document.getElementById('cal-year-grid');
     if (_yg) _yg.remove();
     var _lt = document.getElementById('cal-table');
     if (_lt) _lt.style.display = 'none';
     var _ws = document.getElementById('cal-week-strip');
-    if (_ws) _ws.classList.remove('hidden');
+    if (_ws) _ws.classList.toggle('hidden', isGcal);
+
+    // Update toggle button text/state
+    const gcalBtn = document.getElementById('cal-gcal-toggle-btn');
+    if (gcalBtn) {
+      gcalBtn.textContent = isGcal ? '⬅ Grid View' : '📅 Task View';
+      gcalBtn.classList.toggle('active', isGcal);
+    }
 
     renderCalendar();
     // Scroll to today's column after rendering (when not jumping to a task)
@@ -1751,25 +1784,39 @@ function updateCalHeaderUI() {
   const isPersonal = state.calendarMode === 'personal';
   const isUser = state.currentUser?.role === 'user';
   const toggleBtn = document.getElementById('cal-team-toggle-btn');
+  const gcalBtn = document.getElementById('cal-gcal-toggle-btn');
   const searchBar = document.getElementById('cal-search-bar');
-  const addLeaveBtn = document.getElementById('add-leave-btn');
-  const zoomBtn = document.getElementById('cal-zoom-btn');
+  const workerApplyBtn = $('worker-apply-leave-btn');
+  const addLeaveBtn = $('add-leave-btn');
+  const isElevated =
+    state.currentUser?.role === 'admin' ||
+    state.currentUser?.role === 'manager';
+
+  // Toggle button text
   if (toggleBtn) {
     toggleBtn.style.display = '';
     toggleBtn.textContent = isPersonal ? '👥 Team View' : '👤 My View';
   }
+
+  // GCal toggle button visibility
+  if (gcalBtn) {
+    gcalBtn.style.display = state.view === 'calendar' ? '' : 'none';
+  }
+
   // Search only visible in day view + team mode
   if (searchBar)
     searchBar.classList.toggle(
       'hidden',
       isPersonal || calState.zoom === 'year',
     );
-  // Leave button only for managers in team view
+
+  // Manager/Admin button - only in team view for elevated roles
   if (addLeaveBtn)
-    addLeaveBtn.style.display =
-      !isUser && !isPersonal && state.currentUser?.role === 'manager'
-        ? ''
-        : 'none';
+    addLeaveBtn.style.display = isElevated && !isPersonal ? '' : 'none';
+
+  // Worker button - only for regular users
+  if (workerApplyBtn)
+    workerApplyBtn.style.display = isUser ? '' : 'none';
 }
 function goToUserList() {
   showView('user-list');
@@ -1934,6 +1981,7 @@ function countLieuDaysUsed(userId) {
     (l) =>
       l.userId === userId &&
       l.type === 'lieu' &&
+      (l.status === 'approved' || !l.status) && // backwards compat
       !(l.reason || '').includes('auto lieu day'),
   );
   let total = 0;
@@ -1955,7 +2003,8 @@ function countUsedLeaveDays(userId) {
       l.userId === userId &&
       l.type === 'loa' &&
       l.startDate &&
-      l.startDate.startsWith(year.toString()),
+      l.startDate.startsWith(year.toString()) &&
+      (l.status === 'approved' || !l.status),
   );
   let total = 0;
   leaves.forEach((l) => {
@@ -2197,33 +2246,53 @@ async function saveLeave() {
     _unlockOp('saveLeave', _btn);
     return;
   }
+  const payload = {
+    userId,
+    type,
+    startDate,
+    endDate,
+    reason,
+    status: 'approved',
+    requestedBy: state.currentUser.id,
+  };
   if (startDate > endDate) {
     toast('End date must be on or after start date.', 'error');
     _unlockOp('saveLeave', _btn);
     return;
   }
 
+  // Weekend check
+  if (countWorkingDays(startDate, endDate) === 0) {
+    toast('The selected date range falls entirely on weekends.', 'error');
+    _unlockOp('saveLeave', _btn);
+    return;
+  }
+
   // Block if any day in the range already has a leave (for new leaves only)
   if (!state.editingLeaveId) {
-    const existingLeaves = getLeaves().filter((l) => l.userId === userId);
+    const existingLeaves = getLeaves().filter(
+      (l) => l.userId === userId && l.status !== 'denied',
+    );
     const cur = new Date(startDate + 'T12:00:00');
     const end = new Date(endDate + 'T12:00:00');
     while (cur <= end) {
-      const dStr = cur.toISOString().slice(0, 10);
-      const clash = existingLeaves.find((l) => {
-        const ls = l.startDate || (l.start ? l.start.slice(0, 10) : '');
-        const le = l.endDate || (l.end ? l.end.slice(0, 10) : '');
-        return ls <= dStr && le >= dStr;
-      });
-      if (clash) {
-        toast(
-          'Leave already exists on ' +
-          dStr +
-          '. Remove it first before re-adding.',
-          'error',
-        );
-        _unlockOp('saveLeave', _btn);
-        return;
+      if (isWorkingDay(cur)) {
+        const dStr = cur.toISOString().slice(0, 10);
+        const clash = existingLeaves.find((l) => {
+          const ls = l.startDate || (l.start ? l.start.slice(0, 10) : '');
+          const le = l.endDate || (l.end ? l.end.slice(0, 10) : '');
+          return ls <= dStr && le >= dStr;
+        });
+        if (clash) {
+          toast(
+            'Leave already exists on ' +
+            dStr +
+            '. Remove it first before re-adding.',
+            'error',
+          );
+          _unlockOp('saveLeave', _btn);
+          return;
+        }
       }
       cur.setDate(cur.getDate() + 1);
     }
@@ -6996,6 +7065,8 @@ var calState = {
  */
 var renderCalendarDebounced = debounce(function () {
   renderCalendar();
+  if ($('gcal-view') && !$('gcal-view').classList.contains('hidden'))
+    renderGcal();
 }, CONFIG.DEBOUNCE_RENDER_MS);
 var _calColWidth = 80; // px — default column width for zoom
 
@@ -7795,12 +7866,17 @@ function renderCalendarYearView() {
             .filter(function (l) {
               return (
                 l.userId === viewUserId &&
+                l.status !== 'denied' &&
                 l.startDate <= dayStr &&
                 l.endDate >= dayStr
               );
             })
             .forEach(function (l) {
-              dots.push(leaveColors[l.type] || '#888');
+              if (l.status === 'pending') {
+                dots.push('var(--text3)');
+              } else {
+                dots.push(leaveColors[l.type] || '#888');
+              }
             });
         } else {
           var dStart2 = new Date(year, mo2, day, 0, 0, 0);
@@ -7816,10 +7892,26 @@ function renderCalendarYearView() {
             dots.push('var(--amber)');
           if (
             allLeaves.some(function (l) {
-              return l.startDate <= dayStr && l.endDate >= dayStr;
+              return (
+                l.status !== 'denied' &&
+                l.startDate <= dayStr &&
+                l.endDate >= dayStr
+              );
             })
-          )
-            dots.push('#10B981');
+          ) {
+            // If any are leaves, show a color. We'll stick to a mixed indicator
+            // or just green if any is approved, grey if all are pending.
+            const dayLeaves = allLeaves.filter(
+              (l) =>
+                l.status !== 'denied' &&
+                l.startDate <= dayStr &&
+                l.endDate >= dayStr,
+            );
+            const hasApproved = dayLeaves.some(
+              (l) => l.status !== 'pending' && l.status !== 'denied',
+            );
+            dots.push(hasApproved ? '#10B981' : '#9CA3AF');
+          }
         }
 
         var cell = document.createElement('div');
@@ -8321,7 +8413,11 @@ function renderCalendar() {
           var ed = entry.endStr;
           var activeOnDay = sd <= dayStr && ed >= dayStr;
 
-          if (!activeOnDay) {
+          if (
+            !activeOnDay ||
+            leave.status === 'denied' ||
+            !isWorkingDay(new Date(dayStr + 'T12:00:00'))
+          ) {
             var sp = document.createElement('div');
             sp.className = 'cal-slot-spacer';
             cell.appendChild(sp);
@@ -8351,6 +8447,31 @@ function renderCalendar() {
             isLvStart || dayStr === toDateStr(days[0])
               ? typeLabels[leave.type] || leave.type
               : typeLabels[leave.type] || leave.type;
+
+          if (leave.status === 'pending') {
+            const isElevated =
+              state.currentUser.role === 'admin' ||
+              state.currentUser.role === 'manager';
+
+            bar.style.background = 'var(--bg4)';
+            bar.style.border = '1px solid var(--border2)';
+            bar.style.color = 'var(--text3)';
+            bar.style.opacity = '0.7';
+            bar.title = isElevated
+              ? '⏳ Pending approval — click to review'
+              : '⏳ Awaiting manager approval';
+            if (leave.reason) bar.title += ': ' + leave.reason;
+            lbl.textContent = '⏳ ' + lbl.textContent;
+
+            if (isElevated) {
+              bar.style.cursor = 'pointer';
+              bar.onclick = function (e) {
+                e.stopPropagation();
+                openLeaveRequests(leave.id);
+              };
+            }
+          }
+
           bar.appendChild(lbl);
           if (isElevated) {
             var delB = document.createElement('button');
@@ -9463,19 +9584,59 @@ function showCalDayCtxMenu(e, dateStr, userId, userName) {
     '👤 ' + (userName || 'Employee');
 
   // Gray out Lieu Day button if user has no lieu days available
-  const lieuBtn = document.querySelector(
+  const lieuBtnBalance = document.querySelector(
     '#cal-day-ctx-menu .ctx-item[onclick="calDayCtxSetStatus(\'lieu\')"]',
   );
-  if (lieuBtn && userId) {
+  if (lieuBtnBalance && userId) {
     const lieuBalance = countLieuDays(userId);
-    lieuBtn.disabled = lieuBalance <= 0;
-    lieuBtn.style.opacity = lieuBalance <= 0 ? '0.4' : '';
-    lieuBtn.style.cursor = lieuBalance <= 0 ? 'not-allowed' : '';
-    lieuBtn.title =
+    lieuBtnBalance.disabled = lieuBalance <= 0;
+    lieuBtnBalance.style.opacity = lieuBalance <= 0 ? '0.4' : '';
+    lieuBtnBalance.style.cursor = lieuBalance <= 0 ? 'not-allowed' : '';
+    lieuBtnBalance.title =
       lieuBalance <= 0 ? 'No lieu days available for this employee' : '';
   }
 
   const menu = document.getElementById('cal-day-ctx-menu');
+  const isWorker = state.currentUser.role === 'user';
+
+  // Role-based visibility for context menu items
+  const setStatusSection = menu.querySelector('.cal-day-ctx-section');
+  const lieuBtn = menu.querySelector('.ctx-item[onclick*="lieu"]');
+  const loaBtn = menu.querySelector('.ctx-item[onclick*="loa"]');
+  const awolBtn = menu.querySelector('.ctx-item[onclick*="awol"]');
+  const createTaskBtn = menu.querySelector('.ctx-item[onclick*="CreateTask"]');
+
+  if (isWorker) {
+    if (setStatusSection) setStatusSection.style.display = 'none';
+    if (lieuBtn) lieuBtn.style.display = 'none';
+    if (loaBtn) loaBtn.style.display = 'none';
+    if (awolBtn) awolBtn.style.display = 'none';
+    if (createTaskBtn) createTaskBtn.style.display = 'none';
+
+    let applyBtn = document.getElementById('cal-ctx-apply-leave-btn');
+    if (!applyBtn) {
+      applyBtn = document.createElement('button');
+      applyBtn.className = 'ctx-item';
+      applyBtn.id = 'cal-ctx-apply-leave-btn';
+      applyBtn.innerHTML = '🏖️ &nbsp;Apply for Leave';
+      applyBtn.onclick = function () {
+        openApplyLeave(_calDayCtxDate);
+        hideCalDayCtxMenu();
+      };
+      menu.appendChild(applyBtn);
+    }
+    applyBtn.style.display = '';
+  } else {
+    if (setStatusSection) setStatusSection.style.display = '';
+    if (lieuBtn) lieuBtn.style.display = '';
+    if (loaBtn) loaBtn.style.display = '';
+    if (awolBtn) awolBtn.style.display = '';
+    if (createTaskBtn) createTaskBtn.style.display = '';
+
+    const applyBtn = document.getElementById('cal-ctx-apply-leave-btn');
+    if (applyBtn) applyBtn.style.display = 'none';
+  }
+
   menu.classList.remove('hidden');
   menu.style.left = e.clientX + 'px';
   menu.style.top = e.clientY + 'px';
@@ -9532,6 +9693,13 @@ function calDayCtxSetStatus(type) {
   if (!_calDayCtxDate) return;
   const dateStr = _calDayCtxDate;
   const userId = _calDayCtxUserId;
+
+  if (state.currentUser.role === 'user') {
+    openApplyLeave(dateStr);
+    hideCalDayCtxMenu();
+    return;
+  }
+
   hideCalDayCtxMenu();
 
   const role = state.currentUser?.role;
@@ -9586,6 +9754,208 @@ function calDayCtxSetStatus(type) {
     if (startEl) startEl.value = dateStr;
     if (endEl) endEl.value = dateStr;
   }, 80);
+}
+
+// ── NEW LEAVE REQUEST FUNCTIONS ─────────────────────────────────────────────
+
+function openApplyLeave(dateStr) {
+  if (state.currentUser.role !== 'user') return;
+
+  // If no date passed, default to today or first working day of viewed month
+  if (!dateStr) {
+    const today = new Date();
+    const viewYear = calState.year;
+    const viewMonth = calState.month;
+    const isSameMonth =
+      today.getFullYear() === viewYear && today.getMonth() === viewMonth;
+    dateStr = isSameMonth
+      ? toDateStr(today)
+      : toDateStr(new Date(viewYear, viewMonth, 1));
+  }
+
+  const todayStr = toDateStr(new Date());
+  $('apply-leave-start').value = dateStr || todayStr;
+  $('apply-leave-end').value = dateStr || todayStr;
+  $('apply-leave-reason').value = '';
+  $('apply-leave-type').value = 'lieu';
+  $('apply-leave-modal-title').textContent = '🏖️ Apply for Leave';
+  openModal('apply-leave-modal');
+}
+
+async function submitLeaveRequest() {
+  const userId = state.currentUser.id;
+  const type = $('apply-leave-type').value;
+  const startDate = $('apply-leave-start').value;
+  const endDate = $('apply-leave-end').value;
+  const reason = $('apply-leave-reason').value.trim();
+
+  if (!startDate || !endDate) {
+    toast('Please fill in all dates.', 'error');
+    return;
+  }
+  if (startDate > endDate) {
+    toast('End date must be after start date.', 'error');
+    return;
+  }
+
+  // Weekend check
+  if (countWorkingDays(startDate, endDate) === 0) {
+    toast(
+      'The selected date range falls entirely on weekends. Please choose working days.',
+      'error',
+    );
+    return;
+  }
+
+  // Check for existing leave overlap
+  const existingLeaves = getLeaves().filter(
+    (l) => l.userId === userId && l.status !== 'denied',
+  );
+  const cur = new Date(startDate + 'T12:00:00');
+  const end = new Date(endDate + 'T12:00:00');
+  while (cur <= end) {
+    if (isWorkingDay(cur)) {
+      const dStr = cur.toISOString().slice(0, 10);
+      const clash = existingLeaves.find((l) => {
+        const ls = l.startDate || (l.start ? l.start.slice(0, 10) : '');
+        const le = l.endDate || (l.end ? l.end.slice(0, 10) : '');
+        return ls <= dStr && le >= dStr;
+      });
+      if (clash) {
+        toast('Leave already exists on ' + dStr + '. Remove it first.', 'error');
+        return;
+      }
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+
+  try {
+    const newLeave = await API.post('/leaves', {
+      userId,
+      type,
+      startDate,
+      endDate,
+      reason,
+      status: 'pending',
+      requestedBy: userId,
+    });
+    cache.leaves.push(newLeave);
+
+    // Notify all managers + admins
+    const userName = state.currentUser.name;
+    const typeLabel = type === 'lieu' ? 'Lieu Day' : 'Leave of Absence';
+    getUsers()
+      .filter((u) => u.role === 'manager' || u.role === 'admin')
+      .forEach((mgr) => {
+        pushNotification(
+          mgr.id,
+          `🕐 Leave Request — ${userName}`,
+          `${userName} has requested ${typeLabel} from ${startDate} to ${endDate}.`,
+          newLeave.id,
+          { type: 'leaveRequest', leaveId: newLeave.id },
+        );
+      });
+
+    toast('Leave request submitted! Awaiting manager approval.', 'success');
+    closeModal('apply-leave-modal');
+    updateLeaveRequestsBadge();
+    renderCalendarDebounced();
+  } catch (err) {
+    toast(err.message || 'Failed to submit request.', 'error');
+  }
+}
+
+function openLeaveRequests(highlightId) {
+  const pending = getLeaves().filter((l) => l.status === 'pending');
+  const list = $('leave-requests-list');
+
+  if (pending.length === 0) {
+    list.innerHTML =
+      '<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">No pending leave requests.</div>';
+  } else {
+    list.innerHTML = pending
+      .map((l) => {
+        const user = getUsers().find((u) => u.id === l.userId);
+        const typeLabel =
+          l.type === 'lieu' ? '🟢 Lieu Day' : '🔵 Leave of Absence';
+        return `
+        <div data-leave-id="${l.id}" style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;transition:background 0.3s;">
+          <div>
+            <div style="font-weight:700;font-size:13px;">${user?.name || 'Unknown'
+          }</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px;">${typeLabel} · ${l.startDate
+          }${l.endDate !== l.startDate ? ' → ' + l.endDate : ''}</div>
+            ${l.reason
+            ? `<div style="font-size:11px;color:var(--text3);margin-top:2px;">${l.reason}</div>`
+            : ''
+          }
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn-primary" style="width:auto;padding:7px 16px;font-size:12px;" onclick="resolveLeaveRequest('${l.id
+          }','approved')">✅ Approve</button>
+            <button class="btn-danger" style="padding:7px 16px;font-size:12px;" onclick="resolveLeaveRequest('${l.id
+          }','denied')">❌ Deny</button>
+          </div>
+        </div>`;
+      })
+      .join('');
+  }
+  openModal('leave-requests-modal');
+
+  if (highlightId) {
+    setTimeout(() => {
+      const el = list.querySelector(`[data-leave-id="${highlightId}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.style.background = 'rgba(245,158,11,0.12)';
+        setTimeout(() => (el.style.background = ''), 2000);
+      }
+    }, 300);
+  }
+}
+
+async function resolveLeaveRequest(leaveId, newStatus) {
+  try {
+    const updated = await API.patch('/leaves/' + leaveId, { status: newStatus });
+    const idx = cache.leaves.findIndex((l) => l.id === leaveId);
+    if (idx !== -1)
+      cache.leaves[idx] = { ...cache.leaves[idx], status: newStatus };
+
+    const leave = cache.leaves[idx];
+    const user = getUsers().find((u) => u.id === leave?.userId);
+    const typeLabel = leave?.type === 'lieu' ? 'Lieu Day' : 'Leave of Absence';
+    const icon = newStatus === 'approved' ? '✅' : '❌';
+    const label = newStatus === 'approved' ? 'Approved' : 'Denied';
+
+    pushNotification(
+      leave.userId,
+      `${icon} Leave ${label} — ${typeLabel}`,
+      `Your ${typeLabel} request (${leave.startDate} to ${leave.endDate}) has been ${label.toLowerCase()} by a manager.`,
+      leaveId,
+      { type: 'leaveResolution', status: newStatus },
+    );
+
+    toast(`Leave ${label.toLowerCase()} successfully.`, 'success');
+    updateLeaveRequestsBadge();
+    openLeaveRequests(); // refresh the list
+    renderCalendarDebounced();
+  } catch (err) {
+    toast(err.message || 'Failed to update leave.', 'error');
+  }
+}
+
+function updateLeaveRequestsBadge() {
+  const count = getLeaves().filter((l) => l.status === 'pending').length;
+  const badge = $('leave-requests-badge');
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = count;
+    badge.classList.remove('hidden');
+    badge.style.display = 'flex';
+  } else {
+    badge.classList.add('hidden');
+    badge.style.display = 'none';
+  }
 }
 
 // Backspace key triggers back button
@@ -10680,8 +11050,555 @@ const Session = (() => {
 // Hook into signIn to claim session
 
 /* ============================================================
-   INITIALIZE APP — called after body.html is injected into DOM
+   GOOGLE CALENDAR-STYLE TASK VIEW (GCal View)
    ============================================================ */
+
+function calToggleGcalView() {
+  const gcalWrap = $('gcal-view');
+  const splitWrap = $('cal-split-wrapper');
+  const btn = $('cal-gcal-toggle-btn');
+  const isGcal = !gcalWrap.classList.contains('hidden');
+
+  if (isGcal) {
+    // Switch back to grid view
+    gcalWrap.classList.add('hidden');
+    splitWrap.style.display = 'flex';
+    btn.textContent = '📅 Task View';
+    btn.classList.remove('active');
+    $('cal-week-strip')?.classList.remove('hidden');
+    localStorage.removeItem('tf_gcal_active');
+  } else {
+    // Switch to gcal view
+    splitWrap.style.display = 'none';
+    gcalWrap.classList.remove('hidden');
+    btn.textContent = '⬅ Grid View';
+    btn.classList.add('active');
+    $('cal-week-strip')?.classList.add('hidden');
+    // Align anchor date with standard calendar if switching for first time
+    gcalState.anchorDate = new Date(calState.year, calState.month, 1);
+    renderGcal();
+    localStorage.setItem('tf_gcal_active', '1');
+  }
+}
+
+function setGcalMode(mode) {
+  gcalState.mode = mode;
+  $$('.gcal-mode-btn').forEach((b) =>
+    b.classList.toggle('active', b.dataset.mode === mode),
+  );
+  renderGcal();
+}
+
+function gcalNav(dir) {
+  const d = new Date(gcalState.anchorDate);
+  if (gcalState.mode === 'day') d.setDate(d.getDate() + dir);
+  else if (gcalState.mode === 'week') d.setDate(d.getDate() + dir * 7);
+  else d.setMonth(d.getMonth() + dir);
+  gcalState.anchorDate = d;
+  renderGcal();
+}
+
+function gcalGoToday() {
+  gcalState.anchorDate = new Date();
+  renderGcal();
+}
+
+function renderGcal() {
+  updateGcalRangeLabel();
+  if (gcalState.mode === 'month') {
+    $('gcal-grid-wrap').style.display = 'none';
+    $('gcal-month-grid').classList.remove('hidden');
+    renderGcalMonth();
+  } else {
+    $('gcal-grid-wrap').style.display = 'flex';
+    $('gcal-month-grid').classList.add('hidden');
+    renderGcalDayWeek();
+  }
+}
+
+function updateGcalRangeLabel() {
+  const d = gcalState.anchorDate;
+  const label = $('gcal-range-label');
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  if (gcalState.mode === 'day') {
+    label.textContent =
+      days[d.getDay()] +
+      ' ' +
+      d.getDate() +
+      ' ' +
+      months[d.getMonth()] +
+      ' ' +
+      d.getFullYear();
+  } else if (gcalState.mode === 'week') {
+    const mon = getWeekStart(d);
+    const sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+    label.textContent =
+      mon.getDate() +
+      ' – ' +
+      sun.getDate() +
+      ' ' +
+      months[sun.getMonth()] +
+      ' ' +
+      sun.getFullYear();
+  } else {
+    label.textContent = months[d.getMonth()] + ' ' + d.getFullYear();
+  }
+}
+
+function getWeekStart(date) {
+  const d = new Date(date);
+  const dow = d.getDay(); // 0=Sun
+  const diff = dow === 0 ? -6 : 1 - dow; // shift to Monday
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function getGcalDays() {
+  const d = gcalState.anchorDate;
+  if (gcalState.mode === 'day') return [new Date(d)];
+  if (gcalState.mode === 'week') {
+    const mon = getWeekStart(d);
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = new Date(mon);
+      day.setDate(mon.getDate() + i);
+      return day;
+    });
+  }
+  return [];
+}
+
+function getGcalTasks() {
+  const isElevated =
+    state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
+  return getTasks().filter((t) => {
+    if (t.status === 'cancelled') return false;
+    if (!isElevated && t.userId !== state.currentUser.id) return false;
+    return true;
+  });
+}
+
+function renderGcalDayWeek() {
+  const days = getGcalDays();
+  const tasks = getGcalTasks();
+  const H = gcalState.hourHeight;
+  const startH = gcalState.startHour;
+  const endH = gcalState.endHour;
+  const totalHours = endH - startH;
+  const totalHeight = totalHours * H;
+  const today = toDateStr(new Date());
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  // ── Day headers ──
+  const headersEl = $('gcal-day-headers');
+  headersEl.innerHTML = '';
+  days.forEach((day) => {
+    const dStr = toDateStr(day);
+    const isToday = dStr === today;
+    const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+    const el = document.createElement('div');
+    el.className =
+      'gcal-day-header' +
+      (isToday ? ' today-col' : '') +
+      (isWeekend ? ' weekend-col' : '');
+    el.style.flex = '1';
+    el.style.minWidth = '120px';
+    el.innerHTML = `<span>${dayNames[day.getDay()]
+      }</span><span class="gcal-day-num">${day.getDate()}</span>`;
+    headersEl.appendChild(el);
+  });
+
+  // ── Time gutter ──
+  const gutter = $('gcal-time-gutter');
+  gutter.innerHTML = '';
+  gutter.style.position = 'relative';
+  gutter.style.height = totalHeight + 'px';
+  for (let h = startH; h <= endH; h++) {
+    const label = document.createElement('div');
+    label.className = 'gcal-hour-label';
+    label.style.top = (h - startH) * H + 'px';
+    label.textContent =
+      h === 0
+        ? '12 AM'
+        : h < 12
+          ? h + ' AM'
+          : h === 12
+            ? '12 PM'
+            : h - 12 + ' PM';
+    gutter.appendChild(label);
+  }
+
+  // ── Columns ──
+  const colsEl = $('gcal-columns');
+  colsEl.innerHTML = '';
+  colsEl.style.height = totalHeight + 'px';
+  colsEl.style.display = 'flex';
+  colsEl.style.flex = '1';
+
+  // Hour grid lines
+  for (let h = startH; h < endH; h++) {
+    const line = document.createElement('div');
+    line.className = 'gcal-hour-row';
+    line.style.top = (h - startH) * H + 'px';
+    colsEl.appendChild(line);
+  }
+
+  days.forEach((day) => {
+    const dStr = toDateStr(day);
+    const isToday = dStr === today;
+    const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+
+    const col = document.createElement('div');
+    col.className =
+      'gcal-day-col' +
+      (isToday ? ' today-col' : '') +
+      (isWeekend ? ' weekend-col' : '');
+    col.style.height = totalHeight + 'px';
+
+    const dayTasks = tasks.filter((t) => {
+      const ts = new Date(t.start);
+      const te = new Date(t.end || t.deadline);
+      const dStart = new Date(dStr + 'T00:00:00');
+      const dEnd = new Date(dStr + 'T23:59:59');
+      return ts <= dEnd && te >= dStart;
+    });
+
+    const columns = resolveGcalOverlaps(dayTasks, dStr);
+
+    columns.forEach((group, colIdx) => {
+      const colCount = columns.length;
+      group.forEach((task) => {
+        const block = buildGcalTaskBlock(
+          task,
+          dStr,
+          colIdx,
+          colCount,
+          H,
+          startH,
+          endH,
+        );
+        if (block) col.appendChild(block);
+      });
+    });
+
+    colsEl.appendChild(col);
+  });
+
+  positionGcalNowLine(H, startH, endH);
+
+  const scrollEl = $('gcal-body-scroll');
+  const now = new Date();
+  const scrollHour = Math.max(startH, now.getHours() - 1);
+  scrollEl.scrollTop = (scrollHour - startH) * H;
+}
+
+function resolveGcalOverlaps(tasks, dayStr) {
+  if (!tasks.length) return [];
+  const sorted = tasks
+    .slice()
+    .sort((a, b) => new Date(a.start) - new Date(b.start));
+  const columns = [];
+
+  sorted.forEach((task) => {
+    const tStart = new Date(task.start).getTime();
+    let placed = false;
+    for (const col of columns) {
+      const last = col[col.length - 1];
+      const lastEnd = new Date(last.end || last.deadline).getTime();
+      if (tStart >= lastEnd) {
+        col.push(task);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) columns.push([task]);
+  });
+
+  return columns;
+}
+
+function buildGcalTaskBlock(task, dayStr, colIdx, colCount, H, startH, endH) {
+  const tStart = new Date(task.start);
+  const tEnd = new Date(task.end || task.deadline);
+
+  const visStart = new Date(
+    dayStr + 'T' + String(startH).padStart(2, '0') + ':00:00',
+  );
+  const visEnd = new Date(
+    dayStr + 'T' + String(endH).padStart(2, '0') + ':00:00',
+  );
+  const clampedStart = tStart < visStart ? visStart : tStart;
+  const clampedEnd = tEnd > visEnd ? visEnd : tEnd;
+
+  const topFrac =
+    clampedStart.getHours() + clampedStart.getMinutes() / 60 - startH;
+  const heightFrac =
+    clampedEnd.getHours() +
+    clampedEnd.getMinutes() / 60 -
+    (clampedStart.getHours() + clampedStart.getMinutes() / 60);
+
+  if (heightFrac <= 0) return null;
+
+  const topPx = Math.max(0, topFrac * H);
+  const heightPx = Math.max(18, heightFrac * H - 2);
+
+  const pct = 100 / colCount;
+  const left = colIdx * pct;
+  const width = pct - 1;
+
+  const colours = {
+    1: { bg: 'var(--p1)', text: '#fff' },
+    2: { bg: 'var(--p2)', text: '#fff' },
+    3: { bg: 'var(--p3)', text: '#1a1a2e' },
+    4: { bg: 'var(--p4)', text: '#fff' },
+    5: { bg: 'var(--p5)', text: '#fff' },
+  };
+  const c = colours[task.priority] || colours[3];
+
+  const block = document.createElement('div');
+  block.className = 'gcal-task-block';
+  block.style.top = topPx + 'px';
+  block.style.height = heightPx + 'px';
+  block.style.left = left + '%';
+  block.style.width = width + '%';
+  block.style.background = c.bg;
+  block.style.color = c.text;
+
+  const startFmt = tStart.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const endFmt = tEnd.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  block.innerHTML = `
+    <span class="gcal-task-title">${escHtml(task.title)}</span>
+    ${heightPx > 32
+      ? `<span class="gcal-task-time">${startFmt} – ${endFmt}</span>`
+      : ''
+    }
+  `;
+
+  const isElevated =
+    state.currentUser.role === 'admin' || state.currentUser.role === 'manager';
+  if (isElevated) {
+    block.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openEditTask(task.id);
+    });
+  } else {
+    block.addEventListener('mouseenter', (e) => showGcalTooltip(task, e));
+    block.addEventListener('mousemove', (e) => moveGcalTooltip(e));
+    block.addEventListener('mouseleave', () => hideGcalTooltip());
+    block.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showGcalTooltip(task, e);
+    });
+  }
+
+  return block;
+}
+
+function positionGcalNowLine(H, startH, endH) {
+  const line = $('gcal-now-line');
+  if (!line) return;
+  const now = new Date();
+  const frac = now.getHours() + now.getMinutes() / 60;
+  if (frac < startH || frac > endH) {
+    line.style.display = 'none';
+    return;
+  }
+  line.style.display = 'block';
+  line.style.top = (frac - startH) * H + 'px';
+}
+
+setInterval(() => {
+  if (
+    !$('gcal-view').classList.contains('hidden') &&
+    gcalState.mode !== 'month'
+  ) {
+    positionGcalNowLine(
+      gcalState.hourHeight,
+      gcalState.startHour,
+      gcalState.endHour,
+    );
+  }
+}, 60000);
+
+function renderGcalMonth() {
+  const d = gcalState.anchorDate;
+  const year = d.getFullYear();
+  const month = d.getMonth();
+  const tasks = getGcalTasks();
+  const today = toDateStr(new Date());
+  const grid = $('gcal-month-grid');
+  grid.innerHTML = '';
+
+  ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach((name) => {
+    const h = document.createElement('div');
+    h.style.cssText =
+      'padding:6px;font-size:10px;font-weight:700;color:var(--text3);text-align:center;border-bottom:1px solid var(--border);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.06em;';
+    h.textContent = name;
+    grid.appendChild(h);
+  });
+
+  const firstDay = new Date(year, month, 1);
+  const startOffset = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+  for (let i = 0; i < startOffset; i++) {
+    const blank = document.createElement('div');
+    blank.className = 'gcal-month-day';
+    blank.style.background = 'rgba(0,0,0,0.1)';
+    grid.appendChild(blank);
+  }
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dStr = toDateStr(new Date(year, month, day));
+    const dow = new Date(year, month, day).getDay();
+    const isToday = dStr === today;
+    const isWeekend = dow === 0 || dow === 6;
+
+    const cell = document.createElement('div');
+    cell.className =
+      'gcal-month-day' +
+      (isToday ? ' today-col' : '') +
+      (isWeekend ? ' weekend-col' : '');
+
+    const numEl = document.createElement('div');
+    numEl.className = 'gcal-month-day-num';
+    numEl.textContent = day;
+    cell.appendChild(numEl);
+
+    const dayTasks = tasks.filter((t) => {
+      const ts = new Date(t.start);
+      const te = new Date(t.end || t.deadline);
+      const ds = new Date(dStr + 'T00:00:00');
+      const de = new Date(dStr + 'T23:59:59');
+      return ts <= de && te >= ds;
+    });
+
+    dayTasks.slice(0, 4).forEach((task) => {
+      const colours = {
+        1: 'var(--p1)',
+        2: 'var(--p2)',
+        3: 'var(--p3)',
+        4: 'var(--p4)',
+        5: 'var(--p5)',
+      };
+      const chip = document.createElement('div');
+      chip.className = 'gcal-month-task-chip';
+      chip.style.background = colours[task.priority] || colours[3];
+      chip.style.color = task.priority === 3 ? '#1a1a2e' : '#fff';
+      chip.textContent = task.title;
+
+      const isElevated =
+        state.currentUser.role === 'admin' ||
+        state.currentUser.role === 'manager';
+      if (isElevated) {
+        chip.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openEditTask(task.id);
+        });
+      } else {
+        chip.addEventListener('mouseenter', (e) => showGcalTooltip(task, e));
+        chip.addEventListener('mousemove', (e) => moveGcalTooltip(e));
+        chip.addEventListener('mouseleave', () => hideGcalTooltip());
+      }
+      cell.appendChild(chip);
+    });
+
+    if (dayTasks.length > 4) {
+      const more = document.createElement('div');
+      more.style.cssText = 'font-size:10px;color:var(--text3);padding:1px 4px;';
+      more.textContent = '+' + (dayTasks.length - 4) + ' more';
+      cell.appendChild(more);
+    }
+
+    grid.appendChild(cell);
+  }
+}
+
+function showGcalTooltip(task, e) {
+  let tip = $('gcal-tooltip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'gcal-tooltip';
+    document.body.appendChild(tip);
+  }
+  const startFmt = new Date(task.start).toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const endFmt = new Date(task.end || task.deadline).toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const pLabels = {
+    1: '🔴 P1',
+    2: '🟠 P2',
+    3: '🟡 P3',
+    4: '🔵 P4',
+    5: '⚪ P5',
+  };
+  tip.innerHTML = `
+    <div style="font-weight:800;font-size:13px;margin-bottom:6px;">${escHtml(
+    task.title,
+  )}</div>
+    <div style="color:var(--text3);font-size:11px;margin-bottom:2px;">🕐 ${startFmt}</div>
+    <div style="color:var(--text3);font-size:11px;margin-bottom:6px;">⏱ ends ${endFmt}</div>
+    <div style="font-size:11px;">${pLabels[task.priority] || ''} · ${escHtml(
+    task.requestor || '',
+  )}</div>
+    ${task.status === 'done'
+      ? '<div style="color:#10B981;font-size:11px;margin-top:4px;">✅ Done</div>'
+      : ''
+    }
+  `;
+  tip.classList.add('visible');
+  moveGcalTooltip(e);
+}
+
+function moveGcalTooltip(e) {
+  const tip = $('gcal-tooltip');
+  if (!tip) return;
+  const x = e.clientX + 14;
+  const y = e.clientY - 10;
+  const overflowX = x + 270 > window.innerWidth;
+  tip.style.left = (overflowX ? e.clientX - 274 : x) + 'px';
+  tip.style.top = Math.max(0, y) + 'px';
+}
+
+function hideGcalTooltip() {
+  const tip = $('gcal-tooltip');
+  if (tip) tip.classList.remove('visible');
+}
+
+function refreshAllCalendarViews() {
+  renderCalendarDebounced();
+  if ($('gcal-view') && !$('gcal-view').classList.contains('hidden'))
+    renderGcal();
+}
+
 async function initializeApp() {
   /* ── DOM element cache ──────────────────────────────────────
      Populated once so the rest of the app can read EL.xxx
@@ -10814,6 +11731,7 @@ async function initializeApp() {
       if (typeof window._sessionClaimOnRestore === 'function') {
         setTimeout(window._sessionClaimOnRestore, 500);
       }
+      updateLeaveRequestsBadge();
     }
   } catch (e) {
     // Session invalid or network error — stay on login screen

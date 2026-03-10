@@ -287,11 +287,13 @@
               <div class="card-desc">Team calendar, leaves and tasks</div>
             </div>
             <!-- Multi-Personnel Task card removed from main window — use Teams view instead -->
-            <div class="admin-nav-card" id="multi-team-task-card" onclick="openTeamTaskModal(null)"
-              style="display:none">
+            <div class="admin-nav-card" id="leave-requests-card" onclick="openLeaveRequests()">
               <div class="card-icon">📋</div>
-              <div class="card-label">Book Multi-Team Task</div>
-              <div class="card-desc">Assign one task to an entire team at once</div>
+              <div class="card-label">Leave Requests</div>
+              <div class="card-desc">Review and approve pending leave requests</div>
+              <div id="leave-requests-badge" class="hidden"
+                style="position:absolute;top:10px;right:10px;background:var(--danger);color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">
+              </div>
             </div>
           </div>
         </div>
@@ -316,6 +318,11 @@
                 <div class="card-icon">📅</div>
                 <div class="card-label">My Calendar</div>
                 <div class="card-desc">View your schedule &amp; leave</div>
+              </div>
+              <div class="admin-nav-card" onclick="openApplyLeave()">
+                <div class="card-icon">🏖️</div>
+                <div class="card-label">Apply for Leave</div>
+                <div class="card-desc">Request lieu day or leave of absence</div>
               </div>
             </div>
             <!-- Groups strip — shows teams this worker belongs to -->
@@ -410,6 +417,11 @@
                 <div class="cal-legend-item">
                   <div class="cal-legend-dot" style="background:var(--danger)"></div> AWOL
                 </div>
+                <div class="cal-legend-item">
+                  <div class="cal-legend-dot"
+                    style="background:var(--text3);border:1px solid var(--border2);opacity:0.7;">
+                  </div> Pending
+                </div>
               </div>
               <div id="cal-search-bar" class="hidden" style="position:relative;">
                 <span
@@ -432,11 +444,17 @@
                   title="Zoom in — wider columns">+</button>
                 <button class="btn-secondary" style="font-size:11px;padding:6px 12px;" id="cal-zoom-btn"
                   onclick="calToggleZoom()" title="Toggle day/year view">🔍 Year</button>
-                <button class="btn-secondary" style="font-size:11px;padding:6px 12px;" id="cal-team-toggle-btn"
-                  onclick="calToggleTeamView()" title="Switch between personal and team view">👤 My View</button>
               </div>
-              <button class="btn-primary" style="width:auto;padding:8px 16px;font-size:11px;" id="add-leave-btn"
-                onclick="openAddLeave()">+ Add Leave</button>
+              <div class="calendar-actions">
+                <button class="btn-primary" style="width:auto;padding:8px 16px;font-size:11px;" id="add-leave-btn"
+                  onclick="openAddLeave()">+ Add Leave</button>
+                <button class="btn-primary" style="width:auto;padding:8px 16px;font-size:11px;"
+                  id="worker-apply-leave-btn" onclick="openApplyLeave()">🏖️ Apply for Leave</button>
+                <button class="btn-secondary" style="width:auto;padding:8px 16px;font-size:11px;"
+                  id="cal-team-toggle-btn" onclick="calToggleTeamView()">👥 Team View</button>
+                <button class="btn-secondary" style="font-size:11px;padding:6px 12px;" id="cal-gcal-toggle-btn"
+                  onclick="calToggleGcalView()" title="Switch to Google Calendar task view">📅 Task View</button>
+              </div>
             </div>
           </div>
           <div class="calendar-container" id="calendar-container">
@@ -449,6 +467,46 @@
               <div class="cal-dates-panel" id="cal-dates-panel">
                 <table id="cal-dates-table"></table>
               </div>
+            </div>
+
+            <!-- Google Calendar Task View -->
+            <div id="gcal-view" class="hidden">
+
+              <!-- Sub-nav: Day / Week / Month -->
+              <div id="gcal-subnav" style="display:flex;align-items:center;gap:6px;padding:10px 16px 0;flex-wrap:wrap;">
+                <button class="gcal-mode-btn active" data-mode="day" onclick="setGcalMode('day')">Day</button>
+                <button class="gcal-mode-btn" data-mode="week" onclick="setGcalMode('week')">Week</button>
+                <button class="gcal-mode-btn" data-mode="month" onclick="setGcalMode('month')">Month</button>
+                <div style="margin-left:auto;display:flex;gap:6px;">
+                  <button class="cal-nav-btn" onclick="gcalNav(-1)">‹</button>
+                  <span id="gcal-range-label"
+                    style="font-size:13px;font-weight:700;color:var(--text);min-width:160px;text-align:center;"></span>
+                  <button class="cal-nav-btn" onclick="gcalNav(1)">›</button>
+                  <button class="btn-secondary" style="font-size:11px;padding:6px 12px;"
+                    onclick="gcalGoToday()">Today</button>
+                </div>
+              </div>
+
+              <!-- Day / Week hourly grid -->
+              <div id="gcal-grid-wrap" style="display:flex;overflow:hidden;flex:1;">
+                <!-- Time gutter -->
+                <div id="gcal-time-gutter"></div>
+                <!-- Scrollable columns -->
+                <div id="gcal-columns-wrap"
+                  style="overflow-x:auto;overflow-y:hidden;flex:1;display:flex;flex-direction:column;">
+                  <div id="gcal-day-headers"></div>
+                  <div id="gcal-body-scroll" style="overflow-y:auto;flex:1;position:relative;display:flex;">
+                    <div id="gcal-gutter-spacer"></div>
+                    <div id="gcal-columns"></div>
+                    <!-- Current time red line -->
+                    <div id="gcal-now-line"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Month grid (shown only in month mode) -->
+              <div id="gcal-month-grid" class="hidden"></div>
+
             </div>
             <!-- kept for year view and legacy references -->
             <table class="cal-table" id="cal-table" style="display:none"></table>
@@ -613,13 +671,7 @@
                 <input type="number" id="f-duration" min="0.25" max="9999" step="0.25" placeholder="e.g. 2"
                   style="width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;"
                   oninput="onTaskFieldChange()">
-                <select id="f-duration-unit" onchange="onTaskFieldChange()"
-                  style="padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;appearance:none;background-image:url(\"
-                  data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239CA3AF'
-                  viewBox='0 0 16 16' %3E%3Cpath
-                  d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'
-                  /%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 12px
-                  center;padding-right:28px;">
+                <select id="f-duration-unit" onchange="onTaskFieldChange()" class="select-with-arrow">
                   <option value="hours">hours</option>
                   <option value="days">days</option>
                 </select>
@@ -697,6 +749,59 @@
           <button class="btn-secondary" onclick="closeModal('leave-modal')">Cancel</button>
           <button class="btn-danger hidden" id="delete-leave-btn">🗑 Delete Leave</button>
           <button class="btn-primary" style="width:auto;padding:10px 24px;" onclick="saveLeave()">Save Leave</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== MODAL: APPLY FOR LEAVE (worker) ==================== -->
+    <div class="modal-overlay hidden" id="apply-leave-modal">
+      <div class="modal">
+        <div class="modal-header">
+          <div class="modal-title" id="apply-leave-modal-title">🏖️ Apply for Leave</div>
+          <button class="modal-close" onclick="closeModal('apply-leave-modal')">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="field-group">
+            <label>Leave Type *</label>
+            <select id="apply-leave-type">
+              <option value="lieu">🟢 Lieu Day — Compensatory time off</option>
+              <option value="loa">🔵 Leave of Absence</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>Start Date *</label>
+            <input type="date" id="apply-leave-start">
+          </div>
+          <div class="field-group">
+            <label>End Date * <span style="font-size:10px;color:var(--text3)">(inclusive)</span></label>
+            <input type="date" id="apply-leave-end">
+          </div>
+          <div class="field-group">
+            <label>Reason / Notes</label>
+            <textarea id="apply-leave-reason" rows="3" placeholder="Optional reason..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="closeModal('apply-leave-modal')">Cancel</button>
+          <button class="btn-primary" style="width:auto;padding:10px 24px;" onclick="submitLeaveRequest()">Submit
+            Request
+            →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== MODAL: PENDING LEAVE REQUESTS (admin) ==================== -->
+    <div class="modal-overlay hidden" id="leave-requests-modal">
+      <div class="modal modal-wide">
+        <div class="modal-header">
+          <div class="modal-title">📋 Pending Leave Requests</div>
+          <button class="modal-close" onclick="closeModal('leave-requests-modal')">×</button>
+        </div>
+        <div class="modal-body" style="gap:0">
+          <div id="leave-requests-list"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="closeModal('leave-requests-modal')">Close</button>
         </div>
       </div>
     </div>
