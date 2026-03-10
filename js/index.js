@@ -1776,6 +1776,14 @@ function calToggleTeamView() {
   } else {
     state.calendarMode = state.calendarMode === 'team' ? 'personal' : 'team';
   }
+
+  if (state.calendarMode === 'personal') {
+    const gcalWrap = document.getElementById('gcal-view');
+    if (gcalWrap && !gcalWrap.classList.contains('hidden')) {
+      calToggleGcalView();
+    }
+  }
+
   updateCalHeaderUI();
   renderCalendar();
 }
@@ -1800,7 +1808,7 @@ function updateCalHeaderUI() {
 
   // GCal toggle button visibility
   if (gcalBtn) {
-    gcalBtn.style.display = state.view === 'calendar' ? '' : 'none';
+    gcalBtn.style.display = (state.view === 'calendar' && !isPersonal) ? '' : 'none';
   }
 
   // Search only visible in day view + team mode
@@ -1835,6 +1843,10 @@ function goToLeaveCalendar() {
 }
 function goToMyCalendar() {
   state.calendarMode = 'personal';
+  const gcalWrap = document.getElementById('gcal-view');
+  if (gcalWrap && !gcalWrap.classList.contains('hidden')) {
+    calToggleGcalView();
+  }
   showView('calendar');
 }
 function goWorkerHome() {
@@ -7850,18 +7862,6 @@ function renderCalendarYearView() {
         var dots = [];
 
         if (viewUserId) {
-          var dStart = new Date(year, mo2, day, 0, 0, 0);
-          var dEnd = new Date(year, mo2, day, 23, 59, 59);
-          allTasks
-            .filter(function (t) {
-              return t.userId === viewUserId && !t.cancelled;
-            })
-            .forEach(function (t) {
-              var ts = new Date(t.start || t.createdAt);
-              var te = new Date(t.deadline);
-              if (ts <= dEnd && te >= dStart)
-                dots.push(pColors[String(t.priority)] || '#FBBF24');
-            });
           allLeaves
             .filter(function (l) {
               return (
@@ -7879,17 +7879,6 @@ function renderCalendarYearView() {
               }
             });
         } else {
-          var dStart2 = new Date(year, mo2, day, 0, 0, 0);
-          var dEnd2 = new Date(year, mo2, day, 23, 59, 59);
-          if (
-            allTasks.some(function (t) {
-              if (t.cancelled) return false;
-              var ts = new Date(t.start || t.createdAt),
-                te = new Date(t.deadline);
-              return ts <= dEnd2 && te >= dStart2;
-            })
-          )
-            dots.push('var(--amber)');
           if (
             allLeaves.some(function (l) {
               return (
@@ -8128,36 +8117,9 @@ function renderCalendar() {
 
     // ── Dates panel row ──
     var datesTr = document.createElement('tr');
-    var userTasks = allTasks.filter(function (t) {
-      return t.userId === user.id;
-    });
     var userLeaves = allLeaves.filter(function (l) {
       return l.userId === user.id;
     });
-
-    // ── Pre-compute global slot assignments for this user ──
-    // All tasks touching this month, sorted strictly by priority (P1=slot 0).
-    // Each task keeps the SAME slot index across every day it appears → one continuous bar.
-    var monthStart = new Date(year, month, 1);
-    monthStart.setHours(0, 0, 0, 0);
-    var monthEnd = new Date(year, month + 1, 0);
-    monthEnd.setHours(23, 59, 59, 999);
-    var slottedTasks = userTasks
-      .filter(function (t) {
-        var ts = new Date(t.start || t.createdAt);
-        var te = new Date(t.deadline);
-        return ts <= monthEnd && te >= monthStart;
-      })
-      .sort(function (a, b) {
-        // Primary: priority ascending (P1 → P5)
-        var pa = a.priority || 3,
-          pb = b.priority || 3;
-        if (pa !== pb) return pa - pb;
-        // Secondary: earlier start first
-        return (
-          new Date(a.start || a.createdAt) - new Date(b.start || b.createdAt)
-        );
-      });
 
     // ── Pre-compute leave slot assignments (each unique leave period = one row) ──
     // Merge consecutive/overlapping leaves of the same type into single bars
@@ -8295,26 +8257,6 @@ function renderCalendar() {
           isSpanning: sd !== ed,
         });
       });
-      slottedTasks.forEach(function (tk) {
-        var ts = new Date(tk.start || tk.createdAt);
-        var te = new Date(tk.deadline);
-        var tss = ts.toISOString().slice(0, 10);
-        var tes = te.toISOString().slice(0, 10);
-        var tStartDay = new Date(ts);
-        tStartDay.setHours(0, 0, 0, 0);
-        var tEndDay = new Date(te);
-        tEndDay.setHours(23, 59, 59, 999);
-        allItems.push({
-          kind: 'task',
-          item: tk,
-          key: 'T_' + tk.id,
-          startStr: tss,
-          endStr: tes,
-          ts: ts,
-          te: te,
-          isSpanning: tStartDay < dayStart || tEndDay > dayEnd,
-        });
-      });
 
       // Detect collision: any item ending today that started before today,
       // AND any item starting today.
@@ -8364,11 +8306,7 @@ function renderCalendar() {
         e._slot = s;
 
         // Lock into slotMap only if it spans beyond today
-        if (
-          e.isSpanning ||
-          (e.kind === 'task' &&
-            new Date(e.te).setHours(23, 59, 59, 999) > dayEnd)
-        ) {
+        if (e.isSpanning) {
           slotMap[e.key] = s;
         }
       });
@@ -8499,126 +8437,6 @@ function renderCalendar() {
           }
           slotEl.appendChild(bar);
           cell.appendChild(slotEl);
-        } else {
-          // task
-          var task = entry.item;
-          var ts = entry.ts;
-          var te = entry.te;
-          var activeOnThisDay = ts <= dayEnd && te >= dayStart;
-
-          if (!activeOnThisDay) {
-            var spacer = document.createElement('div');
-            spacer.className = 'cal-slot-spacer';
-            cell.appendChild(spacer);
-            continue;
-          }
-
-          var desc = _visibleDesc(task.description || []);
-          var totalItems = desc.length;
-          var checkedItems = desc.filter(function (d) {
-            return d.checked;
-          }).length;
-          var pct = task.done
-            ? 100
-            : totalItems > 0
-              ? Math.round((checkedItems / totalItems) * 100)
-              : 0;
-          var pColor = pColors[task.priority] || 'var(--p3)';
-
-          var taskStartDay = new Date(ts);
-          taskStartDay.setHours(0, 0, 0, 0);
-          var taskEndDay = new Date(te);
-          taskEndDay.setHours(23, 59, 59, 999);
-          var isTaskStart = taskStartDay >= dayStart;
-          var isTaskEnd = taskEndDay <= dayEnd;
-          var spansMultiT = !isTaskStart || !isTaskEnd;
-          var spanClass = '';
-          if (spansMultiT) {
-            if (isTaskStart && !isTaskEnd) spanClass = ' span-start';
-            else if (!isTaskStart && isTaskEnd) spanClass = ' span-end';
-            else if (!isTaskStart && !isTaskEnd) spanClass = ' span-middle';
-          }
-
-          var block = document.createElement('div');
-          var cancelledClass = task.cancelled ? ' cal-block-cancelled' : '';
-          block.className =
-            'cal-block task-p' +
-            task.priority +
-            (task.isMultiPersonnel ? ' multi-task' : '') +
-            spanClass +
-            cancelledClass;
-          block.dataset.taskid = task.id;
-          var statusSuffix = task.cancelled
-            ? ' — 🚫 CANCELLED'
-            : task.done
-              ? ' — ✓ DONE'
-              : '';
-          block.title =
-            task.title +
-            ' — P' +
-            task.priority +
-            ' — ' +
-            checkedItems +
-            '/' +
-            (totalItems || '–') +
-            ' done (' +
-            pct +
-            '%) — ' +
-            new Date(ts).toLocaleString() +
-            ' → ' +
-            new Date(te).toLocaleString() +
-            statusSuffix;
-          block.onclick = (function (t) {
-            return function (e) {
-              e.stopPropagation();
-              calNavigateToTask(t);
-            };
-          })(task);
-
-          var isFirstVisible = isTaskStart || dayStr === toDateStr(days[0]);
-          if (isFirstVisible) {
-            var inner = document.createElement('div');
-            inner.className = 'cal-block-inner';
-            var dot = document.createElement('div');
-            dot.className = 'cal-priority-dot';
-            dot.style.background = pColor;
-            dot.title = 'Priority ' + task.priority;
-            dot.textContent = task.priority;
-            var titleEl = document.createElement('span');
-            titleEl.className = 'cal-block-title';
-            titleEl.textContent =
-              (task.title.length > 14
-                ? task.title.substring(0, 14) + '…'
-                : task.title) +
-              (task.done ? ' ✓' : '') +
-              (task.cancelled ? ' 🚫' : '');
-            inner.appendChild(dot);
-            inner.appendChild(titleEl);
-            block.appendChild(inner);
-          }
-
-          var barWrap = document.createElement('div');
-          barWrap.className = 'cal-completion-bar';
-          var barFill = document.createElement('div');
-          barFill.className = 'cal-completion-fill';
-          barFill.style.width = pct + '%';
-          barFill.style.background = task.done ? 'var(--success)' : pColor;
-          barFill.style.opacity = '0.9';
-          barWrap.appendChild(barFill);
-          block.appendChild(barWrap);
-
-          block.addEventListener(
-            'contextmenu',
-            (function (tid) {
-              return function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                showContextMenu(e, tid);
-              };
-            })(task.id),
-          );
-
-          cell.appendChild(block);
         }
       }
 
@@ -11193,9 +11011,42 @@ function getGcalTasks() {
   });
 }
 
+function getGcalTasksDeduped() {
+  const tasks = getGcalTasks();
+  const seen = new Map();
+  const solo = [];
+
+  tasks.forEach(task => {
+    const gid = task.multiGroupId || task.teamId || null;
+
+    if (!gid) {
+      solo.push(task);
+      return;
+    }
+
+    if (seen.has(gid)) {
+      const rep = seen.get(gid);
+      const user = getUsers().find(u => u.id === task.userId);
+      if (user && !rep._assigneeNames.includes(user.name)) {
+        rep._assigneeNames.push(user.name);
+      }
+    } else {
+      const user = getUsers().find(u => u.id === task.userId);
+      seen.set(gid, {
+        ...task,
+        _isGroup: true,
+        _groupId: gid,
+        _assigneeNames: user ? [user.name] : [],
+      });
+    }
+  });
+
+  return [...solo, ...seen.values()];
+}
+
 function renderGcalDayWeek() {
   const days = getGcalDays();
-  const tasks = getGcalTasks();
+  const tasks = getGcalTasksDeduped();
   const H = gcalState.hourHeight;
   const startH = gcalState.startHour;
   const endH = gcalState.endHour;
@@ -11400,7 +11251,11 @@ function buildGcalTaskBlock(task, dayStr, colIdx, colCount, H, startH, endH) {
   if (isElevated) {
     block.addEventListener('click', (e) => {
       e.stopPropagation();
-      openEditTask(task.id);
+      if (task._isGroup && task._groupId) {
+        openTeamTaskViewById(task._groupId);
+      } else {
+        openEditTask(task.id);
+      }
     });
   } else {
     block.addEventListener('mouseenter', (e) => showGcalTooltip(task, e));
@@ -11410,6 +11265,18 @@ function buildGcalTaskBlock(task, dayStr, colIdx, colCount, H, startH, endH) {
       e.stopPropagation();
       showGcalTooltip(task, e);
     });
+  }
+
+  if (task._isGroup && task._assigneeNames && task._assigneeNames.length > 0) {
+    const names = task._assigneeNames;
+    const label = names.length <= 2
+      ? names.join(', ')
+      : names.slice(0, 2).join(', ') + ' +' + (names.length - 2) + ' more';
+
+    const assigneeLine = document.createElement('span');
+    assigneeLine.className = 'gcal-task-time';
+    assigneeLine.textContent = '👥 ' + label;
+    block.appendChild(assigneeLine);
   }
 
   return block;
@@ -11445,7 +11312,7 @@ function renderGcalMonth() {
   const d = gcalState.anchorDate;
   const year = d.getFullYear();
   const month = d.getMonth();
-  const tasks = getGcalTasks();
+  const tasks = getGcalTasksDeduped();
   const today = toDateStr(new Date());
   const grid = $('gcal-month-grid');
   grid.innerHTML = '';
@@ -11513,7 +11380,11 @@ function renderGcalMonth() {
       if (isElevated) {
         chip.addEventListener('click', (e) => {
           e.stopPropagation();
-          openEditTask(task.id);
+          if (task._isGroup && task._groupId) {
+            openTeamTaskViewById(task._groupId);
+          } else {
+            openEditTask(task.id);
+          }
         });
       } else {
         chip.addEventListener('mouseenter', (e) => showGcalTooltip(task, e));
@@ -11574,6 +11445,17 @@ function showGcalTooltip(task, e) {
       : ''
     }
   `;
+  if (task._isGroup && task._assigneeNames && task._assigneeNames.length > 0) {
+    const namesHtml = task._assigneeNames.map(n =>
+      `<span style="display:inline-block;background:var(--bg3);border-radius:4px;padding:1px 6px;font-size:10px;margin:2px 2px 0 0;">${n}</span>`
+    ).join('');
+    tip.innerHTML += `
+      <div style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px;">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;">Assigned to</div>
+        <div>${namesHtml}</div>
+      </div>
+    `;
+  }
   tip.classList.add('visible');
   moveGcalTooltip(e);
 }
@@ -11586,6 +11468,51 @@ function moveGcalTooltip(e) {
   const overflowX = x + 270 > window.innerWidth;
   tip.style.left = (overflowX ? e.clientX - 274 : x) + 'px';
   tip.style.top = Math.max(0, y) + 'px';
+}
+
+function openTeamTaskViewById(groupId) {
+  const groupTasks = getTasks().filter(t =>
+    (t.multiGroupId || t.teamId) === groupId
+  );
+  if (!groupTasks.length) return;
+
+  const rep = groupTasks[0];
+  const users = groupTasks.map(t => getUsers().find(u => u.id === t.userId)).filter(Boolean);
+
+  const pLabels = { 1: '🔴 P1', 2: '🟠 P2', 3: '🟡 P3', 4: '🔵 P4', 5: '⚪ P5' };
+  const startFmt = new Date(rep.start).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const endFmt = new Date(rep.end || rep.deadline).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  const body = $('team-tasks-modal-body');
+  body.innerHTML = `
+    <div style="padding:16px;border-bottom:1px solid var(--border);">
+      <div style="font-size:16px;font-weight:800;margin-bottom:8px;">${rep.title}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">🕐 ${startFmt} → ${endFmt}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">${pLabels[rep.priority] || ''} · Requested by ${rep.requestor || '—'}</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Assigned to (${users.length})</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${users.map(u => `
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;">
+            ${u.name}
+            <span style="font-size:10px;color:var(--text3);margin-left:4px;">${u.role}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    ${rep.description && rep.description.length ? `
+      <div style="padding:14px 16px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Checklist</div>
+        ${rep.description.map(item => `
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:12px;">
+            <span>${item.done ? '✅' : '⬜'}</span>
+            <span style="color:${item.done ? 'var(--text3)' : 'var(--text)'};text-decoration:${item.done ? 'line-through' : 'none'}">${item.text}</span>
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
+  `;
+
+  openModal('team-tasks-modal');
 }
 
 function hideGcalTooltip() {
