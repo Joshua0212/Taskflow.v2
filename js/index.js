@@ -56,7 +56,7 @@ function debounce(fn, ms) {
 }
 
 /** App-wide configuration. Centralises all magic numbers. */
-var CONFIG = {
+const CONFIG = {
   POLL_INTERVAL_MS: 30000, // how often we poll for notifications
   DEBOUNCE_RENDER_MS: 60, // calendar / board re-render debounce
   DEBOUNCE_SEARCH_MS: 120, // search input debounce
@@ -1212,6 +1212,11 @@ async function signIn() {
   }
 }
 
+/**
+ * Sign out the current user and return to the login screen.
+ * Clears all cached data, stops polling, and resets the UI.
+ * @returns {Promise<void>}
+ */
 async function signOut() {
   try {
     await API.post('/auth/logout');
@@ -1338,6 +1343,12 @@ window.addEventListener('hashchange', function () {
   }
 });
 
+/**
+ * Switch the visible view in the application.
+ * Handles hiding/showing view containers, updating breadcrumbs,
+ * mobile nav state, URL hash, and triggering necessary renders.
+ * @param {string} v - View identifier (e.g. 'admin-home', 'my-tasks', 'calendar', 'teams')
+ */
 function showView(v) {
   state.previousView = state.view;
   state.view = v;
@@ -1832,11 +1843,13 @@ function goToUserList() {
 function goAdminHome() {
   showView('admin-home');
 }
+/** Navigate the current user to their personal task board. */
 function goToMyTasks() {
   state.targetUserId = null;
   state.view = 'my-tasks';
   showView('my-tasks');
 }
+/** Navigate to the team leave calendar view. */
 function goToLeaveCalendar() {
   state.calendarMode = 'team';
   showView('calendar');
@@ -3140,6 +3153,12 @@ function notifyManagerOfOverlap(task, overlaps, wasMoved) {
 /* ============================================================
    TASK RENDERING
    ============================================================ */
+/**
+ * Render the task board for a specific user.
+ * Builds task cards grouped by status (active → done → cancelled),
+ * sorted by priority and deadline. Supports search filtering.
+ * @param {string} userId - The user ID whose tasks to display
+ */
 function renderTasks(userId) {
   const board = document.getElementById('task-board');
   board.innerHTML = '';
@@ -4029,6 +4048,10 @@ function getDurationHours() {
   return unit === 'days' ? raw * 8 : raw; // 1 day = 8 work hours
 }
 
+/**
+ * Open the Add Task modal with empty fields.
+ * Resets all form inputs and description items for a new task.
+ */
 function openAddTask() {
   state.editingTaskId = null;
   state.descItems = [];
@@ -4126,6 +4149,12 @@ function renderDescItems() {
     .join('');
 }
 
+/**
+ * Validate and save a new or edited task.
+ * Handles priority overlap resolution, deadline calculation,
+ * multi-personnel syncing, notification dispatch, and email alerts.
+ * @returns {Promise<void>}
+ */
 async function saveTask() {
   const _btn = document.querySelector(
     '#task-modal .btn-primary[onclick="saveTask()"]',
@@ -4962,6 +4991,10 @@ function toggleNotifications() {
   openNotifications();
 }
 
+/**
+ * Open the notifications modal showing all notifications
+ * for the current user, grouped by read status.
+ */
 function openNotifications() {
   const notifs = getNotifs().filter((n) => n.userId === state.currentUser.id);
   const list = document.getElementById('notif-list');
@@ -7942,6 +7975,11 @@ function renderCalendarYearView() {
   container.appendChild(grid);
 }
 
+/**
+ * Render the calendar view (day/week/month/year).
+ * Builds the full calendar grid with task blocks, leave indicators,
+ * workday markers, sticky headers, and the BusyCal-style date chip strip.
+ */
 function renderCalendar() {
   var old = $('cal-year-grid');
   var legacyTable = $('cal-table');

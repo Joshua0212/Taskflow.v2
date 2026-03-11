@@ -24,13 +24,9 @@
     <!-- ===== GLOBAL PROCESSING OVERLAY ===== -->
     <div id="global-overlay"
       style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);align-items:center;justify-content:center;pointer-events:all;">
-      <div
-        style="background:var(--bg2,#1c1c2e);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:36px 52px;display:flex;flex-direction:column;align-items:center;gap:18px;box-shadow:0 24px 64px rgba(0,0,0,0.7);min-width:240px;max-width:340px;text-align:center;">
-        <div
-          style="width:44px;height:44px;border:3px solid rgba(255,255,255,0.08);border-top-color:#F59E0B;border-radius:50%;animation:spin 0.75s linear infinite;flex-shrink:0;">
-        </div>
-        <div id="global-overlay-text"
-          style="font-size:14px;font-weight:700;color:#e5e7eb;letter-spacing:0.02em;line-height:1.4;">Processing…</div>
+      <div class="overlay-spinner-card">
+        <div class="overlay-spinner"></div>
+        <div id="global-overlay-text" class="overlay-spinner-text">Processing…</div>
       </div>
     </div>
 
@@ -204,13 +200,12 @@
         <div class="header-user" id="header-username"></div>
         <div class="header-role" id="header-role"></div>
         <!-- ── Nav buttons ── -->
-        <div style="display:flex;align-items:center;gap:4px;margin-left:10px;">
-          <button class="icon-btn" id="nav-home-btn" onclick="headerNavHome()" data-tip="Home"
-            style="font-size:15px;width:32px;height:32px;">🏠</button>
-          <button class="icon-btn" id="nav-back-btn" onclick="headerNavBack()" data-tip="Back"
-            style="font-size:13px;width:32px;height:32px;opacity:0.35;pointer-events:none;">◀</button>
-          <button class="icon-btn" id="nav-next-btn" onclick="headerNavNext()" data-tip="Forward"
-            style="font-size:13px;width:32px;height:32px;opacity:0.35;pointer-events:none;">▶</button>
+        <div class="header-nav-btns">
+          <button class="icon-btn icon-btn-sm" id="nav-home-btn" onclick="headerNavHome()" data-tip="Home">🏠</button>
+          <button class="icon-btn icon-btn-sm" id="nav-back-btn" onclick="headerNavBack()" data-tip="Back"
+            style="opacity:0.35;pointer-events:none;">◀</button>
+          <button class="icon-btn icon-btn-sm" id="nav-next-btn" onclick="headerNavNext()" data-tip="Forward"
+            style="opacity:0.35;pointer-events:none;">▶</button>
         </div>
         <div class="header-actions ml-auto">
           <button class="icon-btn hidden" id="header-chpw-btn" data-tip="Change a user's password"
@@ -298,17 +293,14 @@
           </div>
         </div>
 
-        <!-- Worker Home -->
         <div id="worker-home" class="hidden">
-          <div
-            style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 58px);padding:40px 20px;gap:24px;">
-            <div
-              style="font-family:var(--display);font-size:clamp(22px,5vw,36px);font-weight:800;color:var(--text);text-align:center;line-height:1.2;">
+          <div class="worker-home-layout">
+            <div class="worker-home-greeting">
               Welcome, <span id="worker-name-display" style="color:var(--amber);"></span>
             </div>
-            <div style="font-size:13px;color:var(--text3);text-align:center;margin-bottom:8px;">What would you like to
+            <div class="worker-home-subtitle">What would you like to
               do today?</div>
-            <div style="display:flex;gap:20px;flex-wrap:wrap;justify-content:center;">
+            <div class="worker-home-cards">
               <div class="admin-nav-card" onclick="goToMyTasks()">
                 <div class="card-icon">📌</div>
                 <div class="card-label">My Tasks</div>
@@ -326,10 +318,8 @@
               </div>
             </div>
             <!-- Groups strip — shows teams this worker belongs to -->
-            <div id="worker-groups-strip"
-              style="display:none;flex-direction:column;align-items:stretch;gap:8px;width:100%;max-width:520px;">
-              <div
-                style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);text-align:center;margin-bottom:4px;">
+            <div id="worker-groups-strip" class="worker-groups-strip">
+              <div class="worker-groups-title">
                 My Teams</div>
             </div>
           </div>
@@ -542,18 +532,17 @@
         </div>
 
         <!-- ==================== TEAMS VIEW ==================== -->
-        <div id="teams-view" class="hidden" style="padding:24px 20px 24px 80px;">
-          <div
-            style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+        <div id="teams-view" class="hidden teams-view-layout">
+          <div class="teams-header">
             <div class="section-title">🏷️ Teams</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <div class="teams-header-actions">
               <button class="btn-secondary" id="team-assign-btn" onclick="openTeamTaskModal(null)"
                 style="display:none">📋 Assign Multi Team Task</button>
               <button class="btn-primary" style="width:auto;padding:10px 18px;font-size:12px;"
                 onclick="openCreateTeam()">＋ Create Team</button>
             </div>
           </div>
-          <div id="teams-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
+          <div id="teams-grid" class="teams-grid-layout">
           </div>
         </div>
 
